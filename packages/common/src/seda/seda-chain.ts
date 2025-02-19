@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { IndexedTx, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
 import type { ProtobufRpcClient } from "@cosmjs/stargate";
 import type { sedachain } from "@seda-protocol/proto-messages";
@@ -9,10 +9,11 @@ import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe, Result } from "true-myth";
+import { DEFAULT_GAS, type GasOptions } from "./gas-options";
 import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
 import { type ISigner, Signer } from "./signer";
-import { createSigningClient } from "./signing-client";
+import { type SedaSigningCosmWasmClient, createSigningClient } from "./signing-client";
 
 const MAX_MESSAGES_PER_TRANSACTION = 1;
 const TIME_BETWEEN_PROCESSING_QUEUE = 1;
@@ -27,6 +28,7 @@ export interface TransactionMessage {
 	id: string;
 	message: EncodeObject;
 	type: string;
+	gasOptions?: GasOptions;
 }
 
 interface InFlightTransaction {
@@ -41,7 +43,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	private constructor(
 		public signer: ISigner,
-		private signerClient: SigningCosmWasmClient,
+		private signerClient: SedaSigningCosmWasmClient,
 		private protoClient: ProtobufRpcClient,
 		private wasmStorageQueryClient: sedachain.wasm_storage.v1.QueryClientImpl,
 	) {
@@ -76,13 +78,18 @@ export class SedaChain extends EventEmitter<EventMap> {
 		}
 	}
 
-	async queueSmartContractMessage(id: string, executeMsg: ExecuteMsg) {
+	async queueSmartContractMessage(
+		id: string,
+		executeMsg: ExecuteMsg,
+		attachedAttoSeda?: bigint,
+		gasOptions?: GasOptions,
+	) {
 		const message = {
 			typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
 			value: {
 				sender: this.getSignerAddress(),
 				contract: await this.getCoreContractAddress(),
-				funds: [],
+				funds: attachedAttoSeda ? [{ denom: "aseda", amount: attachedAttoSeda.toString() }] : [],
 				msg: Buffer.from(JSON.stringify(executeMsg)),
 			},
 		};
@@ -91,6 +98,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			{
 				id,
 				message,
+				gasOptions,
 				type: "contract",
 			},
 		]);
@@ -137,7 +145,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 		}
 
 		const cosmosMessages = txMessages.map((msg) => msg.message);
-		const result = await signAndSendTxSync(this.signerClient, this.signer.getAddress(), cosmosMessages);
+		const gasOption = txMessages[0].gasOptions ?? { gas: DEFAULT_GAS };
+		const result = await signAndSendTxSync(this.signerClient, this.signer.getAddress(), cosmosMessages, gasOption);
 
 		if (result.isErr) {
 			logger.error(`Transaction failed: ${result.error}`);
@@ -147,6 +156,11 @@ export class SedaChain extends EventEmitter<EventMap> {
 			const capturedGroup = Maybe.of(messageIndexRegex.exec(error));
 
 			if (capturedGroup.isNothing) {
+				if (cosmosMessages.length === 1) {
+					this.emit("tx-error", error, txMessages[0]);
+					return;
+				}
+
 				this.emit("tx-error", error, undefined);
 				return;
 			}
@@ -196,10 +210,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 		}, QUEUE_INTERVAL);
 	}
 
-	static async fromConfig(config: AppConfig): Promise<Result<SedaChain, unknown>> {
+	static async fromConfig(config: AppConfig, cacheSequenceNumber = true): Promise<Result<SedaChain, unknown>> {
 		const signer = await Signer.fromConfig(config);
 		const protoClient = await createProtoQueryClient(config.sedaChain.rpc);
-		const signingClient = await createSigningClient(signer);
+		const signingClient = await createSigningClient(signer, cacheSequenceNumber);
 		const wasmStorageClient = await createWasmQueryClient(config.sedaChain.rpc);
 
 		if (signingClient.isErr) {
@@ -214,6 +228,8 @@ export function waitForSmartContractTransaction(
 	sedaChain: SedaChain,
 	id: string,
 	executeMsg: ExecuteMsg,
+	attachedAttoSeda?: bigint,
+	gasOptions?: GasOptions,
 ): Promise<Result<IndexedTx, Error>> {
 	return new Promise(async (resolve) => {
 		function onTxSuccess(txMessage: TransactionMessage, response: IndexedTx) {
@@ -246,6 +262,6 @@ export function waitForSmartContractTransaction(
 		sedaChain.on("tx-success", onTxSuccess);
 		sedaChain.on("tx-error", onTxError);
 
-		await sedaChain.queueSmartContractMessage(id, executeMsg);
+		await sedaChain.queueSmartContractMessage(id, executeMsg, attachedAttoSeda, gasOptions);
 	});
 }

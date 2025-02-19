@@ -4,7 +4,10 @@
 	"type": "module",
 	"main": "./src/index.ts",
 	"dependencies": {
-		"@cosmjs/crypto": "0.33.0"
+		"@cosmjs/crypto": "0.33.0",
+		"big.js": "^6.2.2"
 	},
-	"devDependencies": {}
+	"devDependencies": {
+		"@types/big.js": "^6.2.2"
+	}
 }

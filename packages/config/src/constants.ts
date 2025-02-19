@@ -9,4 +9,4 @@ export const DEFAULT_SLEEP_BETWEEN_FAILED_TX = 3_000; // 5 seconds in millisecon
 export const DEFAULT_MAX_RETRIES = 3; // Add default retry limit
 export const DEFAULT_STATUS_CHECK_INTERVAL = 3_000; // 3 seconds in milliseconds
 export const DEFAULT_ELIGIBILITY_CHECK_INTERVAL = 3000; // 3 seconds in milliseconds
-export const DEFAULT_MAX_CONCURRENT_REQUESTS = 5;
+export const DEFAULT_MAX_CONCURRENT_REQUESTS = Number.POSITIVE_INFINITY;

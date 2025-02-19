@@ -4,3 +4,4 @@ export * from "./services/timer";
 export * from "./services/hex-utils";
 export { SedaChain, type TransactionMessage, waitForSmartContractTransaction } from "./seda/seda-chain";
 export { keccak256 } from "./services/keccak";
+export { formatTokenUnits, parseTokenUnits } from "./services/tokens";

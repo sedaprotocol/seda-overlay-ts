@@ -36,7 +36,7 @@ export class MainTask {
 	}
 
 	private processNextDr() {
-		if (this.activeDataRequestTasks <= this.config.node.maxConcurrentRequests) return;
+		if (this.activeDataRequestTasks >= this.config.node.maxConcurrentRequests) return;
 
 		const dataRequest = Maybe.of(this.dataRequestsToProcess.shift());
 		if (dataRequest.isNothing) return;

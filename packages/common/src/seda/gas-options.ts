@@ -1,4 +1,4 @@
-export const DEFAULT_GAS = "auto";
+export const DEFAULT_GAS = "zero";
 export const DEFAULT_ADJUSTMENT_FACTOR = 1.6;
 export const DEFAULT_GAS_PRICE = "10000000000";
 

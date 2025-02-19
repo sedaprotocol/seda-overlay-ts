@@ -9,11 +9,13 @@ import type { ISigner } from "./signer";
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 
-class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
+export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 	accountInfo: Maybe<Mutable<SequenceResponse>> = Maybe.nothing();
 
+	cacheSequenceNumber = true;
+
 	async getSequence(address: string): Promise<SequenceResponse> {
-		if (this.accountInfo.isJust) {
+		if (this.cacheSequenceNumber && this.accountInfo.isJust) {
 			this.accountInfo.value.sequence += 1;
 			return this.accountInfo.value;
 		}
@@ -48,6 +50,7 @@ class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 
 export async function createSigningClient(
 	signer: ISigner,
+	cacheSequenceNumber: boolean,
 ): Promise<Result<{ client: SedaSigningCosmWasmClient; address: string }, unknown>> {
 	// TODO: Cleanup
 	const tendermintRpc = await connectComet(signer.getEndpoint());
@@ -57,6 +60,8 @@ export async function createSigningClient(
 		signer.getSigner(),
 		{},
 	);
+
+	signingClientResult.cacheSequenceNumber = cacheSequenceNumber;
 
 	//const cometClient = await (0, tendermint_rpc_1.connectComet)(endpoint);
 	// return SigningCosmWasmClient.createWithSigner(cometClient, signer, options);

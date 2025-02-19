@@ -16,22 +16,26 @@ export const SedaChainConfigSchema = v.object({
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {
 	/// Public key -> Private Key
 	identities: Map<string, Buffer>;
+	identityIds: string[];
 }
 
 export function createSedaChainConfig(input: v.InferOutput<typeof SedaChainConfigSchema>): SedaChainConfig {
 	const mnemonic = Mnemonic.fromPhrase(input.mnemonic);
 	const identities = new Map<string, Buffer>();
+	const identityIds: string[] = [];
 
-	for (let identity_index = 0; identity_index < input.identitiesAmount; identity_index++) {
-		const identityWallet = HDNodeWallet.fromMnemonic(mnemonic, `m/44'/83696865'/0'/0/${identity_index}`);
+	for (let identityIndex = 0; identityIndex < input.identitiesAmount; identityIndex++) {
+		const identityWallet = HDNodeWallet.fromMnemonic(mnemonic, `m/44'/83696865'/0'/0/${identityIndex}`);
 		const privateKey = strip0x(identityWallet.privateKey);
 		const publicKey = strip0x(identityWallet.publicKey);
 
+		identityIds.push(publicKey);
 		identities.set(publicKey, Buffer.from(privateKey, "hex"));
 	}
 
 	return {
 		...input,
+		identityIds,
 		identities,
 	};
 }

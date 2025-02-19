@@ -7,7 +7,8 @@
 		"@sedaprotocol/overlay-ts-common": "workspace:common",
 		"@sedaprotocol/overlay-ts-logger": "workspace:logger",
 		"@sedaprotocol/overlay-ts-node": "workspace:node",
-		"@commander-js/extra-typings": "^12.1.0"
+		"@commander-js/extra-typings": "^12.1.0",
+		"vrf-ts": "file:../../../vrf-ts/"
 	},
 	"devDependencies": {}
 }

@@ -1,17 +1,18 @@
-import type { IndexedTx, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
-import type { DeliverTxResponse, StdFee } from "@cosmjs/stargate";
+import type { StdFee } from "@cosmjs/stargate";
 import { tryAsync } from "@seda-protocol/utils";
 import { Maybe, Result, ResultNS } from "true-myth";
 import { DEFAULT_ADJUSTMENT_FACTOR, DEFAULT_GAS, DEFAULT_GAS_PRICE, type GasOptions } from "./gas-options";
+import type { SedaSigningCosmWasmClient } from "./signing-client";
 
-export async function signAndSendTx(
-	signingClient: SigningCosmWasmClient,
+export async function signAndSendTxSync(
+	signingClient: SedaSigningCosmWasmClient,
 	address: string,
 	messages: EncodeObject[],
 	gasOptions: GasOptions = {},
 	memo = "Sent from SEDA Overlay 🥟",
-): Promise<Result<DeliverTxResponse, unknown>> {
+): Promise<Result<string, unknown>> {
 	const gasInput = gasOptions.gas ?? DEFAULT_GAS;
 
 	let gas: bigint;
@@ -23,6 +24,8 @@ export async function signAndSendTx(
 
 		const adjustmentFactor = gasOptions.adjustmentFactor ?? DEFAULT_ADJUSTMENT_FACTOR;
 		gas = BigInt(Math.round(simulatedGas.value * adjustmentFactor));
+	} else if (gasInput === "zero") {
+		gas = 500000n;
 	} else {
 		const manualGas = ResultNS.tryOrElse(
 			(e) => e,
@@ -43,32 +46,17 @@ export async function signAndSendTx(
 	}
 
 	const feeAmount = gas * gasPrice.value;
-	const fee: StdFee = {
+	let fee: StdFee = {
 		gas: gas.toString(),
 		amount: [{ denom: "aseda", amount: feeAmount.toString() }],
 	};
 
-	const txResult = await tryAsync(async () => signingClient.signAndBroadcast(address, messages, fee, memo));
-	if (txResult.isErr) {
-		return Result.err(txResult.error);
+	if (gasInput === "zero") {
+		fee = {
+			...fee,
+			amount: [],
+		};
 	}
-
-	return Result.ok(txResult.value);
-}
-
-export async function signAndSendTxSync(
-	signingClient: SigningCosmWasmClient,
-	address: string,
-	messages: EncodeObject[],
-	gasOptions: GasOptions = { gas: "zero" },
-	memo = "Sent from SEDA Overlay 🥟",
-): Promise<Result<string, unknown>> {
-	if (gasOptions.gas !== "zero") return Result.err(new Error("Unimplemented gas option"));
-
-	const fee: StdFee = {
-		gas: "500000",
-		amount: [],
-	};
 
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {
@@ -79,7 +67,7 @@ export async function signAndSendTxSync(
 }
 
 export async function getTransaction(
-	signingClient: SigningCosmWasmClient,
+	signingClient: SedaSigningCosmWasmClient,
 	txHash: string,
 ): Promise<Result<Maybe<IndexedTx>, Error>> {
 	const result = (await tryAsync(signingClient.getTx(txHash))).map((v) => Maybe.of(v));

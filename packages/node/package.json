@@ -13,7 +13,7 @@
 		"@sedaprotocol/overlay-ts-config": "workspace:config",
 		"@sedaprotocol/overlay-ts-logger": "workspace:logger",
 		"@sedaprotocol/core-contract-schema": "workspace:contract",
-		"vrf-ts": "file:../../../vrf-ts"
+		"vrf-ts": "file:../../../vrf-ts/"
 	},
 	"devDependencies": {}
 }

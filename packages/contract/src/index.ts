@@ -10,3 +10,5 @@ export type { Boolean as IsExecutorEligibleResponse } from "./result-schema/resp
 export { createCommitmentHash, createCommitmentMessageSignatureHash } from "./commit";
 export { type RevealBody, createRevealMessageSignatureHash } from "./reveal";
 export { createEligibilityHash, createEligibilityMessageData } from "./eligibility";
+export { createStakeMessageSignatureHash, type GetStakerAndSeqResponse } from "./identity";
+export type { StakingConfig } from "./result-schema/response_to_get_staking_config";
