@@ -1,0 +1,280 @@
+import { randomBytes } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { debouncedInterval, sleep } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Maybe } from "true-myth";
+import { type DataRequest, isDrInRevealStage } from "./models/data-request";
+import { type DataRequestPool, IdentityDataRequestStatus } from "./models/data-request-pool";
+import type { ExecutionResult } from "./models/execution-result";
+import type { IdentityPool } from "./models/identitiest-pool";
+import { getDataRequest } from "./services/get-data-requests";
+import { commitDr } from "./tasks/commit";
+import { executeDataRequest } from "./tasks/execute";
+import { revealDr } from "./tasks/reveal";
+
+type EventMap = {
+	done: [];
+};
+
+export class DataRequestTask extends EventEmitter<EventMap> {
+	private status: IdentityDataRequestStatus = IdentityDataRequestStatus.EligbleForExecution;
+	private retries = 0;
+	public name: string;
+	private executionResult: Maybe<ExecutionResult> = Maybe.nothing();
+	private refreshDataRequestDataIntervalId: Maybe<Timer> = Maybe.nothing();
+	// private executeDrIntervalId: Timer;
+	private lastProcessing: Date = new Date();
+	private isProcessing = false;
+
+	constructor(
+		private pool: DataRequestPool,
+		private identitityPool: IdentityPool,
+		private appConfig: AppConfig,
+		private sedaChain: SedaChain,
+		private drId: string,
+		private identityId: string,
+	) {
+		super();
+
+		this.name = `${drId}_${identityId}`;
+
+		// // TEMP
+		// this.executeDrIntervalId = debouncedInterval(async () => {
+		// 	await this.process();
+		// }, 100);
+	}
+
+	private transitionStatus(toStatus: IdentityDataRequestStatus) {
+		this.retries = 0;
+		this.status = toStatus;
+		this.pool.insertIdentityDataRequest(this.drId, this.identityId, Maybe.nothing(), toStatus);
+	}
+
+	private stop() {
+		this.refreshDataRequestDataIntervalId.match({
+			Just: (id) => clearInterval(id),
+			Nothing: () => {},
+		});
+
+		this.emit("done");
+	}
+
+	public start() {
+		this.refreshDataRequestDataIntervalId = Maybe.of(
+			debouncedInterval(async () => {
+				await this.handleRefreshDataRequestData(this.drId);
+			}, this.appConfig.intervals.statusCheck),
+		);
+
+		this.process();
+	}
+
+	async process(): Promise<void> {
+		try {
+			this.lastProcessing = new Date();
+
+			if (this.isProcessing) return;
+			this.isProcessing = true;
+
+			// Always get the data request from our single source of truth
+			const dataRequest = this.pool.getDataRequest(this.drId);
+
+			// The data request has been removed from the pool. We can safely close the process.
+			if (dataRequest.isNothing) {
+				logger.info("✅ Data Request has been resolved on chain", {
+					id: this.name,
+				});
+
+				this.stop();
+				return;
+			}
+
+			// Check if we've exceeded retry limit
+			if (this.retries > this.appConfig.sedaChain.maxRetries) {
+				logger.error("Exceeded maximum retry attempts, marking data request as failed", {
+					id: this.name,
+				});
+				this.status = IdentityDataRequestStatus.Failed;
+				this.stop();
+				return;
+			}
+
+			if (this.status === IdentityDataRequestStatus.EligbleForExecution) {
+				await this.handleExecution(dataRequest.value);
+			} else if (this.status === IdentityDataRequestStatus.Executed) {
+				await this.handleCommit(dataRequest.value);
+			} else if (this.status === IdentityDataRequestStatus.Committed) {
+				await this.handleCheckReadyToBeRevealed(dataRequest.value.id);
+			} else if (this.status === IdentityDataRequestStatus.ReadyToBeRevealed) {
+				await this.handleReveal(dataRequest.value);
+			} else if (this.status === IdentityDataRequestStatus.Revealed) {
+				this.stop();
+				return;
+			} else {
+				logger.error(`Unimplemented status ${this.status}, aborting data-request`, {
+					id: this.name,
+				});
+				this.stop();
+				return;
+			}
+
+			this.isProcessing = false;
+		} catch (error) {
+			logger.error(`Error while processing data request: ${error}`, {
+				id: this.name,
+			});
+		} finally {
+			this.isProcessing = false;
+		}
+
+		return this.process();
+	}
+
+	async handleRefreshDataRequestData(drId: string) {
+		logger.info("🔄 Fetching latest info...", {
+			id: this.name,
+		});
+
+		const result = await getDataRequest(drId, this.sedaChain);
+
+		if (result.isErr) {
+			logger.error(`Error while fetching data request: ${result.error}`, {
+				id: this.drId,
+			});
+
+			this.retries += 1;
+			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+			return;
+		}
+
+		if (result.value.isNothing) {
+			this.pool.deleteDataRequest(drId);
+			return;
+		}
+
+		this.pool.insertDataRequest(result.value.value);
+	}
+
+	async handleExecution(dataRequest: DataRequest) {
+		logger.info("💫 Executing..", {
+			id: this.name,
+		});
+
+		const vmResult = await executeDataRequest(dataRequest, this.appConfig, this.sedaChain);
+
+		if (vmResult.isErr) {
+			this.retries += 1;
+			logger.error(`Error while executing: ${vmResult.error}`, {
+				id: this.name,
+			});
+
+			return;
+		}
+
+		logger.info("💫 Executed Data Request", {
+			id: this.name,
+		});
+
+		logger.debug(`Raw results: ${JSON.stringify(vmResult.value)}`, {
+			id: this.name,
+		});
+
+		this.executionResult = Maybe.just<ExecutionResult>({
+			stderr: [vmResult.value.stderr],
+			stdout: [vmResult.value.stdout],
+			revealBody: {
+				exit_code: vmResult.value.exitCode,
+				gas_used: 0n,
+				id: this.drId,
+				proxy_public_keys: [],
+				reveal: Buffer.from(vmResult.value.result ?? []),
+				salt: randomBytes(32).toString("hex"),
+			},
+		});
+
+		this.transitionStatus(IdentityDataRequestStatus.Executed);
+	}
+
+	async handleCommit(dataRequest: DataRequest) {
+		logger.info("📩 Committing...", {
+			id: this.name,
+		});
+
+		if (this.executionResult.isNothing) {
+			logger.error("No execution result available while trying to commit, switching status back to initial");
+			return;
+		}
+
+		const result = await commitDr(
+			this.identityId,
+			dataRequest,
+			this.executionResult.value,
+			this.identitityPool,
+			this.sedaChain,
+			this.appConfig,
+		);
+
+		if (result.isErr) {
+			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+			this.retries += 1;
+			return;
+		}
+
+		this.transitionStatus(IdentityDataRequestStatus.Committed);
+		logger.info("📩 Committed", {
+			id: this.name,
+		});
+	}
+
+	async handleCheckReadyToBeRevealed(drId: string) {
+		await this.handleRefreshDataRequestData(drId);
+
+		const dataRequest = this.pool.getDataRequest(drId);
+
+		// Rest will be handled by the process() function
+		if (dataRequest.isNothing) {
+			return;
+		}
+
+		if (!isDrInRevealStage(dataRequest.value)) {
+			await sleep(this.appConfig.intervals.statusCheck);
+			return;
+		}
+
+		this.transitionStatus(IdentityDataRequestStatus.ReadyToBeRevealed);
+	}
+
+	async handleReveal(dataRequest: DataRequest) {
+		logger.info("📨 Revealing...", {
+			id: this.name,
+		});
+
+		if (this.executionResult.isNothing) {
+			logger.error("No execution result available while trying to reveal, switching status back to initial");
+			this.transitionStatus(IdentityDataRequestStatus.EligbleForExecution);
+			return;
+		}
+
+		const result = await revealDr(
+			this.identityId,
+			dataRequest,
+			this.executionResult.value,
+			this.identitityPool,
+			this.sedaChain,
+			this.appConfig,
+		);
+
+		if (result.isErr) {
+			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+			this.retries += 1;
+			return;
+		}
+
+		this.transitionStatus(IdentityDataRequestStatus.Revealed);
+		logger.info("📨 Revealed", {
+			id: this.name,
+		});
+	}
+}

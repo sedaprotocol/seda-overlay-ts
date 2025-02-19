@@ -1,0 +1,21 @@
+{
+	"name": "seda-overlay-node-ts",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {},
+			"extensions": [
+				"EditorConfig.EditorConfig",
+				"dbaeumer.vscode-eslint",
+				"esbenp.prettier-vscode",
+				"dtsvet.vscode-wasm",
+				"pflannery.vscode-versionlens",
+				"alexcvzz.vscode-sqlite",
+				"qwtel.sqlite-viewer",
+				"tamasfe.even-better-toml"
+			]
+		}
+	}
+}

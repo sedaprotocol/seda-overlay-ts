@@ -1,0 +1,16 @@
+{
+	"name": "@sedaprotocol/core-contract-schema",
+	"module": "src/index.ts",
+	"main": "src/index.ts",
+	"type": "module",
+	"dependencies": {
+		"@cosmjs/crypto": "0.33.0",
+		"@sedaprotocol/overlay-ts-common": "workspace:common"
+	},
+	"devDependencies": {
+		"json-schema-to-typescript": "15.0.4"
+	},
+	"scripts": {
+		"build": "bun run ./build.ts"
+	}
+}

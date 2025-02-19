@@ -1,0 +1,10 @@
+{
+	"name": "@sedaprotocol/overlay-ts-common",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./src/index.ts",
+	"dependencies": {
+		"@cosmjs/crypto": "0.33.0"
+	},
+	"devDependencies": {}
+}

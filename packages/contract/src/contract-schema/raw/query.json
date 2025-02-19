@@ -1,0 +1,333 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "QueryMsg",
+	"anyOf": [
+		{
+			"$ref": "#/definitions/QueryMsg"
+		},
+		{
+			"$ref": "#/definitions/QueryMsg2"
+		},
+		{
+			"$ref": "#/definitions/QueryMsg3"
+		}
+	],
+	"definitions": {
+		"Binary": {
+			"description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+			"type": "string"
+		},
+		"DataRequestStatus": {
+			"type": "string",
+			"enum": ["committing", "revealing", "tallying"]
+		},
+		"Query": {
+			"type": "object",
+			"required": ["data"],
+			"properties": {
+				"data": {
+					"$ref": "#/definitions/Binary"
+				}
+			},
+			"additionalProperties": false
+		},
+		"QueryMsg": {
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["can_executor_commit"],
+					"properties": {
+						"can_executor_commit": {
+							"type": "object",
+							"required": ["commitment", "dr_id", "proof", "public_key"],
+							"properties": {
+								"commitment": {
+									"type": "string"
+								},
+								"dr_id": {
+									"type": "string"
+								},
+								"proof": {
+									"type": "string"
+								},
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["can_executor_reveal"],
+					"properties": {
+						"can_executor_reveal": {
+							"type": "object",
+							"required": ["dr_id", "public_key"],
+							"properties": {
+								"dr_id": {
+									"type": "string"
+								},
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_data_request"],
+					"properties": {
+						"get_data_request": {
+							"type": "object",
+							"required": ["dr_id"],
+							"properties": {
+								"dr_id": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_data_request_commitment"],
+					"properties": {
+						"get_data_request_commitment": {
+							"type": "object",
+							"required": ["dr_id", "public_key"],
+							"properties": {
+								"dr_id": {
+									"type": "string"
+								},
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_data_request_commitments"],
+					"properties": {
+						"get_data_request_commitments": {
+							"type": "object",
+							"required": ["dr_id"],
+							"properties": {
+								"dr_id": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_data_request_reveal"],
+					"properties": {
+						"get_data_request_reveal": {
+							"type": "object",
+							"required": ["dr_id", "public_key"],
+							"properties": {
+								"dr_id": {
+									"type": "string"
+								},
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_data_request_reveals"],
+					"properties": {
+						"get_data_request_reveals": {
+							"type": "object",
+							"required": ["dr_id"],
+							"properties": {
+								"dr_id": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_data_requests_by_status"],
+					"properties": {
+						"get_data_requests_by_status": {
+							"type": "object",
+							"required": ["limit", "offset", "status"],
+							"properties": {
+								"limit": {
+									"type": "integer",
+									"format": "uint32",
+									"minimum": 0.0
+								},
+								"offset": {
+									"type": "integer",
+									"format": "uint32",
+									"minimum": 0.0
+								},
+								"status": {
+									"$ref": "#/definitions/DataRequestStatus"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			]
+		},
+		"QueryMsg2": {
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["get_staker"],
+					"properties": {
+						"get_staker": {
+							"type": "object",
+							"required": ["public_key"],
+							"properties": {
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_account_seq"],
+					"properties": {
+						"get_account_seq": {
+							"type": "object",
+							"required": ["public_key"],
+							"properties": {
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_staker_and_seq"],
+					"properties": {
+						"get_staker_and_seq": {
+							"type": "object",
+							"required": ["public_key"],
+							"properties": {
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["is_staker_executor"],
+					"properties": {
+						"is_staker_executor": {
+							"type": "object",
+							"required": ["public_key"],
+							"properties": {
+								"public_key": {
+									"type": "string"
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["is_executor_eligible"],
+					"properties": {
+						"is_executor_eligible": {
+							"$ref": "#/definitions/Query"
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_staking_config"],
+					"properties": {
+						"get_staking_config": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			]
+		},
+		"QueryMsg3": {
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["get_owner"],
+					"properties": {
+						"get_owner": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_pending_owner"],
+					"properties": {
+						"get_pending_owner": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["is_paused"],
+					"properties": {
+						"is_paused": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			]
+		}
+	}
+}
