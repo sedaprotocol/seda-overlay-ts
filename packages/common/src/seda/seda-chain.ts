@@ -1,4 +1,3 @@
-import { EventEmitter } from "node:events";
 import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
 import type { ProtobufRpcClient } from "@cosmjs/stargate";
@@ -8,6 +7,7 @@ import type { ExecuteMsg, QueryMsg } from "@sedaprotocol/core-contract-schema";
 import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
 import { DEFAULT_GAS, type GasOptions } from "./gas-options";
 import { createProtoQueryClient, createWasmQueryClient } from "./query-client";

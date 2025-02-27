@@ -1,14 +1,13 @@
 {
 	"name": "@sedaprotocol/overlay-ts-cli",
-	"version": "0.0.1",
+	"version": "0.0.0",
 	"type": "module",
 	"main": "./src/index.ts",
 	"dependencies": {
-		"@sedaprotocol/overlay-ts-common": "workspace:common",
-		"@sedaprotocol/overlay-ts-logger": "workspace:logger",
-		"@sedaprotocol/overlay-ts-node": "workspace:node",
 		"@commander-js/extra-typings": "^12.1.0",
-		"vrf-ts": "file:../../../vrf-ts/"
-	},
-	"devDependencies": {}
+		"@sedaprotocol/overlay-ts-common": "0.0.0",
+		"@sedaprotocol/overlay-ts-logger": "0.0.0",
+		"@sedaprotocol/overlay-ts-node": "0.0.0",
+		"vrf-ts": "file:./../../../vrf-ts"
+	}
 }

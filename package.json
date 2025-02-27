@@ -2,9 +2,18 @@
 	"name": "overlay-node-ts",
 	"module": "index.ts",
 	"type": "module",
-	"workspaces": ["./packages/*"],
+	"workspaces": [
+		"./packages/cli",
+		"./packages/common",
+		"./packages/config",
+		"./packages/contract",
+		"./packages/logger",
+		"./packages/node"
+	],
 	"scripts": {
 		"start": "bun run check-ts && bun run ./packages/cli",
+		"start-unchecked": "bun run ./packages/cli",
+		"start-with-node": "npx tsx ./packages/cli",
 
 		"check-ts": "bunx tsc --noEmit",
 		"fmt": "bunx biome check --write .",
@@ -12,7 +21,8 @@
 	},
 	"devDependencies": {
 		"@types/bun": "latest",
-		"@biomejs/biome": "1.9.4"
+		"@biomejs/biome": "1.9.4",
+		"tsx": "^4.19.3"
 	},
 	"peerDependencies": {
 		"typescript": "^5.7.3"

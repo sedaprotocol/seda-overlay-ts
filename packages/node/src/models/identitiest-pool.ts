@@ -5,6 +5,7 @@ import { prove } from "vrf-ts";
 interface IdentityInfo {
 	identityId: string;
 	enabled: boolean;
+	privateKey: Buffer;
 }
 
 export class IdentityPool {
@@ -13,10 +14,11 @@ export class IdentityPool {
 	constructor(private config: AppConfig) {
 		const pool = new Map<IdentityInfo["identityId"], IdentityInfo>();
 
-		for (const identityId of config.sedaChain.identities.keys()) {
+		for (const [identityId, privateKey] of config.sedaChain.identities.entries()) {
 			pool.set(identityId, {
 				enabled: false,
 				identityId,
+				privateKey,
 			});
 		}
 

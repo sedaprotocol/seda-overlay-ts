@@ -75,7 +75,6 @@ export async function getTransaction(
 	if (result.value.isNothing) return Result.ok(Maybe.nothing());
 
 	if (result.value.value.code !== 0) {
-		console.log("[DEBUG]: result.value.value ::: ", result.value.value);
 		return Result.err(new Error(`Transaction failed: ${result.value.value.rawLog}`));
 	}
 

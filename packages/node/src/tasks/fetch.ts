@@ -1,8 +1,8 @@
-import { EventEmitter } from "node:events";
 import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { EventEmitter } from "eventemitter3";
 import { Maybe, Result, type Unit } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";

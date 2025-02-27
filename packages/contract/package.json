@@ -1,11 +1,12 @@
 {
 	"name": "@sedaprotocol/core-contract-schema",
 	"module": "src/index.ts",
+	"version": "0.0.0",
 	"main": "src/index.ts",
 	"type": "module",
 	"dependencies": {
 		"@cosmjs/crypto": "0.33.0",
-		"@sedaprotocol/overlay-ts-common": "workspace:common"
+		"@sedaprotocol/overlay-ts-common": "0.0.0"
 	},
 	"devDependencies": {
 		"json-schema-to-typescript": "15.0.4"

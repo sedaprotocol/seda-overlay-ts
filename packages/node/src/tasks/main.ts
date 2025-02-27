@@ -60,6 +60,7 @@ export class MainTask {
 		});
 
 		this.elgibilityTask.on("eligible", (drId, identityId) => {
+			// TODO: High chance this is not going well. Maybe instead of an array we should use a map?
 			const drTask = new DataRequestTask(this.pool, this.identityPool, this.config, this.sedaChain, drId, identityId);
 			this.dataRequestsToProcess.push(drTask);
 			this.processNextDr();

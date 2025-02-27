@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { EventEmitter } from "node:events";
-import { debouncedInterval, sleep } from "@sedaprotocol/overlay-ts-common";
+import { JSONStringify, debouncedInterval, sleep } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { EventEmitter } from "eventemitter3";
 import { Maybe } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "./models/data-request";
 import { type DataRequestPool, IdentityDataRequestStatus } from "./models/data-request-pool";
@@ -24,7 +24,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	public name: string;
 	private executionResult: Maybe<ExecutionResult> = Maybe.nothing();
 	private refreshDataRequestDataIntervalId: Maybe<Timer> = Maybe.nothing();
-	// private executeDrIntervalId: Timer;
+	private executeDrIntervalId: Timer;
 	private lastProcessing: Date = new Date();
 	private isProcessing = false;
 
@@ -41,9 +41,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.name = `${drId}_${identityId}`;
 
 		// // TEMP
-		// this.executeDrIntervalId = debouncedInterval(async () => {
-		// 	await this.process();
-		// }, 100);
+		this.executeDrIntervalId = debouncedInterval(async () => {
+			await this.process();
+		}, 1_000);
 	}
 
 	private transitionStatus(toStatus: IdentityDataRequestStatus) {
@@ -57,6 +57,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			Just: (id) => clearInterval(id),
 			Nothing: () => {},
 		});
+
+		clearInterval(this.executeDrIntervalId);
 
 		this.emit("done");
 	}
@@ -128,12 +130,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		} finally {
 			this.isProcessing = false;
 		}
-
-		return this.process();
 	}
 
 	async handleRefreshDataRequestData(drId: string) {
-		logger.info("🔄 Fetching latest info...", {
+		logger.debug(`🔄 Fetching latest info (status: ${this.status})...`, {
 			id: this.name,
 		});
 
@@ -151,6 +151,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (result.value.isNothing) {
 			this.pool.deleteDataRequest(drId);
+			this.stop();
 			return;
 		}
 
@@ -162,7 +163,17 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			id: this.name,
 		});
 
-		const vmResult = await executeDataRequest(dataRequest, this.appConfig, this.sedaChain);
+		const info = this.identitityPool.getIdentityInfo(this.identityId);
+
+		if (info.isNothing) {
+			logger.error("Invariant found, data request task uses an identity that does not exist", {
+				id: this.name,
+			});
+			this.stop();
+			return;
+		}
+
+		const vmResult = await executeDataRequest(info.value.privateKey, dataRequest, this.appConfig, this.sedaChain);
 
 		if (vmResult.isErr) {
 			this.retries += 1;
@@ -173,11 +184,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		logger.info("💫 Executed Data Request", {
-			id: this.name,
-		});
-
-		logger.debug(`Raw results: ${JSON.stringify(vmResult.value)}`, {
+		logger.debug(`Raw results: ${JSONStringify(vmResult.value)}`, {
 			id: this.name,
 		});
 
@@ -186,15 +193,18 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			stdout: [vmResult.value.stdout],
 			revealBody: {
 				exit_code: vmResult.value.exitCode,
-				gas_used: 0n,
+				gas_used: vmResult.value.gasUsed,
 				id: this.drId,
-				proxy_public_keys: [],
+				proxy_public_keys: vmResult.value.usedProxyPublicKeys,
 				reveal: Buffer.from(vmResult.value.result ?? []),
 				salt: randomBytes(32).toString("hex"),
 			},
 		});
 
 		this.transitionStatus(IdentityDataRequestStatus.Executed);
+		logger.info("💫 Executed Data Request", {
+			id: this.name,
+		});
 	}
 
 	async handleCommit(dataRequest: DataRequest) {
@@ -267,6 +277,15 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		);
 
 		if (result.isErr) {
+			if (result.error.message.includes("AlreadyRevealed")) {
+				this.transitionStatus(IdentityDataRequestStatus.Revealed);
+
+				logger.warn("Chain responded with AlreadyRevealed, updating inner state to reflect", {
+					id: this.name,
+				});
+				return;
+			}
+
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
 			this.retries += 1;
 			return;

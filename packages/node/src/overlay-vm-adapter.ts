@@ -1,0 +1,118 @@
+import { sedachain } from "@seda-protocol/proto-messages";
+import { tryAsync } from "@seda-protocol/utils";
+import {
+	DataRequestVmAdapter,
+	HttpFetchMethod,
+	HttpFetchResponse,
+	type PromiseStatus,
+	type ProxyHttpFetchAction,
+} from "@seda-protocol/vm";
+import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { Maybe, Result } from "true-myth";
+import { createProxyHttpProof, verifyProxyHttpResponse } from "./services/proxy-http";
+
+type Options = {
+	dataRequestId: string;
+	coreContractAddress: string;
+	chainId: string;
+	identityPrivateKey: Buffer;
+	gasPrice: bigint;
+};
+
+export class OverlayVmAdapter extends DataRequestVmAdapter {
+	private dataProxyRpcQueryClient: sedachain.data_proxy.v1.QueryClientImpl;
+	public usePublicKeys: string[] = [];
+
+	constructor(
+		private options: Options,
+		sedaChain: SedaChain,
+	) {
+		super({});
+
+		this.dataProxyRpcQueryClient = new sedachain.data_proxy.v1.QueryClientImpl(sedaChain.getProtobufRpcClient());
+	}
+
+	async getProxyHttpFetchGasCost(action: ProxyHttpFetchAction): Promise<Result<bigint, Error>> {
+		const clonedAction = structuredClone(action);
+		clonedAction.options.method = HttpFetchMethod.Options;
+
+		const httpFetchResult = await tryAsync(
+			this.httpFetch({
+				options: clonedAction.options,
+				url: clonedAction.url,
+				type: "http-fetch-action",
+			}),
+		);
+
+		if (httpFetchResult.isErr) return Result.err(httpFetchResult.error);
+		const httpResponse = HttpFetchResponse.fromPromise(httpFetchResult.value);
+
+		const publicKey = Maybe.of(httpResponse.data.headers["x-seda-publickey"]);
+		if (publicKey.isNothing) {
+			return Result.err(
+				new Error(
+					`Header x-seda-publickey was missing in the response headers \n response: ${Buffer.from(httpResponse.toBuffer()).toString()}`,
+				),
+			);
+		}
+
+		const dataProxyRegistryResponse = (
+			await tryAsync(
+				this.dataProxyRpcQueryClient.DataProxyConfig({
+					pubKey: publicKey.value,
+				}),
+			)
+		).map((v) => Maybe.of(v.config));
+
+		if (dataProxyRegistryResponse.isErr) return Result.err(dataProxyRegistryResponse.error);
+		if (dataProxyRegistryResponse.value.isNothing)
+			return Result.err(new Error(`No proxy details found for public key ${publicKey}`));
+
+		const proxyFee = Maybe.of(dataProxyRegistryResponse.value.value.fee);
+		if (proxyFee.isNothing) return Result.err(new Error(`No fee was set for proxy ${publicKey}`));
+
+		const proxyCost = BigInt(proxyFee.value.amount);
+		const proxyGasCost = proxyCost / this.options.gasPrice;
+
+		return Result.ok(proxyGasCost);
+	}
+
+	async proxyHttpFetch(action: ProxyHttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
+		const clonedAction = structuredClone(action);
+		clonedAction.options.headers["x-seda-proof"] = await createProxyHttpProof(
+			this.options.identityPrivateKey,
+			this.options.dataRequestId,
+			this.options.chainId,
+			this.options.coreContractAddress,
+		);
+
+		const rawHttpResponse = await this.httpFetch({
+            ...clonedAction,
+			type: "http-fetch-action",
+		});
+
+		const httpResponse = HttpFetchResponse.fromPromise(rawHttpResponse);
+		const signatureRaw = Maybe.of(httpResponse.data.headers["x-seda-signature"]);
+		const publicKeyRaw = Maybe.of(httpResponse.data.headers["x-seda-publickey"]);
+
+		if (signatureRaw.isNothing) {
+			return HttpFetchResponse.createRejectedPromise("Header x-seda-signature was not available");
+		}
+
+		if (publicKeyRaw.isNothing) {
+			return HttpFetchResponse.createRejectedPromise("Header x-seda-publickey was not available");
+		}
+
+		// Verify the signature:
+		const signature = Buffer.from(signatureRaw.value, "hex");
+		const publicKey = Buffer.from(action.public_key ?? publicKeyRaw.value, "hex");
+		const isValidSignature = verifyProxyHttpResponse(signature, publicKey, action, httpResponse);
+
+		if (!isValidSignature) {
+			return HttpFetchResponse.createRejectedPromise("Invalid signature");
+		}
+
+		this.usePublicKeys.push(publicKeyRaw.value);
+		return rawHttpResponse;
+	}
+}

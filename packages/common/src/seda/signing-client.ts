@@ -2,6 +2,7 @@ import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
 import type { SequenceResponse, StdFee } from "@cosmjs/stargate";
 import { connectComet } from "@cosmjs/tendermint-rpc";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 // import { tryAsync } from "@seda-protocol/utils";
 import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import { Maybe, Result } from "true-myth";
@@ -40,6 +41,7 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 			const errorMsg = `${error}`;
 
 			if (errorMsg.includes("incorrect account sequence")) {
+				logger.debug("Resetting sequence number");
 				this.accountInfo = Maybe.nothing();
 			}
 

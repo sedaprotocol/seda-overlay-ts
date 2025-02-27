@@ -20,9 +20,11 @@ export class Cache<T extends {}> {
 
 	get(key: string): Maybe<T> {
 		const entry = this.cache.get(key);
+
 		if (entry && !this.isExpired(entry)) {
 			return Maybe.just(entry.data);
 		}
+
 		this.cache.delete(key);
 		return Maybe.nothing();
 	}

@@ -1,11 +1,12 @@
 {
 	"name": "@sedaprotocol/overlay-ts-common",
-	"version": "0.0.1",
+	"version": "0.0.0",
 	"type": "module",
 	"main": "./src/index.ts",
 	"dependencies": {
 		"@cosmjs/crypto": "0.33.0",
-		"big.js": "^6.2.2"
+		"big.js": "^6.2.2",
+		"eventemitter3": "5.0.1"
 	},
 	"devDependencies": {
 		"@types/big.js": "^6.2.2"

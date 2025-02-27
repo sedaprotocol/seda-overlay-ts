@@ -1,6 +1,6 @@
 {
 	"name": "@sedaprotocol/overlay-ts-logger",
-	"version": "0.0.1",
+	"version": "0.0.0",
 	"type": "module",
 	"main": "./src/index.ts",
 	"dependencies": {
