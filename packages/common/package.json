@@ -6,7 +6,8 @@
 	"dependencies": {
 		"@cosmjs/crypto": "0.33.0",
 		"big.js": "^6.2.2",
-		"eventemitter3": "5.0.1"
+		"eventemitter3": "5.0.1",
+		"cookie": "^1.0.2"
 	},
 	"devDependencies": {
 		"@types/big.js": "^6.2.2"

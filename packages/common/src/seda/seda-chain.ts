@@ -9,7 +9,7 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
-import { AlreadyCommitted, AlreadyRevealed, IncorrectAccountSquence, RevealMismatch } from "./errors";
+import { AlreadyCommitted, AlreadyRevealed, DataRequestExpired, IncorrectAccountSquence, RevealMismatch } from "./errors";
 import { DEFAULT_GAS, type GasOptions } from "./gas-options";
 import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
@@ -159,7 +159,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		if (result.isErr) {
 			if (result.error instanceof IncorrectAccountSquence) {
-				logger.warn(`Incorrect acccount sequence, adding tx back to the queue: ${result.error}`);	
+				logger.warn(`Incorrect acccount sequence, adding tx back to the queue: ${result.error}`);
 				this.transactionQueue.push(txMessage.value);
 				return;
 			}
@@ -225,7 +225,7 @@ export function waitForSmartContractTransaction(
 	executeMsg: ExecuteMsg,
 	attachedAttoSeda?: bigint,
 	gasOptions?: GasOptions,
-): Promise<Result<IndexedTx, AlreadyCommitted | AlreadyRevealed | RevealMismatch | Error>> {
+): Promise<Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | Error>> {
 	// waitingHandlers.add(id);
 	// hack = sedaChain;
 
@@ -262,6 +262,11 @@ export function waitForSmartContractTransaction(
 				if (AlreadyRevealed.isError(transactionResult.error)) {
 					clearInterval(checkTransactionInterval);
 					resolve(Result.err(new AlreadyRevealed(transactionResult.error.message)));
+				}
+
+				if (DataRequestExpired.isError(transactionResult.error)) {
+					clearInterval(checkTransactionInterval);
+					resolve(Result.err(new DataRequestExpired(transactionResult.error.message)));
 				}
 
 				return;

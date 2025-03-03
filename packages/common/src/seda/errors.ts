@@ -21,3 +21,10 @@ export class IncorrectAccountSquence extends Error {
 		return error.message.includes("account sequence mismatch");
 	}
 }
+
+export class DataRequestExpired extends Error {
+	static isError(error: Error): boolean {
+		return error.message.includes("DataRequestExpired");
+	}
+}
+

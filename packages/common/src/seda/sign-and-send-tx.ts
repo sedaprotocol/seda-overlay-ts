@@ -3,9 +3,9 @@ import type { EncodeObject } from "@cosmjs/proto-signing";
 import type { StdFee } from "@cosmjs/stargate";
 import { tryAsync, trySync } from "@seda-protocol/utils";
 import { Maybe, Result } from "true-myth";
+import { IncorrectAccountSquence } from "./errors";
 import { DEFAULT_ADJUSTMENT_FACTOR, DEFAULT_GAS, DEFAULT_GAS_PRICE, type GasOptions } from "./gas-options";
 import type { SedaSigningCosmWasmClient } from "./signing-client";
-import { IncorrectAccountSquence } from "./errors";
 
 export async function signAndSendTxSync(
 	signingClient: SedaSigningCosmWasmClient,
@@ -59,7 +59,7 @@ export async function signAndSendTxSync(
 		if (IncorrectAccountSquence.isError(txResult.error)) {
 			return Result.err(new IncorrectAccountSquence(txResult.error.message));
 		}
-		
+
 		return Result.err(txResult.error);
 	}
 

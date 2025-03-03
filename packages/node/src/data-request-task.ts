@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import {
 	AlreadyCommitted,
 	AlreadyRevealed,
+	DataRequestExpired,
 	JSONStringify,
 	RevealMismatch,
 	debouncedInterval,
@@ -254,6 +255,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				return;
 			}
 
+			if (result.error instanceof DataRequestExpired) {
+				logger.warn('Data request was expired', {
+					id: this.name,
+				});
+				this.stop();
+				return;
+			}
+
 			logger.error(`Failed to commit: ${result.error}`, {
 				id: this.name,
 			});
@@ -322,6 +331,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error(
 					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
 				);
+			}
+
+			if (result.error instanceof DataRequestExpired) {
+				logger.warn('Data request was expired', {
+					id: this.name,
+				});
+				this.stop();
+				return;
 			}
 
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);

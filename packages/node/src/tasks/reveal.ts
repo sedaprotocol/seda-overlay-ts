@@ -1,7 +1,7 @@
 import { createCommitmentHash } from "@sedaprotocol/core-contract-schema";
 import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
-import type { AlreadyRevealed, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
+import type { AlreadyRevealed, DataRequestExpired, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Result, type Unit } from "true-myth";
 import type { DataRequest } from "../models/data-request";
@@ -10,7 +10,7 @@ import type { IdentityPool } from "../models/identitiest-pool";
 
 export class EnchancedRevealError {
 	constructor(
-		public error: RevealMismatch | AlreadyRevealed | Error,
+		public error: RevealMismatch | AlreadyRevealed | DataRequestExpired | Error,
 		public commitmentHash: Buffer,
 	) {}
 }
