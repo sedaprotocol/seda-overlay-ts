@@ -87,7 +87,7 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		);
 
 		const rawHttpResponse = await this.httpFetch({
-            ...clonedAction,
+			...clonedAction,
 			type: "http-fetch-action",
 		});
 

@@ -41,7 +41,7 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 			const errorMsg = `${error}`;
 
 			if (errorMsg.includes("incorrect account sequence")) {
-				logger.debug("Resetting sequence number");
+				logger.warn("Resetting sequence number");
 				this.accountInfo = Maybe.nothing();
 			}
 

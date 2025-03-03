@@ -1,10 +1,11 @@
 import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
 import type { StdFee } from "@cosmjs/stargate";
-import { tryAsync } from "@seda-protocol/utils";
-import { Maybe, Result, ResultNS } from "true-myth";
+import { tryAsync, trySync } from "@seda-protocol/utils";
+import { Maybe, Result } from "true-myth";
 import { DEFAULT_ADJUSTMENT_FACTOR, DEFAULT_GAS, DEFAULT_GAS_PRICE, type GasOptions } from "./gas-options";
 import type { SedaSigningCosmWasmClient } from "./signing-client";
+import { IncorrectAccountSquence } from "./errors";
 
 export async function signAndSendTxSync(
 	signingClient: SedaSigningCosmWasmClient,
@@ -12,7 +13,7 @@ export async function signAndSendTxSync(
 	messages: EncodeObject[],
 	gasOptions: GasOptions = {},
 	memo = "Sent from SEDA Overlay 🥟",
-): Promise<Result<string, unknown>> {
+): Promise<Result<string, IncorrectAccountSquence | Error>> {
 	const gasInput = gasOptions.gas ?? DEFAULT_GAS;
 
 	let gas: bigint;
@@ -25,22 +26,17 @@ export async function signAndSendTxSync(
 		const adjustmentFactor = gasOptions.adjustmentFactor ?? DEFAULT_ADJUSTMENT_FACTOR;
 		gas = BigInt(Math.round(simulatedGas.value * adjustmentFactor));
 	} else if (gasInput === "zero") {
+		// TODO: Make this a config option
 		gas = 500000n;
 	} else {
-		const manualGas = ResultNS.tryOrElse(
-			(e) => e,
-			() => BigInt(gasInput),
-		);
+		const manualGas = trySync(() => BigInt(gasInput));
 		if (manualGas.isErr) {
 			return Result.err(manualGas.error);
 		}
 		gas = manualGas.value;
 	}
 
-	const gasPrice = ResultNS.tryOrElse(
-		(e) => e,
-		() => BigInt(gasOptions.gasPrice ?? DEFAULT_GAS_PRICE),
-	);
+	const gasPrice = trySync(() => BigInt(gasOptions.gasPrice ?? DEFAULT_GAS_PRICE));
 	if (gasPrice.isErr) {
 		return Result.err(gasPrice.error);
 	}
@@ -60,6 +56,10 @@ export async function signAndSendTxSync(
 
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {
+		if (IncorrectAccountSquence.isError(txResult.error)) {
+			return Result.err(new IncorrectAccountSquence(txResult.error.message));
+		}
+		
 		return Result.err(txResult.error);
 	}
 

@@ -3,7 +3,7 @@ import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Maybe, Result } from "true-myth";
 import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
-import { Cache } from "../utils/cache";
+import { Cache } from "../services/cache";
 
 export async function getDataRequests(
 	sedaChain: SedaChain,

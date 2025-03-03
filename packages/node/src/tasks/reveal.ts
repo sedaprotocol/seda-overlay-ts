@@ -1,11 +1,19 @@
 import { createCommitmentHash } from "@sedaprotocol/core-contract-schema";
 import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
+import type { AlreadyRevealed, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Result, type Unit } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
+
+export class EnchancedRevealError {
+	constructor(
+		public error: RevealMismatch | AlreadyRevealed | Error,
+		public commitmentHash: Buffer,
+	) {}
+}
 
 export async function revealDr(
 	identityId: string,
@@ -14,7 +22,7 @@ export async function revealDr(
 	identityPool: IdentityPool,
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
-): Promise<Result<Unit, Error>> {
+): Promise<Result<Unit, EnchancedRevealError>> {
 	const txKey = `${identityId}_${dataRequest.id}_reveal`;
 
 	const commitmentHash = createCommitmentHash(executionResult.revealBody);
@@ -27,7 +35,7 @@ export async function revealDr(
 	);
 
 	const signature = identityPool.sign(identityId, messageHash);
-	if (signature.isErr) return Result.err(signature.error);
+	if (signature.isErr) return Result.err(new EnchancedRevealError(signature.error, commitmentHash));
 
 	const revealResponse = await waitForSmartContractTransaction(sedaChain, txKey, {
 		reveal_data_result: {
@@ -44,6 +52,6 @@ export async function revealDr(
 		},
 	});
 
-	if (revealResponse.isErr) return Result.err(revealResponse.error);
+	if (revealResponse.isErr) return Result.err(new EnchancedRevealError(revealResponse.error, commitmentHash));
 	return Result.ok();
 }

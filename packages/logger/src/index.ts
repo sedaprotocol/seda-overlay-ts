@@ -51,6 +51,14 @@ export class Logger {
 		}
 	}
 
+	trace(message: string, extra?: ExtraInfo): void {
+		if (this.winston.isJust) {
+			this.winston.value.debug(`${message}: ${new Error().stack}`, extra);
+		} else {
+			console.trace(message);
+		}
+	}
+
 	info(message: string, extra?: ExtraInfo): void {
 		if (this.winston.isJust) {
 			this.winston.value.info(message, extra);

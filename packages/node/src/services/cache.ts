@@ -13,6 +13,7 @@ interface CacheEntry<T> {
  */
 export class Cache<T extends {}> {
 	private cache: Map<string, CacheEntry<T>> = new Map();
+	private inFlightRequests: Map<string, Promise<Result<T, Error>>> = new Map();
 
 	/**
 	 * Creates a new Cache instance.
@@ -61,6 +62,7 @@ export class Cache<T extends {}> {
 	 * Attempts to retrieve a value from the cache, falling back to fetching it
 	 * from the provided fetch function if not found or expired.
 	 * If the fetch is successful, the result is cached before being returned.
+	 * Multiple concurrent calls with the same key will share the same fetch request.
 	 *
 	 * @param key The key to look up
 	 * @param fetchFn A function that returns a Promise of a Result containing the value
@@ -73,13 +75,27 @@ export class Cache<T extends {}> {
 			return Result.ok(cached.value);
 		}
 
-		const result = await fetchFn();
-
-		if (result.isOk) {
-			this.set(key, result.value);
+		// If there's already a request in flight for this key, return its promise
+		const inFlight = this.inFlightRequests.get(key);
+		if (inFlight) {
+			return inFlight;
 		}
 
-		return result;
+		// Create new request and store it
+		const fetchPromise = fetchFn().then((result) => {
+			// Clean up the in-flight request
+			this.inFlightRequests.delete(key);
+
+			// Cache successful results
+			if (result.isOk) {
+				this.set(key, result.value);
+			}
+
+			return result;
+		});
+
+		this.inFlightRequests.set(key, fetchPromise);
+		return fetchPromise;
 	}
 
 	/**

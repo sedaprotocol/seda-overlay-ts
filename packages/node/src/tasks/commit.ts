@@ -1,7 +1,8 @@
 import { createCommitmentHash, createCommitmentMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
+import type { AlreadyCommitted } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
-import { Result, type Unit } from "true-myth";
+import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
@@ -13,7 +14,7 @@ export async function commitDr(
 	identityPool: IdentityPool,
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
-): Promise<Result<Unit, Error>> {
+): Promise<Result<Buffer, AlreadyCommitted | Error>> {
 	const txKey = `${identityId}_${dataRequest.id}_commit`;
 	const commitmentHash = createCommitmentHash(executionResult.revealBody);
 
@@ -42,5 +43,5 @@ export async function commitDr(
 		return Result.err(commitResponse.error);
 	}
 
-	return Result.ok();
+	return Result.ok(commitmentHash);
 }

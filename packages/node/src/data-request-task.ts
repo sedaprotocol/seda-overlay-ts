@@ -1,5 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { JSONStringify, debouncedInterval, sleep } from "@sedaprotocol/overlay-ts-common";
+import {
+	AlreadyCommitted,
+	AlreadyRevealed,
+	JSONStringify,
+	RevealMismatch,
+	debouncedInterval,
+	sleep,
+} from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -24,9 +31,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	public name: string;
 	private executionResult: Maybe<ExecutionResult> = Maybe.nothing();
 	private refreshDataRequestDataIntervalId: Maybe<Timer> = Maybe.nothing();
-	private executeDrIntervalId: Timer;
+	private executeDrIntervalId: Maybe<Timer> = Maybe.nothing();
 	private lastProcessing: Date = new Date();
 	private isProcessing = false;
+	private commitHash: Buffer = Buffer.alloc(0);
 
 	constructor(
 		private pool: DataRequestPool,
@@ -39,11 +47,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		super();
 
 		this.name = `${drId}_${identityId}`;
-
-		// // TEMP
-		this.executeDrIntervalId = debouncedInterval(async () => {
-			await this.process();
-		}, 1_000);
 	}
 
 	private transitionStatus(toStatus: IdentityDataRequestStatus) {
@@ -58,7 +61,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			Nothing: () => {},
 		});
 
-		clearInterval(this.executeDrIntervalId);
+		this.executeDrIntervalId.match({
+			Just: (id) => clearInterval(id),
+			Nothing: () => {},
+		});
 
 		this.emit("done");
 	}
@@ -70,14 +76,25 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			}, this.appConfig.intervals.statusCheck),
 		);
 
-		this.process();
+		// It seems like doing an interval is much more stable than recursively calling this.process()
+		// Also because it's more friendly with JS event loop
+		this.executeDrIntervalId = Maybe.of(
+			debouncedInterval(async () => {
+				await this.process();
+			}, 100),
+		);
 	}
 
 	async process(): Promise<void> {
 		try {
 			this.lastProcessing = new Date();
 
-			if (this.isProcessing) return;
+			if (this.isProcessing) {
+				logger.debug(`Already processing, skipping while on status: ${this.status}`, {
+					id: this.name,
+				});
+				return;
+			}
 			this.isProcessing = true;
 
 			// Always get the data request from our single source of truth
@@ -214,6 +231,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
+			this.transitionStatus(IdentityDataRequestStatus.EligbleForExecution);
 			return;
 		}
 
@@ -227,12 +245,26 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		);
 
 		if (result.isErr) {
+			if (result.error instanceof AlreadyCommitted) {
+				logger.warn("RPC returned AlreadyCommitted. Moving to next stage with possibility of failing..", {
+					id: this.name,
+				});
+
+				this.transitionStatus(IdentityDataRequestStatus.Committed);
+				return;
+			}
+
+			logger.error(`Failed to commit: ${result.error}`, {
+				id: this.name,
+			});
+
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
 			this.retries += 1;
 			return;
 		}
 
 		this.transitionStatus(IdentityDataRequestStatus.Committed);
+		this.commitHash = result.value;
 		logger.info("📩 Committed", {
 			id: this.name,
 		});
@@ -277,13 +309,19 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		);
 
 		if (result.isErr) {
-			if (result.error.message.includes("AlreadyRevealed")) {
+			if (result.error.error instanceof AlreadyRevealed) {
 				this.transitionStatus(IdentityDataRequestStatus.Revealed);
 
 				logger.warn("Chain responded with AlreadyRevealed, updating inner state to reflect", {
 					id: this.name,
 				});
 				return;
+			}
+
+			if (result.error.error instanceof RevealMismatch) {
+				logger.error(
+					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
+				);
 			}
 
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);

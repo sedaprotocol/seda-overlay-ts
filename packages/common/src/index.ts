@@ -6,3 +6,4 @@ export { SedaChain, type TransactionMessage, waitForSmartContractTransaction } f
 export { keccak256 } from "./services/keccak";
 export { formatTokenUnits, parseTokenUnits } from "./services/tokens";
 export { JSONStringify } from "./services/json";
+export * from "./seda/errors";
