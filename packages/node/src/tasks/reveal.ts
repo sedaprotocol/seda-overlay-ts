@@ -23,8 +23,6 @@ export async function revealDr(
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
 ): Promise<Result<Unit, EnchancedRevealError>> {
-	const txKey = `${identityId}_${dataRequest.id}_reveal`;
-
 	const commitmentHash = createCommitmentHash(executionResult.revealBody);
 	const messageHash = createRevealMessageSignatureHash(
 		dataRequest.id,
@@ -37,7 +35,7 @@ export async function revealDr(
 	const signature = identityPool.sign(identityId, messageHash);
 	if (signature.isErr) return Result.err(new EnchancedRevealError(signature.error, commitmentHash));
 
-	const revealResponse = await waitForSmartContractTransaction(sedaChain, txKey, {
+	const revealResponse = await waitForSmartContractTransaction(sedaChain, {
 		reveal_data_result: {
 			dr_id: dataRequest.id,
 			public_key: identityId,

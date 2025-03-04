@@ -15,7 +15,6 @@ export async function commitDr(
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
 ): Promise<Result<Buffer, DataRequestExpired | AlreadyCommitted | Error>> {
-	const txKey = `${identityId}_${dataRequest.id}_commit`;
 	const commitmentHash = createCommitmentHash(executionResult.revealBody);
 
 	const messageHash = createCommitmentMessageSignatureHash(
@@ -29,7 +28,7 @@ export async function commitDr(
 	const signature = identityPool.sign(identityId, messageHash);
 	if (signature.isErr) return Result.err(signature.error);
 
-	const commitResponse = await waitForSmartContractTransaction(sedaChain, txKey, {
+	const commitResponse = await waitForSmartContractTransaction(sedaChain, {
 		commit_data_result: {
 			dr_id: dataRequest.id,
 			commitment: commitmentHash.toString("hex"),

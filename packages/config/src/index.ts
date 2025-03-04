@@ -1,22 +1,34 @@
-import { readFile } from "node:fs/promises";
+import { exists, readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { tryAsync, trySync } from "@seda-protocol/utils";
 import merge from "lodash.merge";
 import { type Maybe, Result } from "true-myth";
-import { SEDA_CONFIG_PATH } from "./constants";
+import { DEVNET_APP_CONFIG, MAINNET_APP_CONFIG, PLANET_APP_CONFIG, TESTNET_APP_CONFIG } from "./constants";
+import { createAllDataFolders, resolveWithHomeDir } from "./home-dir";
 import { type AppConfig, parseAppConfig } from "./models/app-config";
-
-type DeepPartial<T> = {
-	[P in keyof T]?: DeepPartial<T[P]>;
-};
+import type { DeepPartial } from "./types";
 
 export async function loadConfig(
-	configPath: string,
+	configPath: Maybe<string>,
+	network: string,
+	homeDir: Maybe<string>,
 	overrides: DeepPartial<AppConfig> = {},
 ): Promise<Result<AppConfig, string[]>> {
-	const configFileBuffer = await tryAsync(readFile(configPath));
+	const finalConfigPath = configPath.match({
+		Just: (value) => resolve(value),
+		Nothing: () => resolveWithHomeDir("config.json", network, homeDir),
+	});
+
+	const configFileBuffer = await tryAsync(readFile(finalConfigPath));
 
 	if (configFileBuffer.isErr) {
-		return Result.err([`${configFileBuffer.error} at ${SEDA_CONFIG_PATH}`]);
+		if (configFileBuffer.error.message.includes("ENOENT")) {
+			return Result.err([
+				`Config file not found at ${finalConfigPath}, please set --config, -c or the env variable "SEDA_CONFIG_PATH"`,
+			]);
+		}
+
+		return Result.err([`${configFileBuffer.error} at ${finalConfigPath}`]);
 	}
 
 	const configFile = trySync<unknown>(() => JSON.parse(configFileBuffer.value.toString("utf-8")));
@@ -25,11 +37,52 @@ export async function loadConfig(
 		return Result.err([`${configFile.error}`]);
 	}
 
-	return parseAppConfig(merge(configFile.value, overrides));
+	return parseAppConfig(merge(configFile.value, overrides), network);
 }
 
-export async function createConfig(_configPath: Maybe<string>, _home_dir: Maybe<string>, _network: string) {
+export async function createConfig(
+	configPath: Maybe<string>,
+	homeDir: Maybe<string>,
+	network: "testnet" | "devnet" | "planet" | "mainnet" | string,
+): Promise<Result<string, Error>> {
 	// Just creates a config at a given path. When the file exists it will not override it
+	let config: DeepPartial<AppConfig> = {
+		sedaChain: {
+			rpc: "RPC_HERE",
+			chainId: "seda-1-chainId-here",
+			mnemonic: "YOUR SEDA MNEMONIC HERE",
+		},
+	};
+
+	if (network === "testnet") {
+		config = TESTNET_APP_CONFIG;
+	} else if (network === "devnet") {
+		config = DEVNET_APP_CONFIG;
+	} else if (network === "planet") {
+		config = PLANET_APP_CONFIG;
+	} else if (network === "mainnet") {
+		config = MAINNET_APP_CONFIG;
+	}
+
+	const foldersCreation = await createAllDataFolders(network, homeDir);
+	if (foldersCreation.isErr) return Result.err(foldersCreation.error);
+
+	const finalConfigPath = configPath.match({
+		Just: (value) => resolve(value),
+		Nothing: () => resolveWithHomeDir("config.json", network, homeDir),
+	});
+
+	const fileExists = await tryAsync(exists(finalConfigPath));
+	if (fileExists.isErr) return Result.err(fileExists.error);
+
+	if (fileExists.value) {
+		return Result.err(new Error(`File ${finalConfigPath} already exists`));
+	}
+
+	const writeResult = await tryAsync(writeFile(finalConfigPath, JSON.stringify(config, null, 4)));
+	if (writeResult.isErr) return Result.err(writeResult.error);
+
+	return Result.ok(finalConfigPath);
 }
 
 export type { AppConfig };

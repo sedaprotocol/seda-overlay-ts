@@ -19,6 +19,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
+			network: options.network,
 		});
 
 		const identityId = Maybe.of(config.sedaChain.identityIds.at(Number(index)));
@@ -69,7 +70,6 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 		const proof = prove(privateKey.value, messageHash);
 		const response = await waitForSmartContractTransaction(
 			sedaChain,
-			"stake",
 			{
 				stake: {
 					public_key: identityId.value,

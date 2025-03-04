@@ -1,14 +1,13 @@
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
 import { tryParseSync } from "@seda-protocol/utils";
-import { Result } from "true-myth";
+import { Maybe, Result } from "true-myth";
 import * as v from "valibot";
+import { createAllDataFolders } from "../home-dir";
 import { IntervalsConfigSchema } from "./intervals-config";
 import { NodeConfigSchema } from "./node-config";
 import { type SedaChainConfig, SedaChainConfigSchema, createSedaChainConfig } from "./seda-chain-config";
 
 export const AppConfigSchema = v.object({
-	homeDir: v.optional(v.string(), "./.seda/planet/"),
+	homeDir: v.optional(v.string()),
 	node: v.optional(NodeConfigSchema, {}),
 	sedaChain: SedaChainConfigSchema,
 	intervals: v.optional(IntervalsConfigSchema, {}),
@@ -19,7 +18,7 @@ export interface AppConfig extends v.InferOutput<typeof AppConfigSchema> {
 	wasmCacheDir: string;
 }
 
-export async function parseAppConfig(input: unknown): Promise<Result<AppConfig, string[]>> {
+export async function parseAppConfig(input: unknown, network: string): Promise<Result<AppConfig, string[]>> {
 	const config = tryParseSync(AppConfigSchema, input, {
 		abortEarly: false,
 	});
@@ -34,14 +33,17 @@ export async function parseAppConfig(input: unknown): Promise<Result<AppConfig, 
 		return Result.err(messages);
 	}
 
-	const homeDirPath = resolve(config.value.homeDir);
-	const wasmCacheDirPath = resolve(homeDirPath, "wasm_cache");
-	await mkdir(wasmCacheDirPath, { recursive: true });
+	const dataDirPaths = await createAllDataFolders(network, Maybe.of(config.value.homeDir));
+	if (dataDirPaths.isErr) return Result.err([dataDirPaths.error.message]);
+
+	const sedaChainConfig = createSedaChainConfig(config.value.sedaChain);
+	if (sedaChainConfig.isErr) {
+		return Result.err([sedaChainConfig.error.message]);
+	}
 
 	return Result.ok({
 		...config.value,
-		homeDir: homeDirPath,
-		wasmCacheDir: wasmCacheDirPath,
-		sedaChain: createSedaChainConfig(config.value.sedaChain),
+		wasmCacheDir: dataDirPaths.value.wasmCacheDir,
+		sedaChain: sedaChainConfig.value,
 	});
 }

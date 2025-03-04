@@ -88,17 +88,19 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			if (!identityInfo.enabled) continue;
 
 			eligibilityChecks.push(
-				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress).then((response) => {
-					if (response.eligible) {
-						this.pool.insertIdentityDataRequest(
-							dataRequest.id,
-							response.identityId,
-							Maybe.nothing(),
-							IdentityDataRequestStatus.EligbleForExecution,
-						);
-						this.emit("eligible", dataRequest.id, response.identityId);
-					}
-				}),
+				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress).then(
+					(response) => {
+						if (response.eligible) {
+							this.pool.insertIdentityDataRequest(
+								dataRequest.id,
+								response.identityId,
+								Maybe.nothing(),
+								IdentityDataRequestStatus.EligbleForExecution,
+							);
+							this.emit("eligible", dataRequest.id, response.identityId);
+						}
+					},
+				),
 			);
 		}
 

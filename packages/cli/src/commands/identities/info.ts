@@ -19,6 +19,7 @@ export const info = populateWithCommonOptions(new Command("info"))
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
+			network: options.network,
 		});
 
 		const stakingConfig = await sedaChain.queryContractSmart<StakingConfig>({

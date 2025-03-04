@@ -84,7 +84,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 
 	async queueSmartContractMessage(
-		id: string,
 		executeMsg: ExecuteMsg,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
@@ -210,24 +209,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 }
 
-// const waitingHandlers = new Set<string>();
-// let hack: SedaChain | undefined = undefined;
-
-// setInterval(() => {
-// 	if (hack) {
-// 		console.log("[DEBUG]: hack.inflight ::: ", hack.inflight);
-// 	}
-
-// 	// The bug is that some of the events are never triggered..
-// 	// Maybe we should remove the bundling of transactions (or put it behind a flag)
-// 	console.log("[DEBUG]: waitingHandlers ::: ", waitingHandlers);
-// }, 3000);
-
-let nonce = 0n;
-
 export function waitForSmartContractTransaction(
 	sedaChain: SedaChain,
-	id: string,
 	executeMsg: ExecuteMsg,
 	attachedAttoSeda?: bigint,
 	gasOptions?: GasOptions,
@@ -236,13 +219,7 @@ export function waitForSmartContractTransaction(
 	// hack = sedaChain;
 
 	return new Promise(async (resolve) => {
-		nonce += 1n;
-		const transactionHash = await sedaChain.queueSmartContractMessage(
-			nonce.toString(),
-			executeMsg,
-			attachedAttoSeda,
-			gasOptions,
-		);
+		const transactionHash = await sedaChain.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
 
 		if (transactionHash.isErr) {
 			resolve(Result.err(transactionHash.error));
