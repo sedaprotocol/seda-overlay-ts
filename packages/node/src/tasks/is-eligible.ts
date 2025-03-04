@@ -18,6 +18,7 @@ type EventMap = {
 
 export class EligibilityTask extends EventEmitter<EventMap> {
 	private intervalId: Timer;
+	private isProcessing = false;
 
 	constructor(
 		private pool: DataRequestPool,
@@ -75,7 +76,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 	async checkEligibility(dataRequest: DataRequest) {
 		const coreContractAddress = await this.sedaChain.getCoreContractAddress();
 		// We check in parallel to speed things up
-		const eligibilityChecks: Promise<{ identityId: string; eligible: boolean }>[] = [];
+		const eligibilityChecks: Promise<void>[] = [];
 
 		for (const identityInfo of this.identities.all()) {
 			// We already create an instance for this, no need to check eligibility
@@ -87,26 +88,27 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			if (!identityInfo.enabled) continue;
 
 			eligibilityChecks.push(
-				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress),
+				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress).then((response) => {
+					if (response.eligible) {
+						this.pool.insertIdentityDataRequest(
+							dataRequest.id,
+							response.identityId,
+							Maybe.nothing(),
+							IdentityDataRequestStatus.EligbleForExecution,
+						);
+						this.emit("eligible", dataRequest.id, response.identityId);
+					}
+				}),
 			);
 		}
 
-		const responses = await Promise.all(eligibilityChecks);
-
-		for (const response of responses) {
-			if (response.eligible) {
-				this.pool.insertIdentityDataRequest(
-					dataRequest.id,
-					response.identityId,
-					Maybe.nothing(),
-					IdentityDataRequestStatus.EligbleForExecution,
-				);
-				this.emit("eligible", dataRequest.id, response.identityId);
-			}
-		}
+		await Promise.all(eligibilityChecks);
 	}
 
 	async process() {
+		if (this.isProcessing) return;
+		this.isProcessing = true;
+
 		const promises = [];
 
 		for (const dataRequest of this.pool.allDataRequests()) {
@@ -114,5 +116,6 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		}
 
 		await Promise.all(promises);
+		this.isProcessing = false;
 	}
 }

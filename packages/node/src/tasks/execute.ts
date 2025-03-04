@@ -24,7 +24,7 @@ export function createVmResultError(error: Error): VmResultOverlay {
 	};
 }
 
-const executionResultCache = new Cache<VmResultOverlay>(7_000);
+const executionResultCache = new Cache<VmResultOverlay>(1360_000);
 
 export async function executeDataRequest(
 	identityPrivateKey: Buffer,

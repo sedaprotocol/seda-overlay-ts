@@ -51,16 +51,14 @@ export class MainTask {
 	}
 
 	async start() {
-		// There only should be a few tickers, since these tasks are polling the network for status changes
 		await this.identityManagerTask.start();
 		this.fetchTask.start();
 
-		this.fetchTask.on("data-request", (dataRequest) => {
-			this.elgibilityTask.checkEligibility(dataRequest);
+		this.fetchTask.on("data-request", (_dataRequest) => {
+			this.elgibilityTask.process();
 		});
 
 		this.elgibilityTask.on("eligible", (drId, identityId) => {
-			// TODO: High chance this is not going well. Maybe instead of an array we should use a map?
 			const drTask = new DataRequestTask(this.pool, this.identityPool, this.config, this.sedaChain, drId, identityId);
 			this.dataRequestsToProcess.push(drTask);
 			this.processNextDr();

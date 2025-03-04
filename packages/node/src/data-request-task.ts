@@ -36,6 +36,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private lastProcessing: Date = new Date();
 	private isProcessing = false;
 	private commitHash: Buffer = Buffer.alloc(0);
+	private salt = randomBytes(32).toString("hex");
 
 	constructor(
 		private pool: DataRequestPool,
@@ -215,7 +216,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				id: this.drId,
 				proxy_public_keys: vmResult.value.usedProxyPublicKeys,
 				reveal: Buffer.from(vmResult.value.result ?? []),
-				salt: randomBytes(32).toString("hex"),
+				salt: this.salt,
 			},
 		});
 
@@ -256,7 +257,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			}
 
 			if (result.error instanceof DataRequestExpired) {
-				logger.warn('Data request was expired', {
+				logger.warn("Data request was expired", {
 					id: this.name,
 				});
 				this.stop();
@@ -334,7 +335,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			}
 
 			if (result.error instanceof DataRequestExpired) {
-				logger.warn('Data request was expired', {
+				logger.warn("Data request was expired", {
 					id: this.name,
 				});
 				this.stop();

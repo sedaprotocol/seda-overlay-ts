@@ -96,7 +96,7 @@ class SedaHttpClient extends HttpClient {
 			headers.Cookies = this.cookies.value;
 		}
 
-		const res = await Bun.fetch(this.url, {
+		const res = await fetch(this.url, {
 			credentials: "include",
 			method: "POST",
 			body: request ? JSON.stringify(request) : undefined,

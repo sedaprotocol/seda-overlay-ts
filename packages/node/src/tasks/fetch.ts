@@ -42,6 +42,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 			this.offset = this.offset + LIMIT;
 		}
 
+		const newDataRequests: DataRequest[] = [];
 		for (const dataRequest of result.value) {
 			if (this.pool.hasDataRequest(dataRequest.id)) {
 				// Always update the pool
@@ -56,6 +57,11 @@ export class FetchTask extends EventEmitter<EventMap> {
 			});
 
 			this.pool.insertDataRequest(dataRequest);
+			newDataRequests.push(dataRequest);
+		}
+
+		// Emit data requests sequentially after they are added to the pool to ensure a single process() call handles them
+		for (const dataRequest of newDataRequests) {
 			this.emit("data-request", dataRequest);
 		}
 

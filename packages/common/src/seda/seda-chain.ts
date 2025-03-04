@@ -9,7 +9,13 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
-import { AlreadyCommitted, AlreadyRevealed, DataRequestExpired, IncorrectAccountSquence, RevealMismatch } from "./errors";
+import {
+	AlreadyCommitted,
+	AlreadyRevealed,
+	DataRequestExpired,
+	IncorrectAccountSquence,
+	RevealMismatch,
+} from "./errors";
 import { DEFAULT_GAS, type GasOptions } from "./gas-options";
 import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
@@ -247,7 +253,9 @@ export function waitForSmartContractTransaction(
 			const transactionResult = await sedaChain.getTransaction(transactionHash.value);
 
 			if (transactionResult.isErr) {
-				logger.error(`Transaction could not be received: ${transactionResult.error}`);
+				logger.error(`Transaction could not be received: ${transactionResult.error}`, {
+					id: transactionHash.value,
+				});
 
 				if (AlreadyCommitted.isError(transactionResult.error)) {
 					clearInterval(checkTransactionInterval);
