@@ -32,8 +32,7 @@ export class MainTask {
 		this.identityManagerTask = new IdentityManagerTask(this.identityPool, config, sedaChain);
 		this.elgibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
 
-		// TODO: Make this configurable
-		setInterval(() => this.processNextDr(), 2500);
+		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);
 	}
 
 	private processNextDr() {

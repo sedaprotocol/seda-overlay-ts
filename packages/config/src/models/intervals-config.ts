@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import {
+	DEFAULT_DR_TASK_INTERVAL,
 	DEFAULT_ELIGIBILITY_CHECK_INTERVAL,
 	DEFAULT_FETCH_TASK_INTERVAL,
 	DEFAULT_IDENTITY_CHECK_INTERVAL,
@@ -11,6 +12,7 @@ export const IntervalsConfigSchema = v.object({
 	identityCheck: v.optional(v.number(), DEFAULT_IDENTITY_CHECK_INTERVAL),
 	statusCheck: v.optional(v.number(), DEFAULT_STATUS_CHECK_INTERVAL),
 	eligibilityCheck: v.optional(v.number(), DEFAULT_ELIGIBILITY_CHECK_INTERVAL),
+	drTask: v.optional(v.number(), DEFAULT_DR_TASK_INTERVAL),
 });
 
 export type IntervalsConfig = v.InferOutput<typeof IntervalsConfigSchema>;

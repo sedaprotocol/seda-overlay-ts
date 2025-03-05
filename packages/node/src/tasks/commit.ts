@@ -1,5 +1,5 @@
 import { createCommitmentHash, createCommitmentMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Result } from "true-myth";
@@ -28,7 +28,7 @@ export async function commitDr(
 	const signature = identityPool.sign(identityId, messageHash);
 	if (signature.isErr) return Result.err(signature.error);
 
-	const commitResponse = await waitForSmartContractTransaction(sedaChain, {
+	const commitResponse = await sedaChain.waitForSmartContractTransaction({
 		commit_data_result: {
 			dr_id: dataRequest.id,
 			commitment: commitmentHash.toString("hex"),

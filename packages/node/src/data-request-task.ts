@@ -82,8 +82,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.executeDrIntervalId = Maybe.of(
 			debouncedInterval(async () => {
 				await this.process();
-				// TODO: Make configurable
-			}, 100),
+			}, this.appConfig.intervals.drTask),
 		);
 	}
 

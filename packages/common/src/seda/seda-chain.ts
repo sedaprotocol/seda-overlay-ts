@@ -22,8 +22,6 @@ import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
 import { type ISigner, Signer } from "./signer";
 import { type SedaSigningCosmWasmClient, createSigningClient } from "./signing-client";
 
-const QUEUE_INTERVAL = 200;
-
 type EventMap = {
 	"tx-error": [string, TransactionMessage | undefined];
 	"tx-success": [TransactionMessage, IndexedTx];
@@ -47,6 +45,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 		private signerClient: SedaSigningCosmWasmClient,
 		private protoClient: ProtobufRpcClient,
 		private wasmStorageQueryClient: sedachain.wasm_storage.v1.QueryClientImpl,
+		private config: AppConfig,
 	) {
 		super();
 	}
@@ -144,7 +143,13 @@ export class SedaChain extends EventEmitter<EventMap> {
 			},
 		};
 
-		const result = await signAndSendTxSync(this.signerClient, this.signer.getAddress(), [message], gasOptions);
+		const result = await signAndSendTxSync(
+			this.config.sedaChain,
+			this.signerClient,
+			this.signer.getAddress(),
+			[message],
+			gasOptions,
+		);
 		return result;
 	}
 
@@ -160,7 +165,13 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		const cosmosMessage = txMessage.value.message;
 		const gasOption = txMessage.value.gasOptions ?? { gas: DEFAULT_GAS };
-		const result = await signAndSendTxSync(this.signerClient, this.signer.getAddress(), [cosmosMessage], gasOption);
+		const result = await signAndSendTxSync(
+			this.config.sedaChain,
+			this.signerClient,
+			this.signer.getAddress(),
+			[cosmosMessage],
+			gasOption,
+		);
 
 		if (result.isErr) {
 			if (result.error instanceof IncorrectAccountSquence) {
@@ -192,7 +203,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		this.intervalId = debouncedInterval(async () => {
 			await this.processQueue();
-		}, QUEUE_INTERVAL);
+		}, this.config.sedaChain.queueInterval);
 	}
 
 	static async fromConfig(config: AppConfig, cacheSequenceNumber = true): Promise<Result<SedaChain, unknown>> {
@@ -205,72 +216,67 @@ export class SedaChain extends EventEmitter<EventMap> {
 			return Result.err(signingClient.error);
 		}
 
-		return Result.ok(new SedaChain(signer, signingClient.value.client, protoClient, wasmStorageClient));
+		return Result.ok(new SedaChain(signer, signingClient.value.client, protoClient, wasmStorageClient, config));
 	}
-}
 
-export function waitForSmartContractTransaction(
-	sedaChain: SedaChain,
-	executeMsg: ExecuteMsg,
-	attachedAttoSeda?: bigint,
-	gasOptions?: GasOptions,
-): Promise<Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | Error>> {
-	// waitingHandlers.add(id);
-	// hack = sedaChain;
+	async waitForSmartContractTransaction(
+		executeMsg: ExecuteMsg,
+		attachedAttoSeda?: bigint,
+		gasOptions?: GasOptions,
+	): Promise<Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | Error>> {
+		return new Promise(async (resolve) => {
+			const transactionHash = await this.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
 
-	return new Promise(async (resolve) => {
-		const transactionHash = await sedaChain.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
-
-		if (transactionHash.isErr) {
-			resolve(Result.err(transactionHash.error));
-			return;
-		}
-
-		const checkTransactionInterval = debouncedInterval(async () => {
-			const transactionResult = await sedaChain.getTransaction(transactionHash.value);
-
-			if (transactionResult.isErr) {
-				logger.error(`Transaction could not be received: ${transactionResult.error}`, {
-					id: transactionHash.value,
-				});
-
-				if (AlreadyCommitted.isError(transactionResult.error)) {
-					clearInterval(checkTransactionInterval);
-					resolve(Result.err(new AlreadyCommitted(transactionResult.error.message)));
-				}
-
-				if (RevealMismatch.isError(transactionResult.error)) {
-					clearInterval(checkTransactionInterval);
-					resolve(Result.err(new RevealMismatch(transactionResult.error.message)));
-				}
-
-				if (AlreadyRevealed.isError(transactionResult.error)) {
-					clearInterval(checkTransactionInterval);
-					resolve(Result.err(new AlreadyRevealed(transactionResult.error.message)));
-				}
-
-				if (DataRequestExpired.isError(transactionResult.error)) {
-					clearInterval(checkTransactionInterval);
-					resolve(Result.err(new DataRequestExpired(transactionResult.error.message)));
-				}
-
+			if (transactionHash.isErr) {
+				resolve(Result.err(transactionHash.error));
 				return;
 			}
 
-			if (transactionResult.value.isNothing) {
-				logger.debug("No tx result found yet", {
+			const checkTransactionInterval = debouncedInterval(async () => {
+				const transactionResult = await this.getTransaction(transactionHash.value);
+
+				if (transactionResult.isErr) {
+					logger.error(`Transaction could not be received: ${transactionResult.error}`, {
+						id: transactionHash.value,
+					});
+
+					if (AlreadyCommitted.isError(transactionResult.error)) {
+						clearInterval(checkTransactionInterval);
+						resolve(Result.err(new AlreadyCommitted(transactionResult.error.message)));
+					}
+
+					if (RevealMismatch.isError(transactionResult.error)) {
+						clearInterval(checkTransactionInterval);
+						resolve(Result.err(new RevealMismatch(transactionResult.error.message)));
+					}
+
+					if (AlreadyRevealed.isError(transactionResult.error)) {
+						clearInterval(checkTransactionInterval);
+						resolve(Result.err(new AlreadyRevealed(transactionResult.error.message)));
+					}
+
+					if (DataRequestExpired.isError(transactionResult.error)) {
+						clearInterval(checkTransactionInterval);
+						resolve(Result.err(new DataRequestExpired(transactionResult.error.message)));
+					}
+
+					return;
+				}
+
+				if (transactionResult.value.isNothing) {
+					logger.debug("No tx result found yet", {
+						id: transactionHash.value,
+					});
+					return;
+				}
+
+				logger.debug("Tx result found", {
 					id: transactionHash.value,
 				});
-				return;
-			}
 
-			logger.debug("Tx result found", {
-				id: transactionHash.value,
-			});
-
-			clearInterval(checkTransactionInterval);
-			resolve(Result.ok(transactionResult.value.value));
-			// TODO: Make this configurable
-		}, 2000);
-	});
+				clearInterval(checkTransactionInterval);
+				resolve(Result.ok(transactionResult.value.value));
+			}, this.config.sedaChain.transactionPollInterval);
+		});
+	}
 }

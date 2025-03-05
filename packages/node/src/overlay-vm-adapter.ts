@@ -12,6 +12,7 @@ import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import isLocalhostIp from "is-localhost-ip";
 import { Maybe, Result } from "true-myth";
 import { createProxyHttpProof, verifyProxyHttpResponse } from "./services/proxy-http";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 
 type Options = {
 	dataRequestId: string;
@@ -19,6 +20,7 @@ type Options = {
 	chainId: string;
 	identityPrivateKey: Buffer;
 	gasPrice: bigint;
+    appConfig: AppConfig;
 };
 
 export class OverlayVmAdapter extends DataRequestVmAdapter {
@@ -35,9 +37,10 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 	}
 
 	async httpFetch(action: HttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
-		const isLocalIp = await isLocalhostIp(action.url);
+		const url = new URL(action.url);
+		const isLocalIp = await isLocalhostIp(url.hostname);
 
-		if (isLocalIp) {
+        if (isLocalIp && this.options.appConfig.node.blockLocalhost) {
 			return HttpFetchResponse.createRejectedPromise(`${action.url} is not allowed`);
 		}
 
@@ -59,11 +62,15 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		if (httpFetchResult.isErr) return Result.err(httpFetchResult.error);
 		const httpResponse = HttpFetchResponse.fromPromise(httpFetchResult.value);
 
+		if (httpResponse.data.status === 0) {
+			return Result.err(new Error(Buffer.from(httpResponse.data.bytes).toString()));
+		}
+
 		const publicKey = Maybe.of(httpResponse.data.headers["x-seda-publickey"]);
 		if (publicKey.isNothing) {
 			return Result.err(
 				new Error(
-					`Header x-seda-publickey was missing in the response headers \n response: ${Buffer.from(httpResponse.toBuffer()).toString()}`,
+					`Header x-seda-publickey was missing in the response headers \n response: ${Buffer.from(httpResponse.data.bytes).toString()}`,
 				),
 			);
 		}

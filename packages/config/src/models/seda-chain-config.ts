@@ -3,7 +3,14 @@ import { strip0x } from "@sedaprotocol/overlay-ts-common";
 import { HDNodeWallet, Mnemonic } from "ethers";
 import { Result } from "true-myth";
 import * as v from "valibot";
-import { DEFAULT_IDENTITIES_AMOUNT, DEFAULT_MAX_RETRIES, DEFAULT_SLEEP_BETWEEN_FAILED_TX } from "../constants";
+import {
+	DEFAULT_IDENTITIES_AMOUNT,
+	DEFAULT_MAX_RETRIES,
+	DEFAULT_QUEUE_INTERVAL,
+	DEFAULT_SLEEP_BETWEEN_FAILED_TX,
+	DEFAULT_TRANSACTION_POLL_INTERVAL,
+	DEFAULT_ZERO_FEE_GAS,
+} from "../constants";
 
 export const SedaChainConfigSchema = v.object({
 	rpc: v.string(),
@@ -13,6 +20,9 @@ export const SedaChainConfigSchema = v.object({
 	identitiesAmount: v.optional(v.number(), DEFAULT_IDENTITIES_AMOUNT),
 	maxRetries: v.optional(v.number(), DEFAULT_MAX_RETRIES),
 	sleepBetweenFailedTx: v.optional(v.number(), DEFAULT_SLEEP_BETWEEN_FAILED_TX),
+	transactionPollInterval: v.optional(v.number(), DEFAULT_TRANSACTION_POLL_INTERVAL),
+	queueInterval: v.optional(v.number(), DEFAULT_QUEUE_INTERVAL),
+	zeroFeeGas: v.optional(v.bigint(), DEFAULT_ZERO_FEE_GAS),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

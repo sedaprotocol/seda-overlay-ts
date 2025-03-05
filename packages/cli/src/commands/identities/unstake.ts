@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createUnstakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits, parseTokenUnits, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { prove } from "vrf-ts";
@@ -63,8 +63,7 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		const proof = prove(privateKey.value, messageHash);
 		logger.info("Unstaking..");
-		const response = await waitForSmartContractTransaction(
-			sedaChain,
+		const response = await sedaChain.waitForSmartContractTransaction(
 			{
 				unstake: {
 					amount: sedaToUnstakeInAttoSeda.toString(),

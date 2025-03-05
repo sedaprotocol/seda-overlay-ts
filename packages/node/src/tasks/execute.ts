@@ -54,6 +54,7 @@ export async function executeDataRequest(
 				dataRequestId: dataRequest.id,
 				gasPrice: dataRequest.gasPrice,
 				identityPrivateKey,
+				appConfig,
 			},
 			sedaChain,
 		);

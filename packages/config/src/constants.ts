@@ -9,10 +9,16 @@ export const DEFAULT_SLEEP_BETWEEN_FAILED_TX = 3_000; // 5 seconds in millisecon
 export const DEFAULT_MAX_RETRIES = 3; // Add default retry limit
 export const DEFAULT_STATUS_CHECK_INTERVAL = 5_000; // 5 seconds in milliseconds
 export const DEFAULT_ELIGIBILITY_CHECK_INTERVAL = 3000; // 3 seconds in milliseconds
+export const DEFAULT_PROCESS_DR_INTERVAL = 2500;
+export const DEFAULT_TRANSACTION_POLL_INTERVAL = 2000; // Renamed from CHAIN_POLL_INTERVAL
+export const DEFAULT_DR_TASK_INTERVAL = 100; // Add this line
 export const DEFAULT_MAX_CONCURRENT_REQUESTS = Number.MAX_SAFE_INTEGER;
 export const DEFAULT_MAX_GAS_LIMIT = 300_000_000_000_000n; // 300 Tgas (in gas units)
 export const DEFAULT_MAX_VM_RESULT_SIZE_BYTES = 96000; // 96KB
 export const DEFAULT_MAX_VM_LOGS_SIZE_BYTES = 32768; // 32KB
+export const DEFAULT_ZERO_FEE_GAS = 500000n; // Add this line for zero fee gas default
+export const DEFAULT_QUEUE_INTERVAL = 200; // Add this line for queue processing interval
+export const DEFAULT_BLOCK_LOCALHOST = true; // Add this line for localhost blocking default
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

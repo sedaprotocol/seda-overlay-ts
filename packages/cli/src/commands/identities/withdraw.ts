@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema/src/identity";
-import { formatTokenUnits, parseTokenUnits, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { prove } from "vrf-ts";
@@ -75,8 +75,7 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 		const proof = prove(privateKey.value, messageHash);
 		logger.info(`Withdrawing ${amount} SEDA..`);
 
-		const response = await waitForSmartContractTransaction(
-			sedaChain,
+		const response = await sedaChain.waitForSmartContractTransaction(
 			{
 				withdraw: {
 					amount: amountInAttoSeda.toString(),

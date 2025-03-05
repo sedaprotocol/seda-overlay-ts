@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createStakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits, parseTokenUnits, waitForSmartContractTransaction } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { prove } from "vrf-ts";
@@ -68,8 +68,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 		logger.info(`Staking on identity ${identityId.value} with ${amount} SEDA (or ${attoSedaAmount} aSEDA)`);
 
 		const proof = prove(privateKey.value, messageHash);
-		const response = await waitForSmartContractTransaction(
-			sedaChain,
+		const response = await sedaChain.waitForSmartContractTransaction(
 			{
 				stake: {
 					public_key: identityId.value,
