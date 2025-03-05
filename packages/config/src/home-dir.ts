@@ -53,6 +53,6 @@ export async function createAllDataFolders(
 	return Result.ok({
 		dataDir: dataDirPath,
 		wasmCacheDir: wasmCacheDirPath,
-		logsDir: logsDirPath
+		logsDir: logsDirPath,
 	});
 }

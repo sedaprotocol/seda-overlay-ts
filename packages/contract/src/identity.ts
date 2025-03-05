@@ -22,3 +22,31 @@ export function createStakeMessageSignatureHash(
 		Buffer.concat([Buffer.from("stake"), memoHash, Buffer.from(chainId), Buffer.from(contractAddr), sequenceBytes]),
 	);
 }
+
+export function createUnstakeMessageSignatureHash(
+	amount: bigint,
+	chainId: string,
+	contractAddr: string,
+	sequence: bigint,
+): Buffer {
+	// Convert amount to 16 bytes (128 bits) in big-endian format
+	const amountBytes = Buffer.alloc(16);
+	amountBytes.writeBigUInt64BE(amount >> 64n, 0);
+	amountBytes.writeBigUInt64BE(amount & ((1n << 64n) - 1n), 8);
+
+	// Convert sequence to 16 bytes (128 bits) in big-endian format
+	const sequenceBytes = Buffer.alloc(16);
+	sequenceBytes.writeBigUInt64BE(sequence >> 64n, 0);
+	sequenceBytes.writeBigUInt64BE(sequence & ((1n << 64n) - 1n), 8);
+
+	// Concatenate all components in the same order as Rust implementation
+	return keccak256(
+		Buffer.concat([
+			Buffer.from("unstake"),
+			amountBytes,
+			Buffer.from(chainId),
+			Buffer.from(contractAddr),
+			sequenceBytes,
+		]),
+	);
+}
