@@ -38,7 +38,6 @@ export async function commitDr(
 	});
 
 	if (commitResponse.isErr) {
-		// TODO: Handle all different types of errors (already committed, in reveal stage etc)
 		return Result.err(commitResponse.error);
 	}
 

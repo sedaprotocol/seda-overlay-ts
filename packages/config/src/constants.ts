@@ -11,6 +11,8 @@ export const DEFAULT_STATUS_CHECK_INTERVAL = 5_000; // 5 seconds in milliseconds
 export const DEFAULT_ELIGIBILITY_CHECK_INTERVAL = 3000; // 3 seconds in milliseconds
 export const DEFAULT_MAX_CONCURRENT_REQUESTS = Number.MAX_SAFE_INTEGER;
 export const DEFAULT_MAX_GAS_LIMIT = 300_000_000_000_000n; // 300 Tgas (in gas units)
+export const DEFAULT_MAX_VM_RESULT_SIZE_BYTES = 96000; // 96KB
+export const DEFAULT_MAX_VM_LOGS_SIZE_BYTES = 32768; // 32KB
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

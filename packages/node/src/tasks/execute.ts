@@ -81,7 +81,23 @@ export async function executeDataRequest(
 			vmAdapter,
 		);
 
-		// TODO: Check the max bytes of an execution result
+		// Check result size against config limit
+		const resultSize = result.result?.byteLength ?? 0;
+		if (resultSize > appConfig.node.maxVmResultSizeBytes) {
+			return Result.err(
+				new Error(
+					`Result size (${resultSize} bytes) exceeds maximum allowed size (${appConfig.node.maxVmResultSizeBytes} bytes)`,
+				),
+			);
+		}
+
+		// Check logs size against config limit
+		const logsSize = Buffer.from(result.stdout).length + Buffer.from(result.stderr).length;
+		if (logsSize > appConfig.node.maxVmLogsSizeBytes) {
+			const warning = `[WARNING] Logs size (${logsSize} bytes) exceeded maximum allowed size (${appConfig.node.maxVmLogsSizeBytes} bytes). Logs were removed.`;
+			result.stdout = "";
+			result.stderr = warning;
+		}
 
 		return Result.ok({
 			...result,
