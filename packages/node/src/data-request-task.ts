@@ -33,7 +33,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private executionResult: Maybe<ExecutionResult> = Maybe.nothing();
 	private refreshDataRequestDataIntervalId: Maybe<Timer> = Maybe.nothing();
 	private executeDrIntervalId: Maybe<Timer> = Maybe.nothing();
-	private lastProcessing: Date = new Date();
 	private isProcessing = false;
 	private commitHash: Buffer = Buffer.alloc(0);
 	private salt = randomBytes(32).toString("hex");
@@ -83,14 +82,13 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.executeDrIntervalId = Maybe.of(
 			debouncedInterval(async () => {
 				await this.process();
+				// TODO: Make configurable
 			}, 100),
 		);
 	}
 
 	async process(): Promise<void> {
 		try {
-			this.lastProcessing = new Date();
-
 			if (this.isProcessing) {
 				logger.debug(`Already processing, skipping while on status: ${this.status}`, {
 					id: this.name,

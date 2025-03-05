@@ -1,8 +1,8 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { populateWithCommonOptions } from "../../common-options";
 
-export const unstake = populateWithCommonOptions(new Command("stake"))
-	.description("stakes on a certain identity")
+export const unstake = populateWithCommonOptions(new Command("unstake"))
+	.description("Unstakes from a certain identity")
 	.argument("<number>", "Identity index to use for staking")
 	.argument("<number>", "Amount to stake (a floating point number in `seda` units)")
 	.addOption(new Option("--memo <string>", "memo to add to the transaction"))

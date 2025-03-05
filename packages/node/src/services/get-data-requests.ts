@@ -26,6 +26,7 @@ export async function getDataRequests(
 	return Result.ok(dataRequests);
 }
 
+// TODO: Make configurable
 // Create a cache instance for data requests
 const dataRequestCache = new Cache<DataRequest>(3_000);
 

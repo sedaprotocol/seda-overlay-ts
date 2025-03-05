@@ -270,49 +270,7 @@ export function waitForSmartContractTransaction(
 
 			clearInterval(checkTransactionInterval);
 			resolve(Result.ok(transactionResult.value.value));
+			// TODO: Make this configurable
 		}, 2000);
-		// Add timeout handling
-		// const timeout = setTimeout(() => {
-		// 	removeListeners();
-		// 	resolve(Result.err(new Error(`Transaction ${id} timed out after 1 minute`)));
-		// }, 60_000);
-
-		// function onTxSuccess(txMessage: TransactionMessage, response: IndexedTx) {
-		// 	if (txMessage.id !== id) {
-		// 		return;
-		// 	}
-
-		// 	clearTimeout(timeout);
-		// 	removeListeners();
-		// 	resolve(Result.ok(response));
-		// }
-
-		// function onTxError(error: string, txMessage: TransactionMessage | undefined) {
-		// 	// Remove the txMessage check - handle all errors for this ID
-		// 	if (txMessage && txMessage.id !== id) {
-		// 		return;
-		// 	}
-
-		// 	clearTimeout(timeout);
-		// 	removeListeners();
-		// 	resolve(Result.err(new Error(error)));
-		// }
-
-		// function removeListeners() {
-		// 	sedaChain.off("tx-success", onTxSuccess);
-		// 	sedaChain.off("tx-error", onTxError);
-		// 	waitingHandlers.delete(id);
-		// }
-
-		// sedaChain.on("tx-success", onTxSuccess);
-		// sedaChain.on("tx-error", onTxError);
-
-		// try {
-		// 	await sedaChain.queueSmartContractMessage(id, executeMsg, attachedAttoSeda, gasOptions);
-		// } catch (error) {
-		// 	clearTimeout(timeout);
-		// 	removeListeners();
-		// 	resolve(Result.err(error instanceof Error ? error : new Error(String(error))));
-		// }
 	});
 }
