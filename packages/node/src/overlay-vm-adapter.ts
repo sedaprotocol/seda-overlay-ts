@@ -1,9 +1,11 @@
 import { sedachain } from "@seda-protocol/proto-messages";
 import { tryAsync } from "@seda-protocol/utils";
+import isLocalhostIp from "is-localhost-ip";
 import {
 	DataRequestVmAdapter,
 	HttpFetchMethod,
 	HttpFetchResponse,
+	type HttpFetchAction,
 	type PromiseStatus,
 	type ProxyHttpFetchAction,
 } from "@seda-protocol/vm";
@@ -31,6 +33,16 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 
 		this.dataProxyRpcQueryClient = new sedachain.data_proxy.v1.QueryClientImpl(sedaChain.getProtobufRpcClient());
 	}
+
+    async httpFetch(action: HttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
+        const isLocalIp = await isLocalhostIp(action.url);
+
+        if (isLocalIp) {
+            return HttpFetchResponse.createRejectedPromise(`${action.url} is not allowed`);
+        }
+
+        return super.httpFetch(action);
+    }
 
 	async getProxyHttpFetchGasCost(action: ProxyHttpFetchAction): Promise<Result<bigint, Error>> {
 		const clonedAction = structuredClone(action);
