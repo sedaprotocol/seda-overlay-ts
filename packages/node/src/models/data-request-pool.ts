@@ -59,6 +59,10 @@ export class DataRequestPool {
 		});
 	}
 
+	deleteIdentityDataRequest(drId: DataRequestId, identityId: string) {
+		this.identityDataRequests.delete(DataRequestPool.createIdentityDrKey(drId, identityId));
+	}
+
 	allDataRequests() {
 		return this.items.values();
 	}

@@ -67,6 +67,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			Nothing: () => {},
 		});
 
+		// We only delete the identity, since we cannot be sure that the data request is still being used somewhere else
+		this.pool.deleteIdentityDataRequest(this.drId, this.identityId);
+
 		this.emit("done");
 	}
 

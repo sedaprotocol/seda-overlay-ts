@@ -37,7 +37,7 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 	}
 
 	async httpFetch(action: HttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
-		const url = trySync(() => new URL("0"));
+		const url = trySync(() => new URL(action.url));
 		if (url.isErr) return HttpFetchResponse.createRejectedPromise(`${action.url} is not a valid URL`);
 
 		const isLocalIp = await isLocalhostIp(url.value.hostname);

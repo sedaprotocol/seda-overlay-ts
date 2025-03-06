@@ -1,6 +1,6 @@
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Maybe, Result } from "true-myth";
-import { prove } from "vrf-ts";
+import { VRF } from "vrf-ts";
 
 interface IdentityInfo {
 	identityId: string;
@@ -28,7 +28,8 @@ export class IdentityPool {
 	sign(identityId: string, message: Buffer): Result<Buffer, Error> {
 		return Maybe.of(this.config.sedaChain.identities.get(identityId)).match({
 			Just: (secret) => {
-				const proof = prove(secret, message);
+				const vrf = new VRF("secp256k1");
+				const proof = vrf.prove(secret, message);
 				return Result.ok(proof);
 			},
 			Nothing() {

@@ -3,7 +3,7 @@ import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-
 import { formatTokenUnits, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
-import { prove } from "vrf-ts";
+import { VRF } from "vrf-ts";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
 
@@ -72,7 +72,8 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 			stakerInfo.value.seq,
 		);
 
-		const proof = prove(privateKey.value, messageHash);
+		const vrf = new VRF("secp256k1");
+		const proof = vrf.prove(privateKey.value, messageHash);
 		logger.info(`Withdrawing ${amount} SEDA..`);
 
 		const response = await sedaChain.waitForSmartContractTransaction(

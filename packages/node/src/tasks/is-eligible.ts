@@ -8,14 +8,18 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe } from "true-myth";
-import type { DataRequest, DataRequestId } from "../models/data-request";
+import { type DataRequest, type DataRequestId, isDrStale } from "../models/data-request";
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
+import { getDataRequest } from "../services/get-data-requests";
 
 type EventMap = {
 	eligible: [DataRequestId, string];
 };
 
+// TODO: Move eligibility checking to a worker thread to improve performance with large identity pools.
+// Since eligibility verification is CPU-bound and independent of other operations,
+// offloading it would prevent blocking the main event loop.
 export class EligibilityTask extends EventEmitter<EventMap> {
 	private intervalId: Timer;
 	private isProcessing = false;
@@ -77,6 +81,35 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		const coreContractAddress = await this.sedaChain.getCoreContractAddress();
 		// We check in parallel to speed things up
 		const eligibilityChecks: Promise<void>[] = [];
+
+		// Check if data request is stale and needs refreshing from chain
+		if (isDrStale(dataRequest)) {
+			const result = await getDataRequest(dataRequest.id, this.sedaChain);
+
+			const isResolved = result.match({
+				Ok: (refreshedDr) => {
+					if (refreshedDr.isNothing) {
+						this.pool.deleteDataRequest(dataRequest.id);
+						logger.info("✅ Data Request has been resolved on chain", {
+							id: dataRequest.id,
+						});
+
+						return true;
+					}
+
+					return false;
+				},
+				Err: (error) => {
+					logger.error(`Could not fetch information about dr: ${error}`, {
+						id: dataRequest.id,
+					});
+
+					return false;
+				},
+			});
+
+			if (isResolved) return;
+		}
 
 		for (const identityInfo of this.identities.all()) {
 			// We already create an instance for this, no need to check eligibility

@@ -19,6 +19,7 @@ export interface DataRequest {
 	sedaPayload: Buffer;
 	height: bigint;
 	commitsLength: number;
+	lastUpdated: Date;
 }
 
 export function transformDataRequestFromContract(request: DataRequestFromContract): DataRequest {
@@ -39,9 +40,18 @@ export function transformDataRequestFromContract(request: DataRequestFromContrac
 		sedaPayload: Buffer.from(request.seda_payload, "base64"),
 		height: BigInt(request.height),
 		commitsLength: Object.keys(request.commits).length,
+		lastUpdated: new Date(),
 	};
 }
 
 export function isDrInRevealStage(request: DataRequest): boolean {
 	return request.commitsLength >= request.replicationFactor;
+}
+
+export function isDrStale(request: DataRequest): boolean {
+	const now = new Date();
+	const timeSinceLastUpdate = now.getTime() - request.lastUpdated.getTime();
+
+	// If no update in 15 seconds, consider stale
+	return timeSinceLastUpdate > 5 * 60 * 1000;
 }

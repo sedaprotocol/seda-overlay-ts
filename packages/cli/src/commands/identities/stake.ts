@@ -3,7 +3,7 @@ import { createStakeMessageSignatureHash } from "@sedaprotocol/core-contract-sch
 import { formatTokenUnits, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
-import { prove } from "vrf-ts";
+import { VRF } from "vrf-ts";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
 
@@ -67,7 +67,8 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 
 		logger.info(`Staking on identity ${identityId.value} with ${amount} SEDA (or ${attoSedaAmount} aSEDA)`);
 
-		const proof = prove(privateKey.value, messageHash);
+		const vrf = new VRF("secp256k1");
+		const proof = vrf.prove(privateKey.value, messageHash);
 		const response = await sedaChain.waitForSmartContractTransaction(
 			{
 				stake: {

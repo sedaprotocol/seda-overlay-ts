@@ -43,7 +43,13 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 		},
 	});
 
-	if (result.isErr) return Result.err(result.error);
+	if (result.isErr) {
+		if (result.error.message.includes("not found")) {
+			return Result.ok(Maybe.nothing());
+		}
+
+		return Result.err(result.error);
+	}
 
 	const dr = Maybe.of(result.value).map((v) => transformDataRequestFromContract(v));
 	if (dr.isNothing) return Result.ok(Maybe.nothing());

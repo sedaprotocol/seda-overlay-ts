@@ -1,7 +1,7 @@
 import { Secp256k1, Secp256k1Signature } from "@cosmjs/crypto";
 import type { HttpFetchResponse, ProxyHttpFetchAction } from "@seda-protocol/vm";
 import { keccak256 } from "@sedaprotocol/overlay-ts-common";
-import { prove } from "vrf-ts";
+import { VRF } from "vrf-ts";
 
 export function generateProxyHttpProofHash(drId: string, chainId: string, contractAddr: string): Buffer {
 	return keccak256(
@@ -23,7 +23,9 @@ export async function createProxyHttpProof(
 	const messageHash = generateProxyHttpProofHash(drId, chainId, contractAddr);
 	const keyPair = await Secp256k1.makeKeypair(identityPrivateKey);
 	const publicKey = Buffer.from(Secp256k1.compressPubkey(keyPair.pubkey));
-	const signature = prove(identityPrivateKey, messageHash);
+	const vrf = new VRF("secp256k1");
+	const signature = vrf.prove(identityPrivateKey, messageHash);
+
 	const proof = `${publicKey.toString("hex")}:${drId}:${signature.toString("hex")}`;
 
 	return Buffer.from(proof).toString("base64");
