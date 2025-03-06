@@ -1,4 +1,5 @@
 import { callVm } from "@seda-protocol/vm";
+import { Worker } from "node:worker_threads";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Result } from "true-myth";
@@ -7,6 +8,12 @@ import type { DataRequest } from "../models/data-request";
 import { OverlayVmAdapter } from "../overlay-vm-adapter";
 import { Cache } from "../services/cache";
 import { getOracleProgram } from "../services/get-oracle-program";
+import { trySync } from "@seda-protocol/utils";
+import { getEmbeddedVmWorkerCode } from "./worker/worker-macro" with { type: "macro" };
+
+const vmWorkerCode = getEmbeddedVmWorkerCode();
+const blob = new Blob([ vmWorkerCode ]);
+const workerSourceUrl = URL.createObjectURL(blob);
 
 export interface VmResultOverlay extends VmResult {
 	usedProxyPublicKeys: string[];
@@ -59,6 +66,12 @@ export async function executeDataRequest(
 			sedaChain,
 		);
 
+		let worker = trySync(() => new Worker(workerSourceUrl));
+
+		if (worker.isErr) {
+			return Result.err(new Error(`Could not create thread: ${worker.error}`));
+		}
+
 		const result = await callVm(
 			{
 				args: [dataRequest.execInputs.toString("hex")],
@@ -78,7 +91,7 @@ export async function executeDataRequest(
 				binary: binary.value.value,
 				gasLimit: clampedGasLimit,
 			},
-			undefined,
+			worker.value,
 			vmAdapter,
 		);
 
@@ -99,6 +112,8 @@ export async function executeDataRequest(
 			result.stdout = "";
 			result.stderr = warning;
 		}
+
+		await worker.value.terminate();
 
 		return Result.ok({
 			...result,

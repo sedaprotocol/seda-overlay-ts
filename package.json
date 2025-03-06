@@ -28,7 +28,7 @@
 		"typescript": "^5.7.3"
 	},
 	"dependencies": {
-		"@seda-protocol/secp256k1-vrf": "../vrf-ts/seda-protocol-secp256k1-vrf-0.0.1.tgz",
-		"true-myth": "^8.4.0"
+		"true-myth": "^8.4.0",
+		"@seda-protocol/vm": "file:../seda-sdk/dist/libs/vm"
 	}
 }
