@@ -14,9 +14,7 @@
 		"start": "bun run check-ts && bun run ./packages/cli",
 		"start-unchecked": "bun run ./packages/cli",
 		"start-with-node": "npx tsx ./packages/cli",
-
 		"build": "bun run ./build.ts",
-
 		"check-ts": "bunx tsc --noEmit",
 		"fmt": "bunx biome check --write .",
 		"check-fmt": "bunx biome check ."
@@ -30,6 +28,7 @@
 		"typescript": "^5.7.3"
 	},
 	"dependencies": {
+		"@seda-protocol/secp256k1-vrf": "../vrf-ts/seda-protocol-secp256k1-vrf-0.0.1.tgz",
 		"true-myth": "^8.4.0"
 	}
 }

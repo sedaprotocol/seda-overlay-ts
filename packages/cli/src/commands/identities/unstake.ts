@@ -1,9 +1,8 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createUnstakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, parseTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
-import { VRF } from "vrf-ts";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
 
@@ -61,8 +60,7 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 			stakerInfo.value.seq,
 		);
 
-		const vrf = new VRF("secp256k1");
-		const proof = vrf.prove(privateKey.value, messageHash);
+		const proof = vrfProve(privateKey.value, messageHash);
 		logger.info("Unstaking..");
 		const response = await sedaChain.waitForSmartContractTransaction(
 			{
