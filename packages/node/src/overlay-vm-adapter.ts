@@ -1,5 +1,5 @@
 import { sedachain } from "@seda-protocol/proto-messages";
-import { tryAsync } from "@seda-protocol/utils";
+import { tryAsync, trySync } from "@seda-protocol/utils";
 import {
 	DataRequestVmAdapter,
 	type HttpFetchAction,
@@ -9,10 +9,10 @@ import {
 	type ProxyHttpFetchAction,
 } from "@seda-protocol/vm";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import isLocalhostIp from "is-localhost-ip";
 import { Maybe, Result } from "true-myth";
 import { createProxyHttpProof, verifyProxyHttpResponse } from "./services/proxy-http";
-import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 
 type Options = {
 	dataRequestId: string;
@@ -20,7 +20,7 @@ type Options = {
 	chainId: string;
 	identityPrivateKey: Buffer;
 	gasPrice: bigint;
-    appConfig: AppConfig;
+	appConfig: AppConfig;
 };
 
 export class OverlayVmAdapter extends DataRequestVmAdapter {
@@ -37,10 +37,12 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 	}
 
 	async httpFetch(action: HttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
-		const url = new URL(action.url);
-		const isLocalIp = await isLocalhostIp(url.hostname);
+		const url = trySync(() => new URL("0"));
+		if (url.isErr) return HttpFetchResponse.createRejectedPromise(`${action.url} is not a valid URL`);
 
-        if (isLocalIp && this.options.appConfig.node.blockLocalhost) {
+		const isLocalIp = await isLocalhostIp(url.value.hostname);
+
+		if (isLocalIp && this.options.appConfig.node.blockLocalhost) {
 			return HttpFetchResponse.createRejectedPromise(`${action.url} is not allowed`);
 		}
 
