@@ -15,6 +15,8 @@
 		"start-unchecked": "bun run ./packages/cli",
 		"start-with-node": "npx tsx ./packages/cli",
 
+		"build": "bun run ./build.ts",
+
 		"check-ts": "bunx tsc --noEmit",
 		"fmt": "bunx biome check --write .",
 		"check-fmt": "bunx biome check ."

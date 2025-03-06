@@ -1,0 +1,22 @@
+name: 🧪 Test
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: 📦 Install dependencies
+        run: bun install
+
+      - name: 📝 Check formatting
+        run: bun check-fmt
+
+      - name: 📝 Check TypeScript
+        run: bun check-ts
+
+      - name: 🧪 Test project
+        run: bun test
