@@ -8,7 +8,7 @@ import {
 	debouncedInterval,
 	sleep,
 } from "@sedaprotocol/overlay-ts-common";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
@@ -44,6 +44,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		private sedaChain: SedaChain,
 		private drId: string,
 		private identityId: string,
+		private executeWorkerPool: Maybe<WorkerPool>,
+		private compilerWorkerPool: Maybe<WorkerPool>,
 	) {
 		super();
 
@@ -192,7 +194,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		const vmResult = await executeDataRequest(info.value.privateKey, dataRequest, this.appConfig, this.sedaChain);
+		const vmResult = await executeDataRequest(
+			info.value.privateKey,
+			dataRequest,
+			this.appConfig,
+			this.sedaChain,
+			this.executeWorkerPool,
+			this.compilerWorkerPool,
+		);
 
 		if (vmResult.isErr) {
 			this.retries += 1;

@@ -8,3 +8,4 @@ export { formatTokenUnits, parseTokenUnits } from "./services/tokens";
 export { JSONStringify } from "./services/json";
 export * from "./seda/errors";
 export { vrfProve } from "./services/vrf";
+export { WorkerPool } from "./services/worker-pool";

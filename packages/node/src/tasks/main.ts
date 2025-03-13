@@ -1,12 +1,32 @@
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { availableParallelism } from "node:os";
+import { type SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { DataRequestTask } from "../data-request-task";
 import { DataRequestPool } from "../models/data-request-pool";
 import { IdentityPool } from "../models/identitiest-pool";
+import { getEmbeddedCompileWorkerCode, getEmbeddedVmWorkerCode } from "./execute-worker/worker-macro" with {
+	type: "macro",
+};
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
+
+// Embed worker code so we can ouput a single binary
+const vmWorkerCode = getEmbeddedVmWorkerCode();
+const vmBlob = new Blob([vmWorkerCode]);
+let executeWorkerSrc = URL.createObjectURL(vmBlob);
+
+const compilerWorkerCode = getEmbeddedCompileWorkerCode();
+const compilerBlob = new Blob([compilerWorkerCode]);
+let compilerWorkerSrc = URL.createObjectURL(compilerBlob);
+
+// If we ever want to run de overlay in Node.js
+if (typeof Bun === "undefined") {
+	compilerWorkerSrc = "./dist/node/src/tasks/execute-worker/compile-worker.js";
+	executeWorkerSrc = "./dist/node/src/tasks/execute-worker/execute-worker.js";
+}
 
 export class MainTask {
 	private pool: DataRequestPool = new DataRequestPool();
@@ -14,6 +34,8 @@ export class MainTask {
 	private identityManagerTask: IdentityManagerTask;
 	private identityPool: IdentityPool;
 	private elgibilityTask: EligibilityTask;
+	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
+	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 
 	// These are the actual data requests we are currently processing and need to be completed before we move on
 	private activeDataRequestTasks = 0;
@@ -31,6 +53,17 @@ export class MainTask {
 		this.fetchTask = new FetchTask(this.pool, config, sedaChain);
 		this.identityManagerTask = new IdentityManagerTask(this.identityPool, config, sedaChain);
 		this.elgibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
+
+		let threadsAvailable = availableParallelism();
+
+		if (!config.node.forceSyncVm && threadsAvailable >= 2) {
+			logger.debug(`Threads available: ${threadsAvailable}`);
+			threadsAvailable = threadsAvailable - 1;
+			this.compilerWorkerPool = Maybe.just(new WorkerPool(compilerWorkerSrc, threadsAvailable));
+			this.executeWorkerPool = Maybe.just(new WorkerPool(executeWorkerSrc, threadsAvailable, true));
+		} else {
+			logger.debug(`Not enough threads available (${threadsAvailable} available), switching to synchronous mode`);
+		}
 
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);
 	}
@@ -59,7 +92,16 @@ export class MainTask {
 		});
 
 		this.elgibilityTask.on("eligible", (drId, identityId) => {
-			const drTask = new DataRequestTask(this.pool, this.identityPool, this.config, this.sedaChain, drId, identityId);
+			const drTask = new DataRequestTask(
+				this.pool,
+				this.identityPool,
+				this.config,
+				this.sedaChain,
+				drId,
+				identityId,
+				this.executeWorkerPool,
+				this.compilerWorkerPool,
+			);
 			this.dataRequestsToProcess.push(drTask);
 			this.processNextDr();
 		});

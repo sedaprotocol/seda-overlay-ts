@@ -1,4 +1,5 @@
-import { exists, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tryAsync, trySync } from "@seda-protocol/utils";
 import merge from "lodash.merge";
@@ -72,7 +73,7 @@ export async function createConfig(
 		Nothing: () => resolveWithHomeDir("config.json", network, homeDir),
 	});
 
-	const fileExists = await tryAsync(exists(finalConfigPath));
+	const fileExists = trySync(() => existsSync(finalConfigPath));
 	if (fileExists.isErr) return Result.err(fileExists.error);
 
 	if (fileExists.value) {

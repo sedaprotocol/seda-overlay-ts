@@ -1,5 +1,5 @@
-const STARTING_POINT = 76;
-const REPLICATION_FACTOR = 98;
+const STARTING_POINT = 9;
+const REPLICATION_FACTOR = 100;
 
 for (let i = STARTING_POINT; i < REPLICATION_FACTOR; i++) {
 	Bun.spawnSync(["bun", "start-unchecked", "identities", "unstake", i.toString(), "1"], {

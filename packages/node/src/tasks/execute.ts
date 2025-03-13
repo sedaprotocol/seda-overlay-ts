@@ -1,19 +1,13 @@
-import { callVm } from "@seda-protocol/vm";
-import { Worker } from "node:worker_threads";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { callVm, executeVm, version } from "@seda-protocol/vm";
+import type { VmCallData, VmResult } from "@seda-protocol/vm";
+import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
-import { Result } from "true-myth";
-import type { VmResult } from "../../../../../seda-sdk/dist/libs/vm/src/vm";
+import { type Maybe, Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import { OverlayVmAdapter } from "../overlay-vm-adapter";
 import { Cache } from "../services/cache";
 import { getOracleProgram } from "../services/get-oracle-program";
-import { trySync } from "@seda-protocol/utils";
-import { getEmbeddedVmWorkerCode } from "./worker/worker-macro" with { type: "macro" };
-
-const vmWorkerCode = getEmbeddedVmWorkerCode();
-const blob = new Blob([ vmWorkerCode ]);
-const workerSourceUrl = URL.createObjectURL(blob);
+import { compile } from "./execute-worker/compile-worker";
 
 export interface VmResultOverlay extends VmResult {
 	usedProxyPublicKeys: string[];
@@ -31,13 +25,16 @@ export function createVmResultError(error: Error): VmResultOverlay {
 	};
 }
 
-const executionResultCache = new Cache<VmResultOverlay>(1360_000);
+// 14 seconds execution cache
+const executionResultCache = new Cache<VmResultOverlay>(14_000);
 
 export async function executeDataRequest(
 	identityPrivateKey: Buffer,
 	dataRequest: DataRequest,
 	appConfig: AppConfig,
 	sedaChain: SedaChain,
+	vmWorkerPool: Maybe<WorkerPool>,
+	compilerPool: Maybe<WorkerPool>,
 ): Promise<Result<VmResultOverlay, Error>> {
 	return executionResultCache.getOrFetch(`${dataRequest.id}_${dataRequest.height}`, async () => {
 		const binary = await getOracleProgram(dataRequest.execProgramId, appConfig, sedaChain);
@@ -66,34 +63,62 @@ export async function executeDataRequest(
 			sedaChain,
 		);
 
-		let worker = trySync(() => new Worker(workerSourceUrl));
+		const oracleProgramBinary = binary.value.value;
 
-		if (worker.isErr) {
-			return Result.err(new Error(`Could not create thread: ${worker.error}`));
-		}
-
-		const result = await callVm(
-			{
-				args: [dataRequest.execInputs.toString("hex")],
-				envs: {
-					VM_MODE: "dr",
-					DR_ID: dataRequest.id,
-					EXEC_PROGRAM_ID: dataRequest.execProgramId,
-					DR_REPLICATION_FACTOR: dataRequest.replicationFactor.toString(),
-					DR_GAS_PRICE: dataRequest.gasPrice.toString(),
-					DR_EXEC_GAS_LIMIT: clampedGasLimit.toString(),
-					DR_TALLY_GAS_LIMIT: dataRequest.tallyGasLimit.toString(),
-					DR_MEMO: dataRequest.memo.toString("hex"),
-					DR_PAYBACK_ADDRESS: dataRequest.paybackAddress.toString("hex"),
-					TALLY_PROGRAM_ID: dataRequest.tallyProgramId,
-					TALLY_INPUTS: dataRequest.tallyInputs.toString("hex"),
-				},
-				binary: binary.value.value,
-				gasLimit: clampedGasLimit,
+		// We can do compilation in a seperate thread only if there is enough threads available
+		// Otherwise we will not precompile the binary
+		const binaryOrModule = await compilerPool.match<Promise<Buffer | WebAssembly.Module>>({
+			Just: async (pool) => {
+				const compiledModule = await pool.executeTask(async (worker) => {
+					return compile(worker, oracleProgramBinary, {
+						dir: `${appConfig.wasmCacheDir}`, 
+						id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
+					});
+				});
+				return compiledModule;
 			},
-			worker.value,
-			vmAdapter,
-		);
+			Nothing: () => {
+				return Promise.resolve(oracleProgramBinary);
+			}
+		});
+
+		const callData: VmCallData = {
+			args: [dataRequest.execInputs.toString("hex")],
+			cache: {
+				dir: `${appConfig.wasmCacheDir}`,
+				id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
+			},
+			envs: {
+				VM_MODE: "dr",
+				DR_ID: dataRequest.id,
+				EXEC_PROGRAM_ID: dataRequest.execProgramId,
+				DR_REPLICATION_FACTOR: dataRequest.replicationFactor.toString(),
+				DR_GAS_PRICE: dataRequest.gasPrice.toString(),
+				DR_EXEC_GAS_LIMIT: clampedGasLimit.toString(),
+				DR_TALLY_GAS_LIMIT: dataRequest.tallyGasLimit.toString(),
+				DR_MEMO: dataRequest.memo.toString("hex"),
+				DR_PAYBACK_ADDRESS: dataRequest.paybackAddress.toString("hex"),
+				TALLY_PROGRAM_ID: dataRequest.tallyProgramId,
+				TALLY_INPUTS: dataRequest.tallyInputs.toString("hex"),
+			},
+			binary: binaryOrModule,
+			gasLimit: clampedGasLimit,
+		};
+
+		const result = await vmWorkerPool.match({
+			Just: async (pool) => {
+				return pool.executeTask(async (worker) => {
+					return await callVm(
+						callData,
+						worker,
+						vmAdapter,
+					);
+				});
+			},
+			Nothing: async () => {
+				return executeVm(callData, dataRequest.id, vmAdapter);
+			},
+		});
 
 		// Check result size against config limit
 		const resultSize = result.result?.byteLength ?? 0;
@@ -112,8 +137,6 @@ export async function executeDataRequest(
 			result.stdout = "";
 			result.stderr = warning;
 		}
-
-		await worker.value.terminate();
 
 		return Result.ok({
 			...result,

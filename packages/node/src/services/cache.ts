@@ -33,6 +33,7 @@ export class Cache<T extends {}> {
 			value,
 			expiresAt: Date.now() + this.ttlMs,
 		});
+		this.prune();
 	}
 
 	/**
@@ -55,6 +56,7 @@ export class Cache<T extends {}> {
 			return Maybe.nothing();
 		}
 
+		this.prune();
 		return Maybe.just<T>(entry.value);
 	}
 
@@ -103,5 +105,17 @@ export class Cache<T extends {}> {
 	 */
 	clear(): void {
 		this.cache.clear();
+	}
+
+	/**
+	 * Removes expired entries from the cache.
+	 */
+	private prune(): void {
+		const now = Date.now();
+		for (const [key, entry] of this.cache.entries()) {
+			if (entry.expiresAt <= now) {
+				this.cache.delete(key);
+			}
+		}
 	}
 }

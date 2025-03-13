@@ -1,6 +1,7 @@
 import { isBrowser } from "@sedaprotocol/overlay-ts-common";
 import { Maybe } from "true-myth";
-import { type Logger as WinstonLogger, format, type transport, transports } from "winston";
+import { type Logger as WinstonLogger, format, transports } from "winston";
+// import "winston-daily-rotate-file";
 
 const logFormat = format.printf((info) => {
 	// @ts-ignore
@@ -22,11 +23,9 @@ function cyan(val: string) {
 	return `\x1b[36m${val}\x1b[0m`;
 }
 
-const destinations: transport[] = [
-	new transports.Console({
-		format: format.combine(format.colorize(), logFormat),
-	}),
-];
+const consoleTransport = new transports.Console({
+	format: format.combine(format.colorize(), logFormat),
+});
 
 export class Logger {
 	winston: Maybe<WinstonLogger> = Maybe.nothing();
@@ -35,10 +34,18 @@ export class Logger {
 		if (!isBrowser()) {
 			const { createLogger, format } = await import("winston");
 
+			// const rotateFileTransport = new transports.DailyRotateFile({
+			// 	level: "debug",
+			// 	filename: "application-%DATE%.log",
+			// 	datePattern: "YYYY-MM-DD",
+			// 	zippedArchive: true,
+			// 	maxFiles: "14d",
+			// });
+
 			this.winston = Maybe.just(
 				createLogger({
 					level: "debug",
-					transports: destinations,
+					transports: [consoleTransport],
 					format: format.combine(
 						format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
 						format.metadata({

@@ -11,22 +11,20 @@ const PLATFORM_TARGETS = [
 ];
 
 const DIST_FOLDER = resolve(import.meta.dir, "./build/");
-const SRC_TARGET = [
-    "./packages/cli/src/index.ts",
-];
+const SRC_TARGET = ["./packages/cli/src/index.ts"];
 
 for (const target of PLATFORM_TARGETS) {
 	const rawTarget = target.replace("bun-", "");
 	console.log(`Compiling for ${rawTarget}..`);
-    const cmd = [
-        "bun",
-        "build",
-        "--compile",
-        `--target=${target}`,
-        ...SRC_TARGET,
-        "--outfile",
-        resolve(DIST_FOLDER, `seda-overlay-${rawTarget}`),
-    ];
+	const cmd = [
+		"bun",
+		"build",
+		"--compile",
+		`--target=${target}`,
+		...SRC_TARGET,
+		"--outfile",
+		resolve(DIST_FOLDER, `seda-overlay-${rawTarget}`),
+	];
 
 	const { exitCode, stdout, stderr } = Bun.spawnSync(cmd);
 
