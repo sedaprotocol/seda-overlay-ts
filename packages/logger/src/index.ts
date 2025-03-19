@@ -1,18 +1,23 @@
 import { isBrowser } from "@sedaprotocol/overlay-ts-common";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Maybe } from "true-myth";
 import { type Logger as WinstonLogger, format, transports } from "winston";
-// import "winston-daily-rotate-file";
+import "winston-daily-rotate-file";
 
-const logFormat = format.printf((info) => {
-	// @ts-ignore
-	const id = Maybe.of(info.metadata?.id).mapOr("", (t) => {
-		return `[${cyan(t)}] `;
+const logFormat = (withColors: boolean) =>
+	format.printf((info) => {
+		// @ts-ignore
+		const id = Maybe.of(info.metadata?.id).mapOr("", (t) => {
+			return withColors ? `[${cyan(t)}] ` : `[${t}] `;
+		});
+		const logMsg = `${info.timestamp} ${info.level}: ${id}`;
+
+		// @ts-ignore
+		return Maybe.of(info.metadata?.error).mapOr(
+			`${logMsg}${info.message}`,
+			(err) => `${logMsg} ${info.message} ${err}`,
+		);
 	});
-	const logMsg = `${info.timestamp} ${info.level}: ${id}`;
-
-	// @ts-ignore
-	return Maybe.of(info.metadata?.error).mapOr(`${logMsg}${info.message}`, (err) => `${logMsg} ${info.message} ${err}`);
-});
 
 type ExtraInfo = {
 	id?: string;
@@ -24,28 +29,37 @@ function cyan(val: string) {
 }
 
 const consoleTransport = new transports.Console({
-	format: format.combine(format.colorize(), logFormat),
+	format: format.combine(format.colorize(), logFormat(true)),
 });
 
 export class Logger {
 	winston: Maybe<WinstonLogger> = Maybe.nothing();
 
-	async init() {
+	async init(appConfig: AppConfig) {
 		if (!isBrowser()) {
 			const { createLogger, format } = await import("winston");
 
-			// const rotateFileTransport = new transports.DailyRotateFile({
-			// 	level: "debug",
-			// 	filename: "application-%DATE%.log",
-			// 	datePattern: "YYYY-MM-DD",
-			// 	zippedArchive: true,
-			// 	maxFiles: "14d",
-			// });
+			const myTransports = [];
+			myTransports.push(consoleTransport);
+
+			if (appConfig.node.logRotationEnabled) {
+				const rotateFileTransport = new transports.DailyRotateFile({
+					level: appConfig.node.logRotationLevel,
+					dirname: appConfig.logsDir,
+					filename: "seda-overlay-%DATE%.log",
+					datePattern: "YYYY-MM-DD",
+					zippedArchive: true,
+					maxFiles: appConfig.node.logRotationMaxFiles,
+					maxSize: appConfig.node.logRotationMaxSize,
+					format: logFormat(false),
+				});
+				myTransports.push(rotateFileTransport);
+			}
 
 			this.winston = Maybe.just(
 				createLogger({
 					level: "debug",
-					transports: [consoleTransport],
+					transports: myTransports,
 					format: format.combine(
 						format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
 						format.metadata({
@@ -100,4 +114,3 @@ export class Logger {
 }
 
 export const logger = new Logger();
-await logger.init();

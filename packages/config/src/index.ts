@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tryAsync, trySync } from "@seda-protocol/utils";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 import merge from "lodash.merge";
 import { type Maybe, Result } from "true-myth";
 import { DEVNET_APP_CONFIG, MAINNET_APP_CONFIG, PLANET_APP_CONFIG, TESTNET_APP_CONFIG } from "./constants";
@@ -38,7 +39,13 @@ export async function loadConfig(
 		return Result.err([`${configFile.error}`]);
 	}
 
-	return parseAppConfig(merge(configFile.value, overrides), network);
+	const appConfig = await parseAppConfig(merge(configFile.value, overrides), network);
+
+	if (appConfig.isOk) {
+		logger.init(appConfig.value);
+	}
+
+	return appConfig;
 }
 
 export async function createConfig(

@@ -2,6 +2,10 @@ import * as v from "valibot";
 import {
 	DEFAULT_BLOCK_LOCALHOST,
 	DEFAULT_FORCE_SYNC_VM,
+	DEFAULT_LOG_ROTATION_ENABLED,
+	DEFAULT_LOG_ROTATION_LEVEL,
+	DEFAULT_LOG_ROTATION_MAX_FILES,
+	DEFAULT_LOG_ROTATION_MAX_SIZE,
 	DEFAULT_MAX_CONCURRENT_REQUESTS,
 	DEFAULT_MAX_GAS_LIMIT,
 	DEFAULT_MAX_VM_LOGS_SIZE_BYTES,
@@ -17,6 +21,10 @@ export const NodeConfigSchema = v.object({
 	maxVmLogsSizeBytes: v.optional(v.number(), DEFAULT_MAX_VM_LOGS_SIZE_BYTES),
 	processDrInterval: v.optional(v.number(), DEFAULT_PROCESS_DR_INTERVAL),
 	blockLocalhost: v.optional(v.boolean(), DEFAULT_BLOCK_LOCALHOST),
+	logRotationEnabled: v.optional(v.boolean(), DEFAULT_LOG_ROTATION_ENABLED),
+	logRotationLevel: v.optional(v.string(), DEFAULT_LOG_ROTATION_LEVEL),
+	logRotationMaxFiles: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_FILES),
+	logRotationMaxSize: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_SIZE),
 });
 
 export type NodeConfig = v.InferOutput<typeof NodeConfigSchema>;

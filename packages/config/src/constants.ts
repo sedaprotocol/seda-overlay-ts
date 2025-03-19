@@ -20,7 +20,10 @@ export const DEFAULT_ZERO_FEE_GAS = 500000n; // Add this line for zero fee gas d
 export const DEFAULT_QUEUE_INTERVAL = 200; // Add this line for queue processing interval
 export const DEFAULT_BLOCK_LOCALHOST = true; // Add this line for localhost blocking default
 export const DEFAULT_FORCE_SYNC_VM = true; // For now we force the VM to be in synchronous mode
-
+export const DEFAULT_LOG_ROTATION_ENABLED = true;
+export const DEFAULT_LOG_ROTATION_LEVEL = "debug";
+export const DEFAULT_LOG_ROTATION_MAX_FILES = "14d";
+export const DEFAULT_LOG_ROTATION_MAX_SIZE = "100m";
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
 		rpc: "https://rpc.planet.seda.xyz/",

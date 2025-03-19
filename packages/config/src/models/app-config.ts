@@ -16,6 +16,7 @@ export const AppConfigSchema = v.object({
 export interface AppConfig extends v.InferOutput<typeof AppConfigSchema> {
 	sedaChain: SedaChainConfig;
 	wasmCacheDir: string;
+	logsDir: string;
 }
 
 export async function parseAppConfig(input: unknown, network: string): Promise<Result<AppConfig, string[]>> {
@@ -45,5 +46,6 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 		...config.value,
 		wasmCacheDir: dataDirPaths.value.wasmCacheDir,
 		sedaChain: sedaChainConfig.value,
+		logsDir: dataDirPaths.value.logsDir,
 	});
 }

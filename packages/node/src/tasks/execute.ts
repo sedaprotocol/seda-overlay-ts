@@ -71,7 +71,7 @@ export async function executeDataRequest(
 			Just: async (pool) => {
 				const compiledModule = await pool.executeTask(async (worker) => {
 					return compile(worker, oracleProgramBinary, {
-						dir: `${appConfig.wasmCacheDir}`, 
+						dir: `${appConfig.wasmCacheDir}`,
 						id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
 					});
 				});
@@ -79,7 +79,7 @@ export async function executeDataRequest(
 			},
 			Nothing: () => {
 				return Promise.resolve(oracleProgramBinary);
-			}
+			},
 		});
 
 		const callData: VmCallData = {
@@ -108,11 +108,7 @@ export async function executeDataRequest(
 		const result = await vmWorkerPool.match({
 			Just: async (pool) => {
 				return pool.executeTask(async (worker) => {
-					return await callVm(
-						callData,
-						worker,
-						vmAdapter,
-					);
+					return await callVm(callData, worker, vmAdapter);
 				});
 			},
 			Nothing: async () => {
