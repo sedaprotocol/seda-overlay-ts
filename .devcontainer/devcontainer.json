@@ -1,21 +1,32 @@
 {
-	"name": "seda-overlay-node-ts",
+	"name": "seda-overlay-ts",
 	"build": {
-		"dockerfile": "Dockerfile"
+		"dockerfile": "Dockerfile",
+		"args": {
+			"VARIANT": "latest"
+		}
+	},
+	"features": {
+		// Add your features here, for example:
+		"ghcr.io/devcontainers/features/node:1": {},
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"installZsh": true,
+			"configureZshAsDefaultShell": true,
+			"installOhMyZsh": true
+		}
 	},
 	"customizations": {
 		"vscode": {
 			"settings": {},
-			"extensions": [
-				"EditorConfig.EditorConfig",
-				"dbaeumer.vscode-eslint",
-				"esbenp.prettier-vscode",
-				"dtsvet.vscode-wasm",
-				"pflannery.vscode-versionlens",
-				"alexcvzz.vscode-sqlite",
-				"qwtel.sqlite-viewer",
-				"tamasfe.even-better-toml"
-			]
+			"extensions": ["EditorConfig.EditorConfig", "nrwl.angular-console", "dtsvet.vscode-wasm", "biomejs.biome"]
 		}
+	},
+	"mounts": ["source=${localWorkspaceFolder}/../seda-sdk,target=/workspaces/seda-sdk,type=bind,consistency=cached"],
+	"postCreateCommand": "bun install",
+	"remoteUser": "bun",
+	"updateRemoteUserUID": true,
+	"remoteEnv": {
+		"TMPDIR": "/tmp"
 	}
 }
