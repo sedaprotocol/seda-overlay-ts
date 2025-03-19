@@ -3,15 +3,15 @@ import { resolve } from "node:path";
 const PLATFORM_TARGETS = [
 	"bun-linux-x64",
 	"bun-linux-arm64",
-	"bun-windows-x64",
 	"bun-darwin-x64",
 	"bun-darwin-arm64",
 	"bun-linux-x64-musl",
 	"bun-linux-arm64-musl",
+	"bun-windows-x64",
 ];
 
-const DIST_FOLDER = resolve(import.meta.dir, "./build/");
-const SRC_TARGET = ["./packages/cli/src/index.ts"];
+const BUILD_FOLDER = resolve(import.meta.dir, "./build/");
+const SRC_TARGET = [resolve(process.cwd(), "./packages/cli/src/index.ts")];
 
 for (const target of PLATFORM_TARGETS) {
 	const rawTarget = target.replace("bun-", "");
@@ -23,14 +23,19 @@ for (const target of PLATFORM_TARGETS) {
 		`--target=${target}`,
 		...SRC_TARGET,
 		"--outfile",
-		resolve(DIST_FOLDER, `seda-overlay-${rawTarget}`),
+		`./seda-overlay-${rawTarget}`,
 	];
 
-	const { exitCode, stdout, stderr } = Bun.spawnSync(cmd);
+	const { exitCode, stdout, stderr } = Bun.spawnSync(cmd, { cwd: Bun.env.TMPDIR });
 
 	if (exitCode !== 0) {
 		console.log(stdout.toString());
 		console.error(stderr.toString());
+	} else {
+		// Copy the built binary to build directory
+		const binaryName = `seda-overlay-${rawTarget}${rawTarget.includes("windows") ? ".exe" : ""}`;
+		const tmpDir = Bun.env.TMPDIR ?? "/tmp";
+		await Bun.write(resolve(BUILD_FOLDER, binaryName), Bun.file(resolve(tmpDir, binaryName)));
 	}
 
 	console.log(`Compiled ${rawTarget}`);
