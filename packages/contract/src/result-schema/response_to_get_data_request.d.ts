@@ -31,72 +31,72 @@ export type Uint128 = string;
  * Represents a data request at creation time
  */
 export interface DataRequest {
-	/**
-	 * Commitments submitted by executors
-	 */
-	commits: {};
-	/**
-	 * Filter applied before tally execution
-	 */
-	consensus_filter: Binary;
-	/**
-	 * The limit to how much gas should be used for executing the DR
-	 */
-	exec_gas_limit: number;
-	/**
-	 * Inputs for DR WASM binary
-	 */
-	exec_inputs: Binary;
-	/**
-	 * Identifier of DR WASM binary
-	 */
-	exec_program_id: string;
-	/**
-	 * Amount of SEDA tokens per gas unit
-	 */
-	gas_price: Uint128;
-	/**
-	 * The height data request was posted. Used for commitment.
-	 */
-	height: number;
-	/**
-	 * Identifier
-	 */
-	id: string;
-	/**
-	 * Public info attached to DR
-	 */
-	memo: Binary;
-	/**
-	 * Payback address set by the relayer
-	 */
-	payback_address: Binary;
-	/**
-	 * Amount of required DR executors
-	 */
-	replication_factor: number;
-	/**
-	 * Reveals submitted by executors
-	 */
-	reveals: {};
-	/**
-	 * Payload set by SEDA Protocol (e.g. OEV-enabled data requests)
-	 */
-	seda_payload: Binary;
-	/**
-	 * The limit to how much gas should be used for tallying the DR
-	 */
-	tally_gas_limit: number;
-	/**
-	 * Inputs for Tally WASM binary
-	 */
-	tally_inputs: Binary;
-	/**
-	 * Identifier of Tally WASM binary
-	 */
-	tally_program_id: string;
-	/**
-	 * Semantic Version String
-	 */
-	version: string;
+  /**
+   * Commitments submitted by executors
+   */
+  commits: {};
+  /**
+   * Filter applied before tally execution
+   */
+  consensus_filter: Binary;
+  /**
+   * The limit to how much gas should be used for executing the DR
+   */
+  exec_gas_limit: number;
+  /**
+   * Inputs for DR WASM binary
+   */
+  exec_inputs: Binary;
+  /**
+   * Identifier of DR WASM binary
+   */
+  exec_program_id: string;
+  /**
+   * Amount of SEDA tokens per gas unit
+   */
+  gas_price: Uint128;
+  /**
+   * The height data request was posted. Used for commitment.
+   */
+  height: number;
+  /**
+   * Identifier
+   */
+  id: string;
+  /**
+   * Public info attached to DR
+   */
+  memo: Binary;
+  /**
+   * Payback address set by the relayer
+   */
+  payback_address: Binary;
+  /**
+   * Amount of required DR executors
+   */
+  replication_factor: number;
+  /**
+   * Reveals submitted by executors
+   */
+  reveals: {};
+  /**
+   * Payload set by SEDA Protocol (e.g. OEV-enabled data requests)
+   */
+  seda_payload: Binary;
+  /**
+   * The limit to how much gas should be used for tallying the DR
+   */
+  tally_gas_limit: number;
+  /**
+   * Inputs for Tally WASM binary
+   */
+  tally_inputs: Binary;
+  /**
+   * Identifier of Tally WASM binary
+   */
+  tally_program_id: string;
+  /**
+   * Semantic Version String
+   */
+  version: string;
 }

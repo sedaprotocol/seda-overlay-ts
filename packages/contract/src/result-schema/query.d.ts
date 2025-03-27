@@ -7,82 +7,139 @@
 
 export type QueryMsg = QueryMsg1 | QueryMsg2 | QueryMsg3;
 export type QueryMsg1 =
-	| {
-			can_executor_commit: {
-				commitment: string;
-				dr_id: string;
-				proof: string;
-				public_key: string;
-			};
-	  }
-	| {
-			can_executor_reveal: {
-				dr_id: string;
-				public_key: string;
-			};
-	  }
-	| {
-			get_data_request: {
-				dr_id: string;
-			};
-	  }
-	| {
-			get_data_request_commitment: {
-				dr_id: string;
-				public_key: string;
-			};
-	  }
-	| {
-			get_data_request_commitments: {
-				dr_id: string;
-			};
-	  }
-	| {
-			get_data_request_reveal: {
-				dr_id: string;
-				public_key: string;
-			};
-	  }
-	| {
-			get_data_request_reveals: {
-				dr_id: string;
-			};
-	  }
-	| {
-			get_data_requests_by_status: {
-				limit: number;
-				offset: number;
-				status: DataRequestStatus;
-			};
-	  };
+  | {
+      can_executor_commit: {
+        commitment: string;
+        dr_id: string;
+        proof: string;
+        public_key: string;
+      };
+    }
+  | {
+      can_executor_reveal: {
+        dr_id: string;
+        public_key: string;
+      };
+    }
+  | {
+      get_data_request: {
+        dr_id: string;
+      };
+    }
+  | {
+      get_data_request_commitment: {
+        dr_id: string;
+        public_key: string;
+      };
+    }
+  | {
+      get_data_request_commitments: {
+        dr_id: string;
+      };
+    }
+  | {
+      get_data_request_reveal: {
+        dr_id: string;
+        public_key: string;
+      };
+    }
+  | {
+      get_data_request_reveals: {
+        dr_id: string;
+      };
+    }
+  | {
+      get_data_requests_by_status: {
+        /**
+         * @minItems 3
+         * @maxItems 3
+         */
+        last_seen_index?:
+          | [
+              Uint128,
+              number,
+              [
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number,
+                number
+              ]
+            ]
+          | null;
+        limit: number;
+        status: DataRequestStatus;
+      };
+    };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
 export type DataRequestStatus = "committing" | "revealing" | "tallying";
 export type QueryMsg2 =
-	| {
-			get_staker: {
-				public_key: string;
-			};
-	  }
-	| {
-			get_account_seq: {
-				public_key: string;
-			};
-	  }
-	| {
-			get_staker_and_seq: {
-				public_key: string;
-			};
-	  }
-	| {
-			is_staker_executor: {
-				public_key: string;
-			};
-	  }
-	| {
-			is_executor_eligible: Query;
-	  }
-	| {
-			get_staking_config: {};
-	  };
+  | {
+      get_staker: {
+        public_key: string;
+      };
+    }
+  | {
+      get_account_seq: {
+        public_key: string;
+      };
+    }
+  | {
+      get_staker_and_seq: {
+        public_key: string;
+      };
+    }
+  | {
+      is_staker_executor: {
+        public_key: string;
+      };
+    }
+  | {
+      is_executor_eligible: Query;
+    }
+  | {
+      get_staking_config: {};
+    };
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -90,16 +147,16 @@ export type QueryMsg2 =
  */
 export type Binary = string;
 export type QueryMsg3 =
-	| {
-			get_owner: {};
-	  }
-	| {
-			get_pending_owner: {};
-	  }
-	| {
-			is_paused: {};
-	  };
+  | {
+      get_owner: {};
+    }
+  | {
+      get_pending_owner: {};
+    }
+  | {
+      is_paused: {};
+    };
 
 export interface Query {
-	data: Binary;
+  data: Binary;
 }

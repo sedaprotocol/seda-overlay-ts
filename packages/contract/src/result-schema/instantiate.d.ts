@@ -21,39 +21,35 @@
 export type Uint128 = string;
 
 export interface InstantiateMsg {
-	chain_id: string;
-	owner: string;
-	staking_config?: StakingConfig | null;
-	timeout_config?: TimeoutConfig | null;
-	token: string;
+  chain_id: string;
+  owner: string;
+  staking_config?: StakingConfig | null;
+  timeout_config?: TimeoutConfig | null;
+  token: string;
 }
 /**
  * Governance-controlled staking configuration parameters
  */
 export interface StakingConfig {
-	/**
-	 * Whether the allowlist is enabled
-	 */
-	allowlist_enabled: boolean;
-	/**
-	 * Minimum amount of SEDA tokens required to be eligible for committee inclusion
-	 */
-	minimum_stake_for_committee_eligibility: Uint128;
-	/**
-	 * Minimum amount of SEDA tokens required to register as a data request executor
-	 */
-	minimum_stake_to_register: Uint128;
+  /**
+   * Whether the allowlist is enabled
+   */
+  allowlist_enabled: boolean;
+  /**
+   * Minimum amount of SEDA tokens required to register as a data request executor
+   */
+  minimum_stake: Uint128;
 }
 /**
  * Governance-controlled timeout configuration parameters
  */
 export interface TimeoutConfig {
-	/**
-	 * Number of blocks after which a data request is timed out while waiting for commits.
-	 */
-	commit_timeout_in_blocks: number;
-	/**
-	 * Number of blocks after which a data request is timed out while waiting for reveals.
-	 */
-	reveal_timeout_in_blocks: number;
+  /**
+   * Number of blocks after which a data request is timed out while waiting for commits.
+   */
+  commit_timeout_in_blocks: number;
+  /**
+   * Number of blocks after which a data request is timed out while waiting for reveals.
+   */
+  reveal_timeout_in_blocks: number;
 }

@@ -1,484 +1,545 @@
 {
-	"$schema": "http://json-schema.org/draft-07/schema#",
-	"title": "ExecuteMsg",
-	"anyOf": [
-		{
-			"$ref": "#/definitions/ExecuteMsg"
-		},
-		{
-			"$ref": "#/definitions/ExecuteMsg2"
-		},
-		{
-			"$ref": "#/definitions/ExecuteMsg3"
-		}
-	],
-	"definitions": {
-		"Binary": {
-			"description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
-			"type": "string"
-		},
-		"Execute": {
-			"type": "object",
-			"required": ["commitment", "dr_id", "proof", "public_key"],
-			"properties": {
-				"commitment": {
-					"type": "string"
-				},
-				"dr_id": {
-					"type": "string"
-				},
-				"proof": {
-					"type": "string"
-				},
-				"public_key": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute10": {
-			"type": "object",
-			"required": ["public_key"],
-			"properties": {
-				"public_key": {
-					"description": "The public key of the person.",
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute11": {
-			"type": "object",
-			"additionalProperties": false
-		},
-		"Execute12": {
-			"type": "object",
-			"additionalProperties": false
-		},
-		"Execute2": {
-			"type": "object",
-			"required": ["payback_address", "posted_dr", "seda_payload"],
-			"properties": {
-				"payback_address": {
-					"$ref": "#/definitions/Binary"
-				},
-				"posted_dr": {
-					"$ref": "#/definitions/PostDataRequestArgs"
-				},
-				"seda_payload": {
-					"$ref": "#/definitions/Binary"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute3": {
-			"type": "object",
-			"required": ["dr_id", "proof", "public_key", "reveal_body", "stderr", "stdout"],
-			"properties": {
-				"dr_id": {
-					"type": "string"
-				},
-				"proof": {
-					"type": "string"
-				},
-				"public_key": {
-					"type": "string"
-				},
-				"reveal_body": {
-					"$ref": "#/definitions/RevealBody"
-				},
-				"stderr": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					}
-				},
-				"stdout": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					}
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute4": {
-			"type": "object",
-			"required": ["proof", "public_key"],
-			"properties": {
-				"memo": {
-					"anyOf": [
-						{
-							"$ref": "#/definitions/Binary"
-						},
-						{
-							"type": "null"
-						}
-					]
-				},
-				"proof": {
-					"type": "string"
-				},
-				"public_key": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute5": {
-			"type": "object",
-			"required": ["amount", "proof", "public_key"],
-			"properties": {
-				"amount": {
-					"$ref": "#/definitions/Uint128"
-				},
-				"proof": {
-					"type": "string"
-				},
-				"public_key": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute6": {
-			"type": "object",
-			"required": ["amount", "proof", "public_key"],
-			"properties": {
-				"amount": {
-					"$ref": "#/definitions/Uint128"
-				},
-				"proof": {
-					"type": "string"
-				},
-				"public_key": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute7": {
-			"type": "object",
-			"required": ["new_owner"],
-			"properties": {
-				"new_owner": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"Execute8": {
-			"type": "object",
-			"additionalProperties": false
-		},
-		"Execute9": {
-			"type": "object",
-			"required": ["public_key"],
-			"properties": {
-				"public_key": {
-					"description": "The public key of the person.",
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"ExecuteMsg": {
-			"oneOf": [
-				{
-					"type": "object",
-					"required": ["commit_data_result"],
-					"properties": {
-						"commit_data_result": {
-							"$ref": "#/definitions/Execute"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["post_data_request"],
-					"properties": {
-						"post_data_request": {
-							"$ref": "#/definitions/Execute2"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["reveal_data_result"],
-					"properties": {
-						"reveal_data_result": {
-							"$ref": "#/definitions/Execute3"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["set_timeout_config"],
-					"properties": {
-						"set_timeout_config": {
-							"$ref": "#/definitions/TimeoutConfig"
-						}
-					},
-					"additionalProperties": false
-				}
-			]
-		},
-		"ExecuteMsg2": {
-			"oneOf": [
-				{
-					"type": "object",
-					"required": ["stake"],
-					"properties": {
-						"stake": {
-							"$ref": "#/definitions/Execute4"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["unstake"],
-					"properties": {
-						"unstake": {
-							"$ref": "#/definitions/Execute5"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["withdraw"],
-					"properties": {
-						"withdraw": {
-							"$ref": "#/definitions/Execute6"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["set_staking_config"],
-					"properties": {
-						"set_staking_config": {
-							"$ref": "#/definitions/StakingConfig"
-						}
-					},
-					"additionalProperties": false
-				}
-			]
-		},
-		"ExecuteMsg3": {
-			"oneOf": [
-				{
-					"type": "object",
-					"required": ["transfer_ownership"],
-					"properties": {
-						"transfer_ownership": {
-							"$ref": "#/definitions/Execute7"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["accept_ownership"],
-					"properties": {
-						"accept_ownership": {
-							"$ref": "#/definitions/Execute8"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"description": "Add a user to the allowlist.",
-					"type": "object",
-					"required": ["add_to_allowlist"],
-					"properties": {
-						"add_to_allowlist": {
-							"$ref": "#/definitions/Execute9"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"description": "Remove a user from the allowlist.",
-					"type": "object",
-					"required": ["remove_from_allowlist"],
-					"properties": {
-						"remove_from_allowlist": {
-							"$ref": "#/definitions/Execute10"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["pause"],
-					"properties": {
-						"pause": {
-							"$ref": "#/definitions/Execute11"
-						}
-					},
-					"additionalProperties": false
-				},
-				{
-					"type": "object",
-					"required": ["unpause"],
-					"properties": {
-						"unpause": {
-							"$ref": "#/definitions/Execute12"
-						}
-					},
-					"additionalProperties": false
-				}
-			]
-		},
-		"PostDataRequestArgs": {
-			"type": "object",
-			"required": [
-				"consensus_filter",
-				"exec_gas_limit",
-				"exec_inputs",
-				"exec_program_id",
-				"gas_price",
-				"memo",
-				"replication_factor",
-				"tally_gas_limit",
-				"tally_inputs",
-				"tally_program_id",
-				"version"
-			],
-			"properties": {
-				"consensus_filter": {
-					"$ref": "#/definitions/Binary"
-				},
-				"exec_gas_limit": {
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				},
-				"exec_inputs": {
-					"$ref": "#/definitions/Binary"
-				},
-				"exec_program_id": {
-					"type": "string"
-				},
-				"gas_price": {
-					"$ref": "#/definitions/Uint128"
-				},
-				"memo": {
-					"$ref": "#/definitions/Binary"
-				},
-				"replication_factor": {
-					"type": "integer",
-					"format": "uint16",
-					"minimum": 0.0
-				},
-				"tally_gas_limit": {
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				},
-				"tally_inputs": {
-					"$ref": "#/definitions/Binary"
-				},
-				"tally_program_id": {
-					"type": "string"
-				},
-				"version": {
-					"type": "string",
-					"pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
-				}
-			},
-			"additionalProperties": false
-		},
-		"RevealBody": {
-			"description": "A revealed data request result that is hashed and signed by the executor",
-			"type": "object",
-			"required": ["exit_code", "gas_used", "id", "proxy_public_keys", "reveal", "salt"],
-			"properties": {
-				"exit_code": {
-					"type": "integer",
-					"format": "uint8",
-					"minimum": 0.0
-				},
-				"gas_used": {
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				},
-				"id": {
-					"type": "string"
-				},
-				"proxy_public_keys": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					}
-				},
-				"reveal": {
-					"$ref": "#/definitions/Binary"
-				},
-				"salt": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false
-		},
-		"StakingConfig": {
-			"description": "Governance-controlled staking configuration parameters",
-			"type": "object",
-			"required": ["allowlist_enabled", "minimum_stake_for_committee_eligibility", "minimum_stake_to_register"],
-			"properties": {
-				"allowlist_enabled": {
-					"description": "Whether the allowlist is enabled",
-					"type": "boolean"
-				},
-				"minimum_stake_for_committee_eligibility": {
-					"description": "Minimum amount of SEDA tokens required to be eligible for committee inclusion",
-					"allOf": [
-						{
-							"$ref": "#/definitions/Uint128"
-						}
-					]
-				},
-				"minimum_stake_to_register": {
-					"description": "Minimum amount of SEDA tokens required to register as a data request executor",
-					"allOf": [
-						{
-							"$ref": "#/definitions/Uint128"
-						}
-					]
-				}
-			},
-			"additionalProperties": false
-		},
-		"TimeoutConfig": {
-			"description": "Governance-controlled timeout configuration parameters",
-			"type": "object",
-			"required": ["commit_timeout_in_blocks", "reveal_timeout_in_blocks"],
-			"properties": {
-				"commit_timeout_in_blocks": {
-					"description": "Number of blocks after which a data request is timed out while waiting for commits.",
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				},
-				"reveal_timeout_in_blocks": {
-					"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				}
-			},
-			"additionalProperties": false
-		},
-		"Uint128": {
-			"description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
-			"type": "string"
-		}
-	}
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/ExecuteMsg"
+    },
+    {
+      "$ref": "#/definitions/ExecuteMsg2"
+    },
+    {
+      "$ref": "#/definitions/ExecuteMsg3"
+    }
+  ],
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+      "type": "string"
+    },
+    "Execute": {
+      "type": "object",
+      "required": [
+        "commitment",
+        "dr_id",
+        "proof",
+        "public_key"
+      ],
+      "properties": {
+        "commitment": {
+          "type": "string"
+        },
+        "dr_id": {
+          "type": "string"
+        },
+        "proof": {
+          "type": "string"
+        },
+        "public_key": {
+          "description": "A hash of the reveal message, not just the reveal body",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute10": {
+      "type": "object",
+      "required": [
+        "public_key"
+      ],
+      "properties": {
+        "public_key": {
+          "description": "The public key of the person.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute11": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Execute12": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Execute2": {
+      "type": "object",
+      "required": [
+        "payback_address",
+        "posted_dr",
+        "seda_payload"
+      ],
+      "properties": {
+        "payback_address": {
+          "$ref": "#/definitions/Binary"
+        },
+        "posted_dr": {
+          "$ref": "#/definitions/PostDataRequestArgs"
+        },
+        "seda_payload": {
+          "$ref": "#/definitions/Binary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute3": {
+      "type": "object",
+      "required": [
+        "proof",
+        "public_key",
+        "reveal_body",
+        "stderr",
+        "stdout"
+      ],
+      "properties": {
+        "proof": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "reveal_body": {
+          "$ref": "#/definitions/RevealBody"
+        },
+        "stderr": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stdout": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute4": {
+      "type": "object",
+      "required": [
+        "proof",
+        "public_key"
+      ],
+      "properties": {
+        "memo": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proof": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute5": {
+      "type": "object",
+      "required": [
+        "proof",
+        "public_key"
+      ],
+      "properties": {
+        "proof": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute6": {
+      "type": "object",
+      "required": [
+        "proof",
+        "public_key",
+        "withdraw_address"
+      ],
+      "properties": {
+        "proof": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "withdraw_address": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute7": {
+      "type": "object",
+      "required": [
+        "new_owner"
+      ],
+      "properties": {
+        "new_owner": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Execute8": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Execute9": {
+      "type": "object",
+      "required": [
+        "public_key"
+      ],
+      "properties": {
+        "public_key": {
+          "description": "The public key of the person.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExecuteMsg": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "commit_data_result"
+          ],
+          "properties": {
+            "commit_data_result": {
+              "$ref": "#/definitions/Execute"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "post_data_request"
+          ],
+          "properties": {
+            "post_data_request": {
+              "$ref": "#/definitions/Execute2"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "reveal_data_result"
+          ],
+          "properties": {
+            "reveal_data_result": {
+              "$ref": "#/definitions/Execute3"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "set_timeout_config"
+          ],
+          "properties": {
+            "set_timeout_config": {
+              "$ref": "#/definitions/TimeoutConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ExecuteMsg2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "stake"
+          ],
+          "properties": {
+            "stake": {
+              "$ref": "#/definitions/Execute4"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "unstake"
+          ],
+          "properties": {
+            "unstake": {
+              "$ref": "#/definitions/Execute5"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "withdraw"
+          ],
+          "properties": {
+            "withdraw": {
+              "$ref": "#/definitions/Execute6"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "set_staking_config"
+          ],
+          "properties": {
+            "set_staking_config": {
+              "$ref": "#/definitions/StakingConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ExecuteMsg3": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "transfer_ownership"
+          ],
+          "properties": {
+            "transfer_ownership": {
+              "$ref": "#/definitions/Execute7"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "accept_ownership"
+          ],
+          "properties": {
+            "accept_ownership": {
+              "$ref": "#/definitions/Execute8"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Add a user to the allowlist.",
+          "type": "object",
+          "required": [
+            "add_to_allowlist"
+          ],
+          "properties": {
+            "add_to_allowlist": {
+              "$ref": "#/definitions/Execute9"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Remove a user from the allowlist.",
+          "type": "object",
+          "required": [
+            "remove_from_allowlist"
+          ],
+          "properties": {
+            "remove_from_allowlist": {
+              "$ref": "#/definitions/Execute10"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "pause"
+          ],
+          "properties": {
+            "pause": {
+              "$ref": "#/definitions/Execute11"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "unpause"
+          ],
+          "properties": {
+            "unpause": {
+              "$ref": "#/definitions/Execute12"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PostDataRequestArgs": {
+      "type": "object",
+      "required": [
+        "consensus_filter",
+        "exec_gas_limit",
+        "exec_inputs",
+        "exec_program_id",
+        "gas_price",
+        "memo",
+        "replication_factor",
+        "tally_gas_limit",
+        "tally_inputs",
+        "tally_program_id",
+        "version"
+      ],
+      "properties": {
+        "consensus_filter": {
+          "$ref": "#/definitions/Binary"
+        },
+        "exec_gas_limit": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "exec_inputs": {
+          "$ref": "#/definitions/Binary"
+        },
+        "exec_program_id": {
+          "type": "string"
+        },
+        "gas_price": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "memo": {
+          "$ref": "#/definitions/Binary"
+        },
+        "replication_factor": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "tally_gas_limit": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "tally_inputs": {
+          "$ref": "#/definitions/Binary"
+        },
+        "tally_program_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RevealBody": {
+      "description": "A revealed data request result that is hashed and signed by the executor",
+      "type": "object",
+      "required": [
+        "dr_block_height",
+        "dr_id",
+        "exit_code",
+        "gas_used",
+        "proxy_public_keys",
+        "reveal"
+      ],
+      "properties": {
+        "dr_block_height": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "dr_id": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "gas_used": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "proxy_public_keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reveal": {
+          "$ref": "#/definitions/Binary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "StakingConfig": {
+      "description": "Governance-controlled staking configuration parameters",
+      "type": "object",
+      "required": [
+        "allowlist_enabled",
+        "minimum_stake"
+      ],
+      "properties": {
+        "allowlist_enabled": {
+          "description": "Whether the allowlist is enabled",
+          "type": "boolean"
+        },
+        "minimum_stake": {
+          "description": "Minimum amount of SEDA tokens required to register as a data request executor",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TimeoutConfig": {
+      "description": "Governance-controlled timeout configuration parameters",
+      "type": "object",
+      "required": [
+        "commit_timeout_in_blocks",
+        "reveal_timeout_in_blocks"
+      ],
+      "properties": {
+        "commit_timeout_in_blocks": {
+          "description": "Number of blocks after which a data request is timed out while waiting for commits.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "reveal_timeout_in_blocks": {
+          "description": "Number of blocks after which a data request is timed out while waiting for reveals.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Uint128": {
+      "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+      "type": "string"
+    }
+  }
 }

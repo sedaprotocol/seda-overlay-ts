@@ -7,18 +7,18 @@
 
 export type ExecuteMsg = ExecuteMsg1 | ExecuteMsg2 | ExecuteMsg3;
 export type ExecuteMsg1 =
-	| {
-			commit_data_result: Execute;
-	  }
-	| {
-			post_data_request: Execute2;
-	  }
-	| {
-			reveal_data_result: Execute3;
-	  }
-	| {
-			set_timeout_config: TimeoutConfig;
-	  };
+  | {
+      commit_data_result: Execute;
+    }
+  | {
+      post_data_request: Execute2;
+    }
+  | {
+      reveal_data_result: Execute3;
+    }
+  | {
+      set_timeout_config: TimeoutConfig;
+    };
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -40,141 +40,138 @@ export type Binary = string;
  */
 export type Uint128 = string;
 export type ExecuteMsg2 =
-	| {
-			stake: Execute4;
-	  }
-	| {
-			unstake: Execute5;
-	  }
-	| {
-			withdraw: Execute6;
-	  }
-	| {
-			set_staking_config: StakingConfig;
-	  };
+  | {
+      stake: Execute4;
+    }
+  | {
+      unstake: Execute5;
+    }
+  | {
+      withdraw: Execute6;
+    }
+  | {
+      set_staking_config: StakingConfig;
+    };
 export type ExecuteMsg3 =
-	| {
-			transfer_ownership: Execute7;
-	  }
-	| {
-			accept_ownership: Execute8;
-	  }
-	| {
-			add_to_allowlist: Execute9;
-	  }
-	| {
-			remove_from_allowlist: Execute10;
-	  }
-	| {
-			pause: Execute11;
-	  }
-	| {
-			unpause: Execute12;
-	  };
+  | {
+      transfer_ownership: Execute7;
+    }
+  | {
+      accept_ownership: Execute8;
+    }
+  | {
+      add_to_allowlist: Execute9;
+    }
+  | {
+      remove_from_allowlist: Execute10;
+    }
+  | {
+      pause: Execute11;
+    }
+  | {
+      unpause: Execute12;
+    };
 
 export interface Execute {
-	commitment: string;
-	dr_id: string;
-	proof: string;
-	public_key: string;
+  commitment: string;
+  dr_id: string;
+  proof: string;
+  /**
+   * A hash of the reveal message, not just the reveal body
+   */
+  public_key: string;
 }
 export interface Execute2 {
-	payback_address: Binary;
-	posted_dr: PostDataRequestArgs;
-	seda_payload: Binary;
+  payback_address: Binary;
+  posted_dr: PostDataRequestArgs;
+  seda_payload: Binary;
 }
 export interface PostDataRequestArgs {
-	consensus_filter: Binary;
-	exec_gas_limit: number;
-	exec_inputs: Binary;
-	exec_program_id: string;
-	gas_price: Uint128;
-	memo: Binary;
-	replication_factor: number;
-	tally_gas_limit: number;
-	tally_inputs: Binary;
-	tally_program_id: string;
-	version: string;
+  consensus_filter: Binary;
+  exec_gas_limit: number;
+  exec_inputs: Binary;
+  exec_program_id: string;
+  gas_price: Uint128;
+  memo: Binary;
+  replication_factor: number;
+  tally_gas_limit: number;
+  tally_inputs: Binary;
+  tally_program_id: string;
+  version: string;
 }
 export interface Execute3 {
-	dr_id: string;
-	proof: string;
-	public_key: string;
-	reveal_body: RevealBody;
-	stderr: string[];
-	stdout: string[];
+  proof: string;
+  public_key: string;
+  reveal_body: RevealBody;
+  stderr: string[];
+  stdout: string[];
 }
 /**
  * A revealed data request result that is hashed and signed by the executor
  */
 export interface RevealBody {
-	exit_code: number;
-	gas_used: number;
-	id: string;
-	proxy_public_keys: string[];
-	reveal: Binary;
-	salt: string;
+  dr_block_height: number;
+  dr_id: string;
+  exit_code: number;
+  gas_used: number;
+  proxy_public_keys: string[];
+  reveal: Binary;
 }
 /**
  * Governance-controlled timeout configuration parameters
  */
 export interface TimeoutConfig {
-	/**
-	 * Number of blocks after which a data request is timed out while waiting for commits.
-	 */
-	commit_timeout_in_blocks: number;
-	/**
-	 * Number of blocks after which a data request is timed out while waiting for reveals.
-	 */
-	reveal_timeout_in_blocks: number;
+  /**
+   * Number of blocks after which a data request is timed out while waiting for commits.
+   */
+  commit_timeout_in_blocks: number;
+  /**
+   * Number of blocks after which a data request is timed out while waiting for reveals.
+   */
+  reveal_timeout_in_blocks: number;
 }
 export interface Execute4 {
-	memo?: Binary | null;
-	proof: string;
-	public_key: string;
+  memo?: Binary | null;
+  proof: string;
+  public_key: string;
 }
 export interface Execute5 {
-	amount: Uint128;
-	proof: string;
-	public_key: string;
+  proof: string;
+  public_key: string;
 }
 export interface Execute6 {
-	amount: Uint128;
-	proof: string;
-	public_key: string;
+  proof: string;
+  public_key: string;
+  withdraw_address: string;
 }
 /**
  * Governance-controlled staking configuration parameters
  */
 export interface StakingConfig {
-	/**
-	 * Whether the allowlist is enabled
-	 */
-	allowlist_enabled: boolean;
-	/**
-	 * Minimum amount of SEDA tokens required to be eligible for committee inclusion
-	 */
-	minimum_stake_for_committee_eligibility: Uint128;
-	/**
-	 * Minimum amount of SEDA tokens required to register as a data request executor
-	 */
-	minimum_stake_to_register: Uint128;
+  /**
+   * Whether the allowlist is enabled
+   */
+  allowlist_enabled: boolean;
+  /**
+   * Minimum amount of SEDA tokens required to register as a data request executor
+   */
+  minimum_stake: Uint128;
 }
 export interface Execute7 {
-	new_owner: string;
+  new_owner: string;
 }
-export type Execute8 = {};
+export interface Execute8 {}
 export interface Execute9 {
-	/**
-	 * The public key of the person.
-	 */
-	public_key: string;
+  /**
+   * The public key of the person.
+   */
+  public_key: string;
 }
 export interface Execute10 {
-	/**
-	 * The public key of the person.
-	 */
-	public_key: string;
+  /**
+   * The public key of the person.
+   */
+  public_key: string;
 }
-export type Execute11 = {};
-export type Execute12 = {};
+export interface Execute11 {}
+export interface Execute12 {}

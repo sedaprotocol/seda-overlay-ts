@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SudoMsg",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/SudoMsg"
+    }
+  ],
+  "definitions": {
+    "DistributionBurn": {
+      "type": "object",
+      "required": [
+        "amount"
+      ],
+      "properties": {
+        "amount": {
+          "description": "The amount to burn",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "DistributionDataProxyReward": {
+      "type": "object",
+      "required": [
+        "amount",
+        "payout_address",
+        "public_key"
+      ],
+      "properties": {
+        "amount": {
+          "description": "The amount to send to the address.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        },
+        "payout_address": {
+          "description": "The address to send the funds to.",
+          "type": "string"
+        },
+        "public_key": {
+          "description": "The public key of the data proxy as a hex string.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DistributionExecutorReward": {
+      "type": "object",
+      "required": [
+        "amount",
+        "identity"
+      ],
+      "properties": {
+        "amount": {
+          "description": "The amount to burn",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        },
+        "identity": {
+          "description": "The identity to reward.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DistributionMessage": {
+      "oneOf": [
+        {
+          "description": "For burning funds",
+          "type": "object",
+          "required": [
+            "burn"
+          ],
+          "properties": {
+            "burn": {
+              "$ref": "#/definitions/DistributionBurn"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "For rewarding an executor",
+          "type": "object",
+          "required": [
+            "executor_reward"
+          ],
+          "properties": {
+            "executor_reward": {
+              "$ref": "#/definitions/DistributionExecutorReward"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "For rewarding a data proxy",
+          "type": "object",
+          "required": [
+            "data_proxy_reward"
+          ],
+          "properties": {
+            "data_proxy_reward": {
+              "$ref": "#/definitions/DistributionDataProxyReward"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Sudo": {
+      "type": "object",
+      "required": [
+        "requests"
+      ],
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Sudo2": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "SudoMsg": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "remove_data_requests"
+          ],
+          "properties": {
+            "remove_data_requests": {
+              "$ref": "#/definitions/Sudo"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "expire_data_requests"
+          ],
+          "properties": {
+            "expire_data_requests": {
+              "$ref": "#/definitions/Sudo2"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Uint128": {
+      "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+      "type": "string"
+    }
+  }
+}

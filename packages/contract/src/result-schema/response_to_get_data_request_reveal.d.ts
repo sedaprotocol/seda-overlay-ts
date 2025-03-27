@@ -17,10 +17,10 @@ export type Binary = string;
  * A revealed data request result that is hashed and signed by the executor
  */
 export interface RevealBody {
-	exit_code: number;
-	gas_used: number;
-	id: string;
-	proxy_public_keys: string[];
-	reveal: Binary;
-	salt: string;
+  dr_block_height: number;
+  dr_id: string;
+  exit_code: number;
+  gas_used: number;
+  proxy_public_keys: string[];
+  reveal: Binary;
 }

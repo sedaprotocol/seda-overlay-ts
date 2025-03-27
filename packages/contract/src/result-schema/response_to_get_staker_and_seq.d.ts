@@ -27,14 +27,14 @@ export type Uint128 = string;
 export type Binary = string;
 
 export interface StakerAndSeq {
-	seq: Uint128;
-	staker?: Staker | null;
+  seq: Uint128;
+  staker?: Staker | null;
 }
 /**
  * A data request executor with staking info and optional p2p multi address
  */
 export interface Staker {
-	memo?: Binary | null;
-	tokens_pending_withdrawal: Uint128;
-	tokens_staked: Uint128;
+  memo?: Binary | null;
+  tokens_pending_withdrawal: Uint128;
+  tokens_staked: Uint128;
 }

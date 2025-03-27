@@ -1,92 +1,94 @@
 {
-	"$schema": "http://json-schema.org/draft-07/schema#",
-	"title": "InstantiateMsg",
-	"type": "object",
-	"required": ["chain_id", "owner", "token"],
-	"properties": {
-		"chain_id": {
-			"type": "string"
-		},
-		"owner": {
-			"type": "string"
-		},
-		"staking_config": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/StakingConfig"
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
-		"timeout_config": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/TimeoutConfig"
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
-		"token": {
-			"type": "string"
-		}
-	},
-	"additionalProperties": false,
-	"definitions": {
-		"StakingConfig": {
-			"description": "Governance-controlled staking configuration parameters",
-			"type": "object",
-			"required": ["allowlist_enabled", "minimum_stake_for_committee_eligibility", "minimum_stake_to_register"],
-			"properties": {
-				"allowlist_enabled": {
-					"description": "Whether the allowlist is enabled",
-					"type": "boolean"
-				},
-				"minimum_stake_for_committee_eligibility": {
-					"description": "Minimum amount of SEDA tokens required to be eligible for committee inclusion",
-					"allOf": [
-						{
-							"$ref": "#/definitions/Uint128"
-						}
-					]
-				},
-				"minimum_stake_to_register": {
-					"description": "Minimum amount of SEDA tokens required to register as a data request executor",
-					"allOf": [
-						{
-							"$ref": "#/definitions/Uint128"
-						}
-					]
-				}
-			},
-			"additionalProperties": false
-		},
-		"TimeoutConfig": {
-			"description": "Governance-controlled timeout configuration parameters",
-			"type": "object",
-			"required": ["commit_timeout_in_blocks", "reveal_timeout_in_blocks"],
-			"properties": {
-				"commit_timeout_in_blocks": {
-					"description": "Number of blocks after which a data request is timed out while waiting for commits.",
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				},
-				"reveal_timeout_in_blocks": {
-					"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
-				}
-			},
-			"additionalProperties": false
-		},
-		"Uint128": {
-			"description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
-			"type": "string"
-		}
-	}
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "chain_id",
+    "owner",
+    "token"
+  ],
+  "properties": {
+    "chain_id": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "staking_config": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/StakingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "timeout_config": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TimeoutConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "token": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "StakingConfig": {
+      "description": "Governance-controlled staking configuration parameters",
+      "type": "object",
+      "required": [
+        "allowlist_enabled",
+        "minimum_stake"
+      ],
+      "properties": {
+        "allowlist_enabled": {
+          "description": "Whether the allowlist is enabled",
+          "type": "boolean"
+        },
+        "minimum_stake": {
+          "description": "Minimum amount of SEDA tokens required to register as a data request executor",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TimeoutConfig": {
+      "description": "Governance-controlled timeout configuration parameters",
+      "type": "object",
+      "required": [
+        "commit_timeout_in_blocks",
+        "reveal_timeout_in_blocks"
+      ],
+      "properties": {
+        "commit_timeout_in_blocks": {
+          "description": "Number of blocks after which a data request is timed out while waiting for commits.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "reveal_timeout_in_blocks": {
+          "description": "Number of blocks after which a data request is timed out while waiting for reveals.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Uint128": {
+      "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+      "type": "string"
+    }
+  }
 }

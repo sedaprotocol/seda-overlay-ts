@@ -24,16 +24,12 @@ export type Uint128 = string;
  * Governance-controlled staking configuration parameters
  */
 export interface StakingConfig {
-	/**
-	 * Whether the allowlist is enabled
-	 */
-	allowlist_enabled: boolean;
-	/**
-	 * Minimum amount of SEDA tokens required to be eligible for committee inclusion
-	 */
-	minimum_stake_for_committee_eligibility: Uint128;
-	/**
-	 * Minimum amount of SEDA tokens required to register as a data request executor
-	 */
-	minimum_stake_to_register: Uint128;
+  /**
+   * Whether the allowlist is enabled
+   */
+  allowlist_enabled: boolean;
+  /**
+   * Minimum amount of SEDA tokens required to register as a data request executor
+   */
+  minimum_stake: Uint128;
 }

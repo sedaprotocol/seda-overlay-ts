@@ -4,3 +4,4 @@ run `cargo schema`
 
 Copy `schema/` folder into `packages/contract/src/contract-schema`
 
+Then run `bun run build-schema` from the root directory

@@ -5,4 +5,16 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export interface MapOf_RevealBody {}
+export type SudoMsg = SudoMsg1;
+export type SudoMsg1 =
+  | {
+      remove_data_requests: Sudo;
+    }
+  | {
+      expire_data_requests: Sudo2;
+    };
+
+export interface Sudo {
+  requests: {};
+}
+export interface Sudo2 {}
