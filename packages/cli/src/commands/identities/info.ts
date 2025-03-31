@@ -7,7 +7,7 @@ import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence
 
 interface TableEntry {
 	identity: string;
-	sequenceNumber: bigint;
+	sequenceNumber: string;
 	tokensStaked: string;
 	tokensPendingWithdrawl: string;
 	status: string;
@@ -47,19 +47,16 @@ export const info = populateWithCommonOptions(new Command("info"))
 				Just: (value) => {
 					entries.push({
 						identity: identityId,
-						sequenceNumber: response.value.seq,
+						sequenceNumber: response.value.seq.toString(),
 						tokensPendingWithdrawl: `${formatTokenUnits(value.tokens_pending_withdrawal)} SEDA`,
 						tokensStaked: `${formatTokenUnits(value.tokens_staked)} SEDA`,
-						status:
-							BigInt(value.tokens_staked) >= BigInt(stakingConfig.value.minimum_stake_to_register)
-								? "STAKED"
-								: "NOT_ENOUGH_STAKE",
+						status: BigInt(value.tokens_staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
 					});
 				},
 				Nothing: () => {
 					entries.push({
 						identity: identityId,
-						sequenceNumber: response.value.seq,
+						sequenceNumber: response.value.seq.toString(),
 						status: "NOT_REGISTERED",
 						tokensPendingWithdrawl: "0.00 SEDA",
 						tokensStaked: "0.00 SEDA",
@@ -68,6 +65,13 @@ export const info = populateWithCommonOptions(new Command("info"))
 			});
 		}
 
-		console.table(entries);
+		const formattedEntries = entries.map((entry) => ({
+			Identity: entry.identity,
+			"Seq. No.": entry.sequenceNumber,
+			Staked: entry.tokensStaked,
+			"Pending Withdrawal": entry.tokensPendingWithdrawl,
+			Status: entry.status,
+		}));
+		console.table(formattedEntries);
 		process.exit(0);
 	});

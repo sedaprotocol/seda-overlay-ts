@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema/src/identity";
-import { formatTokenUnits, parseTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
@@ -8,11 +8,9 @@ import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence
 
 export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 	.description("Withdraws from a certain identity")
-	.argument("<number>", "Identity index to use for staking")
-	.argument("<number>", "Amount to stake (a floating point number in `seda` units)")
+	.argument("<number>", "Identity index to use for withdrawing")
 	.addOption(new Option("--memo <string>", "memo to add to the transaction"))
-	.action(async (index, amount, options) => {
-		const amountInAttoSeda = BigInt(parseTokenUnits(amount));
+	.action(async (index, options) => {
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
@@ -57,29 +55,22 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 			process.exit(1);
 		}
 
-		if (BigInt(staker.tokens_pending_withdrawal) < amountInAttoSeda) {
-			logger.error(
-				`Cannot withdraw because request amount to withdraw exceeds pending withdrawl (pending: ${pendingWithdrawl} SEDA or ${staker.tokens_pending_withdrawal} aSEDA, requested: ${amount} SEDA or ${amountInAttoSeda} aSEDA`,
-			);
-			process.exit(1);
-		}
-
+		const withdrawAddress = sedaChain.getSignerAddress();
 		const messageHash = createWithdrawMessageSignatureHash(
-			amountInAttoSeda,
 			config.sedaChain.chainId,
+			withdrawAddress,
 			coreContractAddress,
 			stakerInfo.value.seq,
 		);
 
 		const proof = vrfProve(privateKey.value, messageHash);
-		logger.info(`Withdrawing ${amount} SEDA..`);
-
+		logger.info(`Withdrawing ${formatTokenUnits(staker.tokens_pending_withdrawal)} SEDA...`);
 		const response = await sedaChain.waitForSmartContractTransaction(
 			{
 				withdraw: {
-					amount: amountInAttoSeda.toString(),
 					proof: proof.toString("hex"),
 					public_key: identityId.value,
+					withdraw_address: withdrawAddress,
 				},
 			},
 			undefined,
