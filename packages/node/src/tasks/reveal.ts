@@ -1,5 +1,5 @@
-import { createCommitmentHash } from "@sedaprotocol/core-contract-schema";
-import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
+import { createRevealBodyHash, createRevealMessageHash } from "@sedaprotocol/core-contract-schema/src/commit";
+// import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyRevealed, DataRequestExpired, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -17,29 +17,23 @@ export class EnchancedRevealError {
 
 export async function revealDr(
 	identityId: string,
-	dataRequest: DataRequest,
+	_dataRequest: DataRequest,
 	executionResult: ExecutionResult,
 	identityPool: IdentityPool,
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
 ): Promise<Result<Unit, EnchancedRevealError>> {
-	const commitmentHash = createCommitmentHash(executionResult.revealBody);
-	const messageHash = createRevealMessageSignatureHash(
-		dataRequest.id,
-		appConfig.sedaChain.chainId,
-		await sedaChain.getCoreContractAddress(),
-		dataRequest.height,
-		commitmentHash,
-	);
+	const contractAddr = await sedaChain.getCoreContractAddress();
 
-	const signature = identityPool.sign(identityId, messageHash);
-	if (signature.isErr) return Result.err(new EnchancedRevealError(signature.error, commitmentHash));
+	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
+	const revealMessageHash = createRevealMessageHash(revealBodyHash, appConfig.sedaChain.chainId, contractAddr);
+	const revealProof = identityPool.sign(identityId, revealMessageHash);
+	if (revealProof.isErr) return Result.err(new EnchancedRevealError(revealProof.error, revealBodyHash));
 
 	const revealResponse = await sedaChain.waitForSmartContractTransaction({
 		reveal_data_result: {
-			dr_id: dataRequest.id,
 			public_key: identityId,
-			proof: signature.value.toString("hex"),
+			proof: revealProof.value.toString("hex"),
 			reveal_body: {
 				...executionResult.revealBody,
 				gas_used: Number(executionResult.revealBody.gas_used.toString()),
@@ -50,6 +44,6 @@ export async function revealDr(
 		},
 	});
 
-	if (revealResponse.isErr) return Result.err(new EnchancedRevealError(revealResponse.error, commitmentHash));
+	if (revealResponse.isErr) return Result.err(new EnchancedRevealError(revealResponse.error, revealBodyHash));
 	return Result.ok();
 }

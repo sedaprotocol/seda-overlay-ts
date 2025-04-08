@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import {
 	AlreadyCommitted,
 	AlreadyRevealed,
@@ -35,7 +34,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private executeDrIntervalId: Maybe<Timer> = Maybe.nothing();
 	private isProcessing = false;
 	private commitHash: Buffer = Buffer.alloc(0);
-	private salt = randomBytes(32).toString("hex");
 
 	constructor(
 		private pool: DataRequestPool,
@@ -184,7 +182,16 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			id: this.name,
 		});
 
+		const dr = this.pool.getDataRequest(this.drId);
 		const info = this.identitityPool.getIdentityInfo(this.identityId);
+
+		if (dr.isNothing) {
+			logger.error("Invariant found, data request task uses a data request that does not exist", {
+				id: this.name,
+			});
+			this.stop();
+			return;
+		}
 
 		if (info.isNothing) {
 			logger.error("Invariant found, data request task uses an identity that does not exist", {
@@ -222,10 +229,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			revealBody: {
 				exit_code: vmResult.value.exitCode,
 				gas_used: vmResult.value.gasUsed,
-				id: this.drId,
+				dr_id: this.drId,
+				dr_block_height: Number(dr.value.height),
 				proxy_public_keys: vmResult.value.usedProxyPublicKeys,
 				reveal: Buffer.from(vmResult.value.result ?? []),
-				salt: this.salt,
 			},
 		});
 
@@ -307,7 +314,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.transitionStatus(IdentityDataRequestStatus.ReadyToBeRevealed);
 	}
 
-	async handleReveal(dataRequest: DataRequest) {
+	// TODO: check if we remove the dataRequest parameter
+	async handleReveal(_dataRequest: DataRequest) {
 		logger.info("📨 Revealing...", {
 			id: this.name,
 		});
@@ -320,7 +328,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		const result = await revealDr(
 			this.identityId,
-			dataRequest,
+			_dataRequest,
 			this.executionResult.value,
 			this.identitityPool,
 			this.sedaChain,
