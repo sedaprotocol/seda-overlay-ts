@@ -5,15 +5,16 @@ import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 import { Cache } from "../services/cache";
 
+// TODO: Check if lastSeenIndex is needed
 export async function getDataRequests(
 	sedaChain: SedaChain,
-	offset: number,
+	// lastSeenIndex: number |null,
 	limit: number,
 ): Promise<Result<DataRequest[], Error>> {
 	const result = await sedaChain.queryContractSmart<GetDataRequestsByStatusResponse>({
 		get_data_requests_by_status: {
 			status: "committing",
-			offset,
+			last_seen_index: null,
 			limit,
 		},
 	});

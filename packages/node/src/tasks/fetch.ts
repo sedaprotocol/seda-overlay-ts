@@ -16,7 +16,7 @@ type EventMap = {
 
 export class FetchTask extends EventEmitter<EventMap> {
 	private timerId: Maybe<Timer> = Maybe.nothing();
-	private offset = 0;
+	// private lastSeenIndex: Maybe<number> = Maybe.nothing();
 
 	constructor(
 		private pool: DataRequestPool,
@@ -28,18 +28,12 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 	async fetch(): Promise<Result<Unit, Error>> {
 		logger.info("🔎 Looking for Data Requests..");
-		logger.debug(`Fetching: ${this.offset}-${this.offset + LIMIT}`);
+		logger.debug(`Fetching ${LIMIT} Data Requests`);
 
-		const result = await getDataRequests(this.sedaChain, this.offset, LIMIT);
+		const result = await getDataRequests(this.sedaChain, LIMIT);
 
 		if (result.isErr) {
 			return Result.err(result.error);
-		}
-
-		if (result.value.length < LIMIT) {
-			this.offset = 0;
-		} else {
-			this.offset = this.offset + LIMIT;
 		}
 
 		const newDataRequests: DataRequest[] = [];
