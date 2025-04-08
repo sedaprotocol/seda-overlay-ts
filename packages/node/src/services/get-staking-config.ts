@@ -3,14 +3,12 @@ import { Result } from "true-myth";
 import { Cache } from "./cache";
 
 interface StakingConfigFromContract {
-	minimum_stake_to_register: string;
-	minimum_stake_for_committee_eligibility: string;
+	minimum_stake: string;
 	allowlist_enabled: boolean;
 }
 
 export interface StakingConfig {
-	minimumStakeToRegister: bigint;
-	minimumStakeForCommitteeEligibility: bigint;
+	minimumStake: bigint;
 	allowlistEnabled: boolean;
 }
 
@@ -29,8 +27,7 @@ export async function getStakingConfig(sedaChain: SedaChain): Promise<Result<Sta
 		}
 
 		const stakingConfig: StakingConfig = {
-			minimumStakeToRegister: BigInt(response.value.minimum_stake_to_register),
-			minimumStakeForCommitteeEligibility: BigInt(response.value.minimum_stake_for_committee_eligibility),
+			minimumStake: BigInt(response.value.minimum_stake),
 			allowlistEnabled: response.value.allowlist_enabled,
 		};
 

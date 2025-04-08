@@ -40,7 +40,7 @@ export class IdentityManagerTask {
 			return Result.err(stakingConfig.error);
 		}
 
-		const isEnabled = staker.value.value.tokensStaked >= stakingConfig.value.minimumStakeForCommitteeEligibility;
+		const isEnabled = staker.value.value.tokensStaked >= stakingConfig.value.minimumStake;
 
 		// Just for logging purposes
 		this.identityPool.getIdentityInfo(identity).match({
