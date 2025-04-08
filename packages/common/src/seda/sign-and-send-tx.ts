@@ -43,17 +43,10 @@ export async function signAndSendTxSync(
 	}
 
 	const feeAmount = gas * gasPrice.value;
-	let fee: StdFee = {
+	const fee: StdFee = {
 		gas: gas.toString(),
 		amount: [{ denom: "aseda", amount: feeAmount.toString() }],
 	};
-
-	if (gasInput === "zero") {
-		fee = {
-			...fee,
-			amount: [],
-		};
-	}
 
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {

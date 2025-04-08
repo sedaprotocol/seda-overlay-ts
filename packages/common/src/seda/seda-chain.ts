@@ -175,7 +175,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		if (result.isErr) {
 			if (result.error instanceof IncorrectAccountSquence) {
-				logger.warn(`Incorrect acccount sequence, adding tx back to the queue: ${result.error}`);
+				logger.warn(`Incorrect account sequence, adding tx back to the queue: ${result.error}`);
 				this.transactionQueue.push(txMessage.value);
 				return;
 			}
