@@ -5,16 +5,20 @@ import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 import { Cache } from "../services/cache";
 
+interface DataRequestsResponse {
+	dataRequests: DataRequest[];
+	total: number;
+	isPaused: boolean;
+}
+
 // TODO: Check if lastSeenIndex is needed
 export async function getDataRequests(
 	sedaChain: SedaChain,
-	// lastSeenIndex: number |null,
 	limit: number,
-): Promise<Result<DataRequest[], Error>> {
+): Promise<Result<DataRequestsResponse, Error>> {
 	const result = await sedaChain.queryContractSmart<GetDataRequestsByStatusResponse>({
 		get_data_requests_by_status: {
 			status: "committing",
-			last_seen_index: null,
 			limit,
 		},
 	});
@@ -24,7 +28,11 @@ export async function getDataRequests(
 	}
 
 	const dataRequests = result.value.data_requests.map((request) => transformDataRequestFromContract(request));
-	return Result.ok(dataRequests);
+	return Result.ok({
+		dataRequests,
+		total: result.value.total,
+		isPaused: result.value.is_paused,
+	});
 }
 
 // TODO: Make configurable

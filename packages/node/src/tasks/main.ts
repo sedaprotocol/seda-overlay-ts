@@ -92,21 +92,6 @@ export class MainTask {
 		});
 
 		this.eligibilityTask.on("eligible", async (drId, identityId) => {
-			// // Check if the data request is already in a terminal state
-			// const drMaybe = this.pool.getDataRequest(drId);
-			// if (drMaybe.isJust) {
-			// 	// Check if the data request is already in a terminal state
-			// 	const identityDrInfo = this.pool.getIdentityDataRequest(drId, identityId);
-			// 	if (identityDrInfo.isJust) {
-			// 		const status = identityDrInfo.value.identityInfo.status;
-			// 		if (status === IdentityDataRequestStatus.Revealed || 
-			// 			status === IdentityDataRequestStatus.Committed || 
-			// 			status === IdentityDataRequestStatus.ReadyToBeRevealed) {
-			// 			logger.debug(`---MAIN--> Skipping already processed data request: ${drId} (status: ${status})`);
-			// 			return;
-			// 		}
-			// 	}
-			// }
 			const drTask = new DataRequestTask(
 				this.pool,
 				this.identityPool,

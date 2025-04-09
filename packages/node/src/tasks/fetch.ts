@@ -35,17 +35,18 @@ export class FetchTask extends EventEmitter<EventMap> {
 			return Result.err(result.error);
 		}
 
-		logger.debug(`Found ${result.value.dataRequests.length}/${result.value.total} Data Requests in committing status`);
+		logger.debug(
+			`Fetched ${result.value.dataRequests.length} Data Requests in committing status (total: ${result.value.total})`,
+		);
 		const newDataRequests: DataRequest[] = [];
 		for (const dataRequest of result.value.dataRequests) {
 			if (this.pool.hasDataRequest(dataRequest.id)) {
-				logger.debug("Data Request already exists in the pool, skipping", {id: dataRequest.id});
+				logger.debug("Data Request already exists in the pool - skipping", { id: dataRequest.id });
 				// Always update the pool
 				this.pool.insertDataRequest(dataRequest);
 				continue;
 			}
 
-			// TODO: Check if the reveal already started
 			// TODO: Check if the start up cost is worth it
 			logger.info("🆕 Found new Data Request", {
 				id: dataRequest.id,
@@ -76,7 +77,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 	stop() {
 		this.timerId.match({
 			Just: (timer) => clearInterval(timer),
-			Nothing: () => { },
+			Nothing: () => {},
 		});
 	}
 }

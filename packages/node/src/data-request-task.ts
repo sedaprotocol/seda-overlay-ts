@@ -169,6 +169,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		}
 
 		if (result.value.isNothing) {
+			logger.debug("Data Request not found on chain, deleting from pool - likely resolved", {
+				id: this.name,
+			});
 			this.pool.deleteDataRequest(drId);
 			this.stop();
 			return;
