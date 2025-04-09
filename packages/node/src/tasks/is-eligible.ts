@@ -75,6 +75,43 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			id: dataRequest.id,
 		});
 
+		// Check if the data request is still in Commit Stage on chain
+		const drFromChain = await getDataRequest(dataRequest.id, this.sedaChain);
+		if (drFromChain.isErr) {
+			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`);
+			return {
+				eligible: false,
+				identityId,
+			};
+		}
+		if (drFromChain.isOk) {
+			if (drFromChain.value.isNothing) {
+				this.pool.deleteDataRequest(dataRequest.id);
+				logger.info("🏁 Data Request no longer exists on chain - likely resolved", {
+					id: dataRequest.id,
+				});
+
+				return {
+					eligible: false,
+					identityId,
+				};
+			}
+			// Edge case where the `is_executor_eligible` query returns true but the data request is already in reveal stage
+			// Note: `is_executor_eligible` only checks that request exists and eligibility is valid
+			if (
+				drFromChain.value.isJust &&
+				drFromChain.value.value.commitsLength === drFromChain.value.value.replicationFactor
+			) {
+				logger.debug("💨 Data Request already in reveal stage - skipping eligibility check", {
+					id: dataRequest.id,
+				});
+				return {
+					eligible: false,
+					identityId,
+				};
+			}
+		}
+
 		return {
 			eligible: response.value,
 			identityId,
