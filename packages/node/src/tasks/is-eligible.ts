@@ -71,6 +71,10 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			};
 		}
 
+		logger.debug(`${response.value ? "🟢 Eligible" : "🔴 Not eligible"}`, {
+			id: dataRequest.id,
+		});
+
 		return {
 			eligible: response.value,
 			identityId,
@@ -128,7 +132,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 								dataRequest.id,
 								response.identityId,
 								Maybe.nothing(),
-								IdentityDataRequestStatus.EligbleForExecution,
+								IdentityDataRequestStatus.EligibleForExecution,
 							);
 							this.emit("eligible", dataRequest.id, response.identityId);
 						}

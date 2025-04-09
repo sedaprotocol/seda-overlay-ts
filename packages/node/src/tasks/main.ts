@@ -33,7 +33,7 @@ export class MainTask {
 	private fetchTask: FetchTask;
 	private identityManagerTask: IdentityManagerTask;
 	private identityPool: IdentityPool;
-	private elgibilityTask: EligibilityTask;
+	private eligibilityTask: EligibilityTask;
 	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 
@@ -52,7 +52,7 @@ export class MainTask {
 
 		this.fetchTask = new FetchTask(this.pool, config, sedaChain);
 		this.identityManagerTask = new IdentityManagerTask(this.identityPool, config, sedaChain);
-		this.elgibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
+		this.eligibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
 
 		let threadsAvailable = availableParallelism();
 
@@ -88,10 +88,25 @@ export class MainTask {
 		this.fetchTask.start();
 
 		this.fetchTask.on("data-request", (_dataRequest) => {
-			this.elgibilityTask.process();
+			this.eligibilityTask.process();
 		});
 
-		this.elgibilityTask.on("eligible", (drId, identityId) => {
+		this.eligibilityTask.on("eligible", async (drId, identityId) => {
+			// // Check if the data request is already in a terminal state
+			// const drMaybe = this.pool.getDataRequest(drId);
+			// if (drMaybe.isJust) {
+			// 	// Check if the data request is already in a terminal state
+			// 	const identityDrInfo = this.pool.getIdentityDataRequest(drId, identityId);
+			// 	if (identityDrInfo.isJust) {
+			// 		const status = identityDrInfo.value.identityInfo.status;
+			// 		if (status === IdentityDataRequestStatus.Revealed || 
+			// 			status === IdentityDataRequestStatus.Committed || 
+			// 			status === IdentityDataRequestStatus.ReadyToBeRevealed) {
+			// 			logger.debug(`---MAIN--> Skipping already processed data request: ${drId} (status: ${status})`);
+			// 			return;
+			// 		}
+			// 	}
+			// }
 			const drTask = new DataRequestTask(
 				this.pool,
 				this.identityPool,

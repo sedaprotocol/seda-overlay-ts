@@ -27,8 +27,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 	}
 
 	async fetch(): Promise<Result<Unit, Error>> {
-		logger.info("🔎 Looking for Data Requests..");
-		logger.debug(`Fetching ${LIMIT} Data Requests`);
+		logger.info("🔎 Looking for Data Requests...");
 
 		const result = await getDataRequests(this.sedaChain, LIMIT);
 
@@ -36,9 +35,11 @@ export class FetchTask extends EventEmitter<EventMap> {
 			return Result.err(result.error);
 		}
 
+		logger.debug(`Found ${result.value.dataRequests.length}/${result.value.total} Data Requests in committing status`);
 		const newDataRequests: DataRequest[] = [];
-		for (const dataRequest of result.value) {
+		for (const dataRequest of result.value.dataRequests) {
 			if (this.pool.hasDataRequest(dataRequest.id)) {
+				logger.debug("Data Request already exists in the pool, skipping", {id: dataRequest.id});
 				// Always update the pool
 				this.pool.insertDataRequest(dataRequest);
 				continue;
@@ -75,7 +76,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 	stop() {
 		this.timerId.match({
 			Just: (timer) => clearInterval(timer),
-			Nothing: () => {},
+			Nothing: () => { },
 		});
 	}
 }

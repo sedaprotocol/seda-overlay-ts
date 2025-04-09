@@ -4,7 +4,7 @@ import type { ExecutionResult } from "./execution-result";
 
 export enum IdentityDataRequestStatus {
 	// We are picked to execute the Data Request
-	EligbleForExecution = "ELIGIBLE_FOR_EXECUTION",
+	EligibleForExecution = "ELIGIBLE_FOR_EXECUTION",
 
 	// The node has executed the Data Request and is ready to be committed
 	Executed = "EXECUTED",
@@ -65,6 +65,10 @@ export class DataRequestPool {
 
 	allDataRequests() {
 		return this.items.values();
+	}
+
+	allIdentityDataRequests() {
+		return this.identityDataRequests.values();
 	}
 
 	insertDataRequest(dataRequest: DataRequest) {

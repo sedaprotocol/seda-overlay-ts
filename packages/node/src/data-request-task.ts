@@ -26,7 +26,7 @@ type EventMap = {
 };
 
 export class DataRequestTask extends EventEmitter<EventMap> {
-	private status: IdentityDataRequestStatus = IdentityDataRequestStatus.EligbleForExecution;
+	private status: IdentityDataRequestStatus = IdentityDataRequestStatus.EligibleForExecution;
 	private retries = 0;
 	public name: string;
 	private executionResult: Maybe<ExecutionResult> = Maybe.nothing();
@@ -122,7 +122,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				return;
 			}
 
-			if (this.status === IdentityDataRequestStatus.EligbleForExecution) {
+			if (this.status === IdentityDataRequestStatus.EligibleForExecution) {
 				await this.handleExecution(dataRequest.value);
 			} else if (this.status === IdentityDataRequestStatus.Executed) {
 				await this.handleCommit(dataRequest.value);
@@ -249,7 +249,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
-			this.transitionStatus(IdentityDataRequestStatus.EligbleForExecution);
+			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
 			return;
 		}
 
@@ -322,7 +322,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to reveal, switching status back to initial");
-			this.transitionStatus(IdentityDataRequestStatus.EligbleForExecution);
+			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
 			return;
 		}
 
