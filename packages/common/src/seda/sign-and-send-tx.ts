@@ -51,6 +51,8 @@ export async function signAndSendTxSync(
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {
 		if (IncorrectAccountSquence.isError(txResult.error)) {
+			// Reset sequence number when we get a mismatch
+			signingClient.accountInfo = Maybe.nothing();
 			return Result.err(new IncorrectAccountSquence(txResult.error.message));
 		}
 

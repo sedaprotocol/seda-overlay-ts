@@ -5,8 +5,7 @@ import {
 	isJsonRpcErrorResponse,
 	parseJsonRpcResponse,
 } from "@cosmjs/json-rpc";
-import type { EncodeObject } from "@cosmjs/proto-signing";
-import type { SequenceResponse, StdFee } from "@cosmjs/stargate";
+import type { DeliverTxResponse, SequenceResponse } from "@cosmjs/stargate";
 import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import Cookies from "cookie";
@@ -19,12 +18,18 @@ type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 
 export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 	accountInfo: Maybe<Mutable<SequenceResponse>> = Maybe.nothing();
-
 	cacheSequenceNumber = true;
+
+	incrementSequence(): boolean {
+		if (this.accountInfo.isJust) {
+			this.accountInfo.value.sequence += 1;
+			return true;
+		}
+		return false;
+	}
 
 	async getSequence(address: string): Promise<SequenceResponse> {
 		if (this.cacheSequenceNumber && this.accountInfo.isJust) {
-			this.accountInfo.value.sequence += 1;
 			return this.accountInfo.value;
 		}
 
@@ -34,24 +39,32 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 		return result;
 	}
 
-	async signAndBroadcastSync(
-		signerAddress: string,
-		messages: readonly EncodeObject[],
-		fee: StdFee | "auto" | number,
-		memo?: string,
-		timeoutHeight?: bigint,
-	): Promise<string> {
+	async broadcastTx(tx: Uint8Array, timeoutMs?: number, pollIntervalMs?: number): Promise<DeliverTxResponse> {
 		try {
-			const response = await super.signAndBroadcastSync(signerAddress, messages, fee, memo, timeoutHeight);
+			const response = await super.broadcastTx(tx, timeoutMs, pollIntervalMs);
+			this.incrementSequence();
 			return response;
 		} catch (error) {
 			const errorMsg = `${error}`;
-
 			if (errorMsg.includes("incorrect account sequence")) {
 				logger.warn("Resetting sequence number");
 				this.accountInfo = Maybe.nothing();
 			}
+			throw error;
+		}
+	}
 
+	async broadcastTxSync(tx: Uint8Array): Promise<string> {
+		try {
+			const response = await super.broadcastTxSync(tx);
+			this.incrementSequence();
+			return response;
+		} catch (error) {
+			const errorMsg = `${error}`;
+			if (errorMsg.includes("incorrect account sequence")) {
+				logger.warn("Resetting sequence number");
+				this.accountInfo = Maybe.nothing();
+			}
 			throw error;
 		}
 	}
