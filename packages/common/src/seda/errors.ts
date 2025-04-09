@@ -22,6 +22,12 @@ export class IncorrectAccountSquence extends Error {
 	}
 }
 
+export class DataRequestNotFound extends Error {
+	static isError(error: Error): boolean {
+		return error.message.includes("not found: execute wasm contract failed");
+	}
+}
+
 export class DataRequestExpired extends Error {
 	static isError(error: Error): boolean {
 		return error.message.includes("DataRequestExpired");

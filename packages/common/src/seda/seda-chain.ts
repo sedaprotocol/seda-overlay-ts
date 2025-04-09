@@ -13,6 +13,7 @@ import {
 	AlreadyCommitted,
 	AlreadyRevealed,
 	DataRequestExpired,
+	DataRequestNotFound,
 	IncorrectAccountSquence,
 	RevealMismatch,
 } from "./errors";
@@ -258,6 +259,11 @@ export class SedaChain extends EventEmitter<EventMap> {
 					if (DataRequestExpired.isError(transactionResult.error)) {
 						clearInterval(checkTransactionInterval);
 						resolve(Result.err(new DataRequestExpired(transactionResult.error.message)));
+					}
+
+					if (DataRequestNotFound.isError(transactionResult.error)) {
+						clearInterval(checkTransactionInterval);
+						resolve(Result.err(new DataRequestNotFound(transactionResult.error.message)));
 					}
 
 					return;
