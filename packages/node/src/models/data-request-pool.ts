@@ -77,6 +77,14 @@ export class DataRequestPool {
 
 	deleteDataRequest(drId: string) {
 		this.items.delete(drId);
+
+		// Force all instances to be removed, since the dr is not on the chain
+		// there is no reason to keep processing it for an identity
+		for (const [key, identityDataRequest] of this.identityDataRequests.entries()) {
+			if (identityDataRequest.drId === drId) {
+				this.identityDataRequests.delete(key);
+			}
+		}
 	}
 
 	hasDataRequest(drId: DataRequestId) {

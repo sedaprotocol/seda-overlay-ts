@@ -1,5 +1,5 @@
 {
-	"exclude": ["node_modules", "packages/node/node_modules"],
+	"exclude": ["node_modules", "packages/node/node_modules", "dist", "build"],
 	"compilerOptions": {
 		// Enable latest features
 		"lib": ["ESNext", "DOM"],

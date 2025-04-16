@@ -6,7 +6,7 @@ import { Maybe } from "true-myth";
 
 export function populateWithCommonOptions(command: Command) {
 	return command
-		.addOption(new Option("-c, --config <string>", "Path to the config.json").env("SEDA_CONFIG_PATH"))
+		.addOption(new Option("-c, --config <string>", "Path to the config.json(c)").env("SEDA_CONFIG_PATH"))
 		.addOption(new Option("--mnemonic <string>", "The mnemonic for the SEDA chain").env("SEDA_MNEMONIC"))
 		.addOption(
 			new Option(

@@ -134,4 +134,6 @@ config.*.toml
 .seda
 config.json
 config.*.json
+config.*.jsonc
+config.jsonc
 build
