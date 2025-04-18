@@ -1,4 +1,4 @@
-import { callVm, executeVm, version } from "@seda-protocol/vm";
+import { callVm, executeVm, metering, version } from "@seda-protocol/vm";
 import type { VmCallData, VmResult } from "@seda-protocol/vm";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -8,6 +8,7 @@ import { OverlayVmAdapter } from "../overlay-vm-adapter";
 import { Cache } from "../services/cache";
 import { getOracleProgram } from "../services/get-oracle-program";
 import { compile } from "./execute-worker/compile-worker";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 
 export interface VmResultOverlay extends VmResult {
 	usedProxyPublicKeys: string[];
@@ -20,8 +21,7 @@ export function createVmResultError(error: Error): VmResultOverlay {
 		stdout: "",
 		result: new Uint8Array(),
 		usedProxyPublicKeys: [],
-		// TODO: This is not fully correct, the node did try to get the binary
-		gasUsed: 0n,
+		gasUsed: metering.GAS_STARTUP,
 	};
 }
 
@@ -37,6 +37,9 @@ export async function executeDataRequest(
 	compilerPool: Maybe<WorkerPool>,
 ): Promise<Result<VmResultOverlay, Error>> {
 	return executionResultCache.getOrFetch(`${dataRequest.id}_${dataRequest.height}`, async () => {
+		logger.info("📦 Downloading Oracle Program...", {
+			id: dataRequest.id,
+		});
 		const binary = await getOracleProgram(dataRequest.execProgramId, appConfig, sedaChain);
 
 		if (binary.isErr) {
@@ -46,6 +49,10 @@ export async function executeDataRequest(
 		if (binary.value.isNothing) {
 			return Result.ok(createVmResultError(new Error(`Binary ${dataRequest.execProgramId} does not exist`)));
 		}
+
+		logger.info("📦 Downloaded Oracle Program", {
+			id: dataRequest.id,
+		});
 
 		const drExecGasLimit = dataRequest.execGasLimit / BigInt(dataRequest.replicationFactor);
 		// Clamp the gas limit to the maximum allowed by node config
@@ -84,7 +91,7 @@ export async function executeDataRequest(
 
 		const callData: VmCallData = {
 			args: [dataRequest.execInputs.toString("hex")],
-			vmMode: "exec",
+			// vmMode: "exec",
 			cache: {
 				dir: `${appConfig.wasmCacheDir}`,
 				id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
@@ -104,6 +111,8 @@ export async function executeDataRequest(
 			},
 			binary: binaryOrModule,
 			gasLimit: clampedGasLimit,
+			stderrLimit: appConfig.node.maxVmLogsSizeBytes,
+			stdoutLimit: appConfig.node.maxVmLogsSizeBytes,
 		};
 
 		const result = await vmWorkerPool.match({
@@ -125,14 +134,6 @@ export async function executeDataRequest(
 					`Result size (${resultSize} bytes) exceeds maximum allowed size (${appConfig.node.maxVmResultSizeBytes} bytes)`,
 				),
 			);
-		}
-
-		// Check logs size against config limit
-		const logsSize = Buffer.from(result.stdout).length + Buffer.from(result.stderr).length;
-		if (logsSize > appConfig.node.maxVmLogsSizeBytes) {
-			const warning = `[WARNING] Logs size (${logsSize} bytes) exceeded maximum allowed size (${appConfig.node.maxVmLogsSizeBytes} bytes). Logs were removed.`;
-			result.stdout = "";
-			result.stderr = warning;
 		}
 
 		return Result.ok({
