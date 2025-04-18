@@ -14,7 +14,7 @@ export function populateWithCommonOptions(command: Command) {
 				"The network name of the SEDA chain, can be mainnet, testnet, devnet, planet or other",
 			)
 				.env("SEDA_NETWORK")
-				.default("devnet"),
+				.default("testnet"),
 		);
 }
 

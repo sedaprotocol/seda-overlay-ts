@@ -57,12 +57,12 @@ export class MainTask {
 		let threadsAvailable = availableParallelism();
 
 		if (!config.node.forceSyncVm && threadsAvailable >= 2) {
-			logger.debug(`Threads available: ${threadsAvailable}`);
+			logger.debug(`Parallel execution mode activated. Threads available: ${threadsAvailable}`);
 			threadsAvailable = threadsAvailable - 1;
 			this.compilerWorkerPool = Maybe.just(new WorkerPool(compilerWorkerSrc, threadsAvailable));
 			this.executeWorkerPool = Maybe.just(new WorkerPool(executeWorkerSrc, threadsAvailable, true));
 		} else {
-			logger.debug(`Not enough threads available (${threadsAvailable} available), switching to synchronous mode`);
+			logger.debug(`Synchronous execution mode activated. Threads available: ${threadsAvailable})`);
 		}
 
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);

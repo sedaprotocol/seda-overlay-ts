@@ -84,6 +84,7 @@ export async function executeDataRequest(
 
 		const callData: VmCallData = {
 			args: [dataRequest.execInputs.toString("hex")],
+			vmMode: "exec",
 			cache: {
 				dir: `${appConfig.wasmCacheDir}`,
 				id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
