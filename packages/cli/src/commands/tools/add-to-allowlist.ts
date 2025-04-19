@@ -4,7 +4,7 @@ import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-
 
 export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allowlist"))
 	.description("stakes on a certain identity")
-	.argument("<string>", "Identity public key you want to add")
+	.argument("<identity-index>", "Identity public key you want to add")
 	.action(async (identityId, options) => {
 		const { sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,

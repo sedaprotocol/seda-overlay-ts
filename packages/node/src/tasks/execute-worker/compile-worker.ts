@@ -8,7 +8,7 @@ if (!isMainThread) {
 
 	parentPort?.on("message", async (data: Uint8Array | CacheOptions) => {
 		if (data instanceof Uint8Array) {
-			const module = await createWasmModule(data, "exec", cacheOptions);
+			const module = await createWasmModule(data, cacheOptions);
 
 			parentPort?.postMessage(module);
 		} else {
