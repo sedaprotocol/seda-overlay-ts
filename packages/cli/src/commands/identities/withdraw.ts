@@ -8,9 +8,11 @@ import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence
 
 export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 	.description("Withdraws from a certain identity")
-	.argument("<identity-index>", "Identity index to use for withdrawing")
+	.addOption(new Option("-i, --identity-index <number>", "Identity index to use for withdrawing").default(0))
 	.addOption(new Option("--memo <string>", "memo to add to the transaction"))
-	.action(async (index, options) => {
+	.action(async (options) => {
+		const index = options.identityIndex;
+
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,

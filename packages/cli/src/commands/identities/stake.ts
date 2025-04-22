@@ -8,10 +8,11 @@ import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence
 
 export const stake = populateWithCommonOptions(new Command("stake"))
 	.description("stakes on a certain identity")
-	.argument("<identity-index>", "Identity index to use for staking")
 	.argument("<seda-amount>", "Amount to stake (a floating point number in `seda` units)")
 	.addOption(new Option("--memo <string>", "memo to add to the transaction"))
-	.action(async (index, amount, options) => {
+	.addOption(new Option("-i, --identity-index <number>", "Identity index to use for staking").default(0))
+	.action(async (amount, options) => {
+		const index = options.identityIndex;
 		const memo = Maybe.of(options.memo).map((value) => Buffer.from(value));
 		const attoSedaAmount = BigInt(parseTokenUnits(amount));
 

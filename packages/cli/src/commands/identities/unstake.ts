@@ -8,9 +8,10 @@ import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence
 
 export const unstake = populateWithCommonOptions(new Command("unstake"))
 	.description("Unstakes the entire stake from a certain identity")
-	.argument("<identity-index>", "Identity index to use for unstaking")
 	.addOption(new Option("--memo <string>", "memo to add to the transaction"))
-	.action(async (index, options) => {
+	.addOption(new Option("-i, --identity-index <number>", "Identity index to use for unstaking").default(0))
+	.action(async (options) => {
+		const index = options.identityIndex;
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,

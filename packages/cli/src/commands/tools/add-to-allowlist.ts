@@ -14,7 +14,7 @@ export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allo
 
 		logger.info(`Adding to allowlist ${identityId}..`);
 
-        const response = await sedaChain.waitForSmartContractTransaction({
+		const response = await sedaChain.waitForSmartContractTransaction({
 			add_to_allowlist: {
 				public_key: identityId,
 			},

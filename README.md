@@ -2,7 +2,7 @@
 
 ## Running the Overlay Node
 
-To start using the overlay node, you must first initialize it. You can specify the network using the `--network` flag (defaults to testnet if not specified).
+To start using the overlay node, you must first initialize it. You can specify the network using the `--network` flag (defaults to `testnet` if not specified).
 
 ```bash
 $ seda-overlay init --network <mainnet | testnet | devnet | planet>
@@ -29,15 +29,14 @@ You must provide an active mnemonic from the SEDA chain. Alternatively, you can 
 Next, you'll need to register your identity. Use the identities command:
 
 ```bash
-seda-overlay identities stake <IDENTITY_INDEX> <SEDA_AMOUNT> --network <mainnet | testnet | devnet | planet>
+seda-overlay identities stake <SEDA_AMOUNT> --network <mainnet | testnet | devnet | planet>
 ```
 
 Parameters:
-* `IDENTITY_INDEX` - Specifies which identity to use. This allows you to maintain multiple staked identities on the same machine. For a basic setup, use `0` to operate with a single staked identity.
 * `SEDA_AMOUNT` - The amount of SEDA tokens to stake on the network. Verify the required stake amount for your chosen network.
 
 ```bash
-seda-overlay identities stake 0 32 --network devnet
+seda-overlay identities stake 32 --network devnet
 
 2025-04-18 12:31:45.846 info: Identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 already registered (staked: 0.00 SEDA, pending_withdrawal: 0.00 SEDA).
 2025-04-18 12:31:45.849 info: Staking on identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 with 32 SEDA (or 32000000000000000000 aSEDA)
@@ -81,13 +80,11 @@ This display shows the accrued fees available for withdrawal ("Pending Withdrawa
 To withdraw all accumulated rewards, use the withdraw command:
 
 ```bash
-seda-overlay identities withdraw <IDENTITY_INDEX> --network <mainnet | testnet | devnet | planet>
+seda-overlay identities withdraw --network <mainnet | testnet | devnet | planet>
 ```
 
-* `IDENTITY_INDEX` - Specifies which identity to use. For a basic setup with a single identity, use `0`.
-
 ```bash
-seda-overlay identities withdraw 0 --network devnet
+seda-overlay identities withdraw --network devnet
 
 2025-04-18 12:50:18.271 info: Identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 (staked: 2.00 SEDA, pending_withdrawal: 0.12 SEDA).
 2025-04-18 12:50:18.332 info: Withdrawing 0.12 SEDA...
@@ -101,13 +98,11 @@ Your fees have now been successfully withdrawn.
 To deactivate your node and retrieve your staked tokens, use the unstake command:
 
 ```bash
-seda-overlay identities unstake <IDENTITY_INDEX> --network <mainnet | testnet | devnet | planet>
+seda-overlay identities unstake --network <mainnet | testnet | devnet | planet>
 ```
 
-* `IDENTITY_INDEX` - Specifies which identity to use. For a basic setup with a single identity, use `0`.
-
 ```bash
-seda-overlay identities unstake 0 --network devnet
+seda-overlay identities unstake --network devnet
 
 2025-04-18 12:53:08.911 info: Identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 (staked: 2.00 SEDA, pending_withdrawal: 0.00 SEDA).
 2025-04-18 12:53:08.966 info: Unstaking 2.00 SEDA...
@@ -130,7 +125,7 @@ Loading..
 Finally, withdraw your stake using the withdraw command:
 
 ```bash
-seda-overlay identities withdraw 0 --network devnet
+seda-overlay identities withdraw --network devnet
 ```
 
 You have now successfully unstaked your node and withdrawn your stake.
