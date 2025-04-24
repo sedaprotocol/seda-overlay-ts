@@ -15,12 +15,22 @@ interface TableEntry {
 
 export const info = populateWithCommonOptions(new Command("info"))
 	.description("Prints the information about identity staking")
+	.option("--offline", "Run in offline mode - only shows identity IDs without querying the chain")
 	.action(async (options) => {
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
 			network: options.network,
 		});
+
+		if (options.offline) {
+			const formattedEntries = config.sedaChain.identityIds.map((identityId) => ({
+				"Identity Public Key": identityId,
+			}));
+			console.table(formattedEntries);
+			process.exit(0);
+			return;
+		}
 
 		const stakingConfig = await sedaChain.queryContractSmart<StakingConfig>({
 			get_staking_config: {},
