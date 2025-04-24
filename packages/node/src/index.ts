@@ -2,6 +2,7 @@ import { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
+import { version } from "../../../package.json";
 import { MainTask } from "./tasks/main";
 
 export interface RunOptions {
@@ -9,7 +10,7 @@ export interface RunOptions {
 }
 
 export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
-	logger.info("Node is starting..");
+	logger.info(`Overlay Node v${version} is starting..`);
 
 	const exitController = Maybe.of(runOptions?.exitController);
 	const sedaChain = await SedaChain.fromConfig(appConfig);
