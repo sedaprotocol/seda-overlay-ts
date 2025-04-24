@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { readableStreamToText } from "bun";
 
 const PLATFORM_TARGETS = [
 	"bun-linux-x64",
@@ -28,10 +29,13 @@ await Promise.all(
 		];
 
 		const tmpDir = Bun.env.TMPDIR ?? "/tmp";
-		const { exitCode, stdout, stderr } = Bun.spawnSync(cmd, { cwd: tmpDir });
+		const result = Bun.spawn(cmd, { cwd: tmpDir, stdout: "pipe", stderr: "pipe" });
+		const exitCode = await result.exited;
 
 		if (exitCode !== 0) {
-			console.log(`Compilation failed for ${rawTarget}: ${stderr.toString()} \n ${stdout.toString()}`);
+			console.log(
+				`Compilation failed for ${rawTarget}: ${await readableStreamToText(result.stderr)} \n ${await readableStreamToText(result.stdout)}`,
+			);
 		} else {
 			// Copy the built binary to build directory
 			const binaryName = `seda-overlay-${rawTarget}${rawTarget.includes("windows") ? ".exe" : ""}`;
