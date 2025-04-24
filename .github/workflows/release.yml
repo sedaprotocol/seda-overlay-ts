@@ -25,23 +25,8 @@ jobs:
       - name: 📦 Install Dependencies
         run: bun install
 
-      # - name: 📝 Check TypeScript
-      #   run: bun check-ts
-
       - name: 🔨 Build binary
         run: bun run build
-
-      # - name: 📤 Upload Binary Artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     paths:
-      #       - build/seda-overlay-darwin-arm64
-      #       - build/seda-overlay-darwin-x64
-      #       - build/seda-overlay-linux-arm64
-      #       - build/seda-overlay-linux-arm64-musl
-      #       - build/seda-overlay-linux-x64
-      #       - build/seda-overlay-linux-x64-musl
-      #       - build/seda-overlay-windows-x64.exe
 
       - name: 📝 Generate Changelog
         id: changelog

@@ -1,11 +1,11 @@
 import { Command } from "@commander-js/extra-typings";
 import { isBrowser } from "@sedaprotocol/overlay-ts-common";
+import dotenv from "dotenv";
 import { version } from "../package.json";
 import { identities } from "./commands/identities/identities";
 import { init } from "./commands/init";
 import { run } from "./commands/run";
 import { tools } from "./commands/tools/tools";
-import dotenv from "dotenv";
 
 async function main() {
 	dotenv.config();

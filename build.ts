@@ -13,30 +13,31 @@ const PLATFORM_TARGETS = [
 const BUILD_FOLDER = resolve(import.meta.dir, "./build/");
 const SRC_TARGET = [resolve(process.cwd(), "./packages/cli/src/index.ts")];
 
-for (const target of PLATFORM_TARGETS) {
-	const rawTarget = target.replace("bun-", "");
-	console.log(`Compiling for ${rawTarget}..`);
-	const cmd = [
-		"bun",
-		"build",
-		"--compile",
-		`--target=${target}`,
-		...SRC_TARGET,
-		"--outfile",
-		`./seda-overlay-${rawTarget}`,
-	];
+await Promise.all(
+	PLATFORM_TARGETS.map(async (target) => {
+		const rawTarget = target.replace("bun-", "");
+		console.log(`Compiling for ${rawTarget}..`);
+		const cmd = [
+			"bun",
+			"build",
+			"--compile",
+			`--target=${target}`,
+			...SRC_TARGET,
+			"--outfile",
+			`./seda-overlay-${rawTarget}`,
+		];
 
-	const { exitCode, stdout, stderr } = Bun.spawnSync(cmd, { cwd: Bun.env.TMPDIR });
-
-	if (exitCode !== 0) {
-		console.log(stdout.toString());
-		console.error(stderr.toString());
-	} else {
-		// Copy the built binary to build directory
-		const binaryName = `seda-overlay-${rawTarget}${rawTarget.includes("windows") ? ".exe" : ""}`;
 		const tmpDir = Bun.env.TMPDIR ?? "/tmp";
-		await Bun.write(resolve(BUILD_FOLDER, binaryName), Bun.file(resolve(tmpDir, binaryName)));
-	}
+		const { exitCode, stdout, stderr } = Bun.spawnSync(cmd, { cwd: tmpDir });
 
-	console.log(`Compiled ${rawTarget}`);
-}
+		if (exitCode !== 0) {
+			console.log(`Compilation failed for ${rawTarget}: ${stderr.toString()} \n ${stdout.toString()}`);
+		} else {
+			// Copy the built binary to build directory
+			const binaryName = `seda-overlay-${rawTarget}${rawTarget.includes("windows") ? ".exe" : ""}`;
+			await Bun.write(resolve(BUILD_FOLDER, binaryName), Bun.file(resolve(tmpDir, binaryName)));
+		}
+
+		console.log(`Compiled ${rawTarget}`);
+	}),
+);

@@ -1,4 +1,4 @@
-import { callVm, executeVm, metering, version } from "@seda-protocol/vm";
+import { callVm, executeVm, version } from "@seda-protocol/vm";
 import type { VmCallData, VmResult } from "@seda-protocol/vm";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -14,6 +14,8 @@ export interface VmResultOverlay extends VmResult {
 	usedProxyPublicKeys: string[];
 }
 
+const TERA_GAS = 1_000_000_000_000n;
+
 export function createVmResultError(error: Error): VmResultOverlay {
 	return {
 		exitCode: 1,
@@ -21,7 +23,7 @@ export function createVmResultError(error: Error): VmResultOverlay {
 		stdout: "",
 		result: new Uint8Array(),
 		usedProxyPublicKeys: [],
-		gasUsed: metering.GAS_STARTUP,
+		gasUsed: TERA_GAS * 5n,
 	};
 }
 
@@ -91,7 +93,7 @@ export async function executeDataRequest(
 
 		const callData: VmCallData = {
 			args: [dataRequest.execInputs.toString("hex")],
-			// vmMode: "exec",
+			vmMode: "exec",
 			cache: {
 				dir: `${appConfig.wasmCacheDir}`,
 				id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
