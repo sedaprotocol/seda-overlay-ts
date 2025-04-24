@@ -2,6 +2,7 @@
 	"name": "overlay-node-ts",
 	"module": "index.ts",
 	"type": "module",
+	"license": "AGPL-3.0",
 	"workspaces": [
 		"./packages/cli",
 		"./packages/common",
