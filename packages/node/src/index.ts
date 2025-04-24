@@ -19,7 +19,10 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 		process.exit(1);
 	}
 
+	logger.info(`Talking to RPC: ${appConfig.sedaChain.rpc}`);
+	logger.info(`Using chain ID: ${appConfig.sedaChain.chainId}`);
 	logger.info(`Using SEDA address: ${sedaChain.value.getSignerAddress()}`);
+
 	sedaChain.value.start();
 
 	const mainTask = new MainTask(appConfig, sedaChain.value);

@@ -5,8 +5,11 @@ import { identities } from "./commands/identities/identities";
 import { init } from "./commands/init";
 import { run } from "./commands/run";
 import { tools } from "./commands/tools/tools";
+import dotenv from "dotenv";
 
 async function main() {
+	dotenv.config();
+
 	let cli = new Command()
 		.description("SEDA Overlay Node TypeScript Command Line Interface")
 		.version(version)
