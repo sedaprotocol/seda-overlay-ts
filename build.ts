@@ -33,7 +33,7 @@ await Promise.all(
 		const exitCode = await result.exited;
 
 		if (exitCode !== 0) {
-			console.log(
+			console.error(
 				`Compilation failed for ${rawTarget}: ${await readableStreamToText(result.stderr)} \n ${await readableStreamToText(result.stdout)}`,
 			);
 		} else {
