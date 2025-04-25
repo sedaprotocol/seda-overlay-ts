@@ -9,6 +9,7 @@ import { OverlayVmAdapter } from "../overlay-vm-adapter";
 import { Cache } from "../services/cache";
 import { getOracleProgram } from "../services/get-oracle-program";
 import { compile } from "./execute-worker/compile-worker";
+import { executeDataRequestInWorker } from "./execute-worker/sync-execute-worker";
 
 export interface VmResultOverlay extends VmResult {
 	usedProxyPublicKeys: string[];
@@ -37,6 +38,7 @@ export async function executeDataRequest(
 	sedaChain: SedaChain,
 	vmWorkerPool: Maybe<WorkerPool>,
 	compilerPool: Maybe<WorkerPool>,
+	syncExecuteWorker: Maybe<WorkerPool>,
 ): Promise<Result<VmResultOverlay, Error>> {
 	return executionResultCache.getOrFetch(`${dataRequest.id}_${dataRequest.height}`, async () => {
 		logger.info("📦 Downloading Oracle Program...", {
@@ -124,6 +126,12 @@ export async function executeDataRequest(
 				});
 			},
 			Nothing: async () => {
+				if (syncExecuteWorker.isJust) {
+					return syncExecuteWorker.value.executeTask(async (worker) => {
+						return await executeDataRequestInWorker(worker, identityPrivateKey, dataRequest, appConfig, callData);
+					});
+				}
+
 				return executeVm(callData, dataRequest.id, vmAdapter);
 			},
 		});
@@ -139,8 +147,9 @@ export async function executeDataRequest(
 		}
 
 		return Result.ok({
-			...result,
 			usedProxyPublicKeys: vmAdapter.usePublicKeys,
+			// The Sync worker will return the result with the usedProxyPublicKeys
+			...result,
 		});
 	});
 }

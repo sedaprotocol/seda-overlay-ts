@@ -6,7 +6,7 @@ import { Maybe } from "true-myth";
 import { DataRequestTask } from "../data-request-task";
 import { DataRequestPool } from "../models/data-request-pool";
 import { IdentityPool } from "../models/identitiest-pool";
-import { getEmbeddedCompileWorkerCode, getEmbeddedVmWorkerCode } from "./execute-worker/worker-macro" with {
+import { getEmbeddedCompileWorkerCode, getEmbeddedVmWorkerCode, getEmbeddedSyncExecuteWorkerCode } from "./execute-worker/worker-macro" with {
 	type: "macro",
 };
 import { FetchTask } from "./fetch";
@@ -22,11 +22,16 @@ const compilerWorkerCode = getEmbeddedCompileWorkerCode();
 const compilerBlob = new Blob([compilerWorkerCode]);
 let compilerWorkerSrc = URL.createObjectURL(compilerBlob);
 
+const syncExecuteWorkerCode = getEmbeddedSyncExecuteWorkerCode();
+const syncExecuteWorkerBlob = new Blob([syncExecuteWorkerCode]);
+let syncExecuteWorkerSrc = URL.createObjectURL(syncExecuteWorkerBlob);
+
 // If we ever want to run de overlay in Node.js
 // NOTE: We are using sync execution so for now this is unused
 if (typeof Bun === "undefined") {
 	compilerWorkerSrc = "./dist/node/src/tasks/execute-worker/compile-worker.js";
 	executeWorkerSrc = "./dist/node/src/tasks/execute-worker/execute-worker.js";
+	syncExecuteWorkerSrc = "./dist/node/src/tasks/execute-worker/sync-execute-worker.js";
 }
 
 export class MainTask {
@@ -37,6 +42,7 @@ export class MainTask {
 	private eligibilityTask: EligibilityTask;
 	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
+	private syncExecuteWorker: Maybe<WorkerPool> = Maybe.nothing();
 
 	// These are the actual data requests we are currently processing and need to be completed before we move on
 	public activeDataRequestTasks = 0;
@@ -68,6 +74,7 @@ export class MainTask {
 			this.executeWorkerPool = Maybe.just(new WorkerPool(executeWorkerSrc, threadsAvailable, true));
 		} else {
 			logger.debug(`Synchronous execution mode activated. Threads available: ${threadsAvailable})`);
+			this.syncExecuteWorker = Maybe.just(new WorkerPool(syncExecuteWorkerSrc, threadsAvailable, false));
 		}
 
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);
@@ -108,6 +115,7 @@ export class MainTask {
 				identityId,
 				this.executeWorkerPool,
 				this.compilerWorkerPool,
+				this.syncExecuteWorker,
 			);
 			this.dataRequestsToProcess.push(drTask);
 			this.processNextDr();

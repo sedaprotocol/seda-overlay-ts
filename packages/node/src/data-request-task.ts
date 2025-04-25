@@ -45,6 +45,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		private identityId: string,
 		private executeWorkerPool: Maybe<WorkerPool>,
 		private compilerWorkerPool: Maybe<WorkerPool>,
+		private syncExecuteWorker: Maybe<WorkerPool>,
 	) {
 		super();
 
@@ -212,6 +213,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			this.sedaChain,
 			this.executeWorkerPool,
 			this.compilerWorkerPool,
+			this.syncExecuteWorker,
 		);
 
 		if (vmResult.isErr) {

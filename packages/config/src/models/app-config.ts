@@ -30,6 +30,7 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 		const messages = config.error.map((error) => {
 			const path = error.path?.map((p) => p.key).join(".") || "";
 			const issues = error.issues?.map((issue) => issue.message) ?? [];
+			
 			return `Failed to parse config: ${error.message} at $.${path} ${issues.map((issue) => `\n${issue}`)}`;
 		});
 

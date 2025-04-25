@@ -59,11 +59,11 @@ export class WorkerPool {
 		} finally {
 			if (this.terminateAfterCompletion) {
 				await workerInfo.worker.terminate();
-			}
 
-			// Create a new worker with same ID
-			const newWorker = new Worker(this.workerSrcUrl);
-			workerInfo.worker = newWorker;
+				// Create a new worker with same ID
+				const newWorker = new Worker(this.workerSrcUrl);
+				workerInfo.worker = newWorker;
+			}
 
 			this.runningTasks.delete(workerInfo.id);
 			workerInfo.isRunning = false;
