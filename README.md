@@ -130,3 +130,52 @@ seda-overlay identities withdraw --network devnet
 
 You have now successfully unstaked your node and withdrawn your stake.
 
+## Running with Docker
+
+This project includes a Docker setup managed via a `Makefile` for easier environment management.
+
+**Prerequisites:**
+*   Docker and Docker Compose installed.
+*   `make` installed.
+*   Set required environment variables (e.g., in a `.env` file in the project root or export them in your shell):
+    *   `SEDA_MNEMONIC`: Your SEDA chain mnemonic (required).
+    *   `SEDA_AMOUNT`: The amount of SEDA to stake (required for `make stake`).
+    *   `SEDA_NETWORK`: The target network (optional, defaults to `testnet`).
+
+**Workflow:**
+
+1.  **Initialize:** Create the configuration directory and file.
+    ```bash
+    make init
+    ```
+    * Verify/edit the generated config in `./.seda/<network>/config.jsonc`. By default this should create a new folder for you in the `.build/docker/.seda/`, which initiates per network.
+
+2.  **Stake:** Stake your SEDA tokens.
+    ```bash
+    make stake
+    ```
+
+3.  **Run:** Build the image (if needed) and start the overlay node container in the background.
+    ```bash
+    make run
+    # Or build and run explicitly: make up
+    ```
+
+4.  **Check Logs:** Follow the container logs.
+    ```bash
+    make logs
+    ```
+
+5.  **Stop:** Stop and remove the container.
+    ```bash
+    make stop
+    ```
+
+**Other Commands:**
+
+*   Check identity status: `make info`
+*   Withdraw rewards: `make withdraw`
+*   Unstake node: `make unstake`
+*   Clean Docker resources: `make clean`
+*   Access container shell: `make ssh`
+
