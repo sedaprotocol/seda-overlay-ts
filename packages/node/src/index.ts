@@ -3,6 +3,7 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { version } from "../../../package.json";
+import { startHttpServer } from "./http-server";
 import { MainTask } from "./tasks/main";
 
 export interface RunOptions {
@@ -28,6 +29,8 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 
 	const mainTask = new MainTask(appConfig, sedaChain.value);
 	mainTask.start();
+
+	startHttpServer(appConfig);
 
 	if (exitController.isJust) {
 		exitController.value.signal.addEventListener("abort", () => {

@@ -5,12 +5,14 @@ import { createAllDataFolders } from "../home-dir";
 import { IntervalsConfigSchema } from "./intervals-config";
 import { NodeConfigSchema } from "./node-config";
 import { type SedaChainConfig, SedaChainConfigSchema, createSedaChainConfig } from "./seda-chain-config";
+import { HttpServerConfigSchema } from "./http-server-config";
 
 export const AppConfigSchema = v.object({
 	homeDir: v.optional(v.string()),
 	node: v.optional(NodeConfigSchema, {}),
 	sedaChain: SedaChainConfigSchema,
 	intervals: v.optional(IntervalsConfigSchema, {}),
+	httpServer: v.optional(HttpServerConfigSchema, {}),
 });
 
 export interface AppConfig extends v.InferOutput<typeof AppConfigSchema> {

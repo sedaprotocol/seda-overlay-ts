@@ -14,7 +14,7 @@
 		"@sedaprotocol/overlay-ts-logger": "0.0.0",
 		"@sedaprotocol/core-contract-schema": "0.0.0",
 		"eventemitter3": "5.0.1",
-		"is-localhost-ip": "^2.0.0"
-	},
-	"devDependencies": {}
+		"is-localhost-ip": "^2.0.0",
+		"hono": "4.7.8"
+	}
 }

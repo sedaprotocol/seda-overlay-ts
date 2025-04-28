@@ -24,6 +24,8 @@ export const DEFAULT_LOG_ROTATION_ENABLED = true;
 export const DEFAULT_LOG_ROTATION_LEVEL = "debug";
 export const DEFAULT_LOG_ROTATION_MAX_FILES = "14d";
 export const DEFAULT_LOG_ROTATION_MAX_SIZE = "100m";
+export const DEFAULT_HTTP_SERVER_PORT = 3000;
+
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
 		rpc: "https://rpc.planet.seda.xyz/",
