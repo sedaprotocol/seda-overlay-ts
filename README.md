@@ -138,6 +138,7 @@ This project includes a Docker setup managed via a `Makefile` for easier environ
 *   Docker and Docker Compose installed.
 *   `make` installed.
 *   Set required environment variables (e.g., in a `.env` file in the project root or export them in your shell):
+    *   `TARGET_ARCH`: If you're running the project on a mac, set the architecture to `bun-linux-arm64`
     *   `SEDA_MNEMONIC`: Your SEDA chain mnemonic (required).
     *   `SEDA_AMOUNT`: The amount of SEDA to stake (required for `make stake`).
     *   `SEDA_NETWORK`: The target network (optional, defaults to `testnet`).
