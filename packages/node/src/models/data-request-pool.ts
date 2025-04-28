@@ -45,6 +45,14 @@ export class DataRequestPool {
 		return `${drId}_${identityId}`;
 	}
 
+	get size() {
+		return this.items.size;
+	}
+
+	get identitySize() {
+		return this.identityDataRequests.size;
+	}
+
 	insertIdentityDataRequest(
 		drId: DataRequestId,
 		identityId: string,

@@ -2,10 +2,10 @@ import { tryParseSync } from "@seda-protocol/utils";
 import { Maybe, Result } from "true-myth";
 import * as v from "valibot";
 import { createAllDataFolders } from "../home-dir";
+import { HttpServerConfigSchema } from "./http-server-config";
 import { IntervalsConfigSchema } from "./intervals-config";
 import { NodeConfigSchema } from "./node-config";
 import { type SedaChainConfig, SedaChainConfigSchema, createSedaChainConfig } from "./seda-chain-config";
-import { HttpServerConfigSchema } from "./http-server-config";
 
 export const AppConfigSchema = v.object({
 	homeDir: v.optional(v.string()),

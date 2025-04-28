@@ -1,12 +1,17 @@
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Hono } from "hono";
+import type { MainTask } from "../tasks/main";
+import { createApi } from "./routes/api";
 
-export function startHttpServer(appConfig: AppConfig) {
-	const app = new Hono()
+export function startHttpServer(appConfig: AppConfig, mainTask: MainTask) {
+	const app = new Hono();
 
-	app.get('/healthz', (c) => c.text('ok'));
-	app.get('/readyz', (c) => c.text('ok'));
+	// Healthcheck endpoints
+	app.get("/healthz", (c) => c.text("ok"));
+	app.get("/readyz", (c) => c.text("ok"));
+
+	app.route("/api", createApi(mainTask));
 
 	if (typeof Bun !== "undefined") {
 		const server = Bun.serve({

@@ -29,20 +29,24 @@ if (typeof Bun === "undefined") {
 }
 
 export class MainTask {
-	private pool: DataRequestPool = new DataRequestPool();
+	public pool: DataRequestPool = new DataRequestPool();
 	private fetchTask: FetchTask;
 	private identityManagerTask: IdentityManagerTask;
-	private identityPool: IdentityPool;
+	public identityPool: IdentityPool;
 	private eligibilityTask: EligibilityTask;
 	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 
 	// These are the actual data requests we are currently processing and need to be completed before we move on
-	private activeDataRequestTasks = 0;
+	public activeDataRequestTasks = 0;
+
+	// Amount of data requests that have been completed, it doesn't necassarily mean that they have been fully resolved by the node.
+	// Because sometimes a reveal could get stuck or the data request timed out.
+	public completedDataRequests = 0;
 
 	// We only want to process as much data requests as the node can handle.
 	// That's why we keep track of data requests that we want to process before pushing them to active.
-	private dataRequestsToProcess: DataRequestTask[] = [];
+	public dataRequestsToProcess: DataRequestTask[] = [];
 
 	constructor(
 		private config: AppConfig,
@@ -76,6 +80,8 @@ export class MainTask {
 
 		dataRequest.value.on("done", () => {
 			this.activeDataRequestTasks -= 1;
+			this.completedDataRequests += 1;
+
 			this.processNextDr();
 		});
 
