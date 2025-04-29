@@ -33,3 +33,9 @@ export class DataRequestExpired extends Error {
 		return error.message.includes("DataRequestExpired");
 	}
 }
+
+export class RevealStarted extends Error {
+	static isError(error: Error): boolean {
+		return error.message.includes("RevealStarted");
+	}
+}

@@ -16,6 +16,7 @@ import {
 	DataRequestNotFound,
 	IncorrectAccountSquence,
 	RevealMismatch,
+	RevealStarted,
 } from "./errors";
 import { DEFAULT_GAS, type GasOptions } from "./gas-options";
 import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
@@ -264,6 +265,11 @@ export class SedaChain extends EventEmitter<EventMap> {
 					if (DataRequestNotFound.isError(transactionResult.error)) {
 						clearInterval(checkTransactionInterval);
 						resolve(Result.err(new DataRequestNotFound(transactionResult.error.message)));
+					}
+
+					if (RevealStarted.isError(transactionResult.error)) {
+						clearInterval(checkTransactionInterval);
+						resolve(Result.err(new RevealStarted(transactionResult.error.message)));
 					}
 
 					return;

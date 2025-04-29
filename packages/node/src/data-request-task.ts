@@ -4,6 +4,7 @@ import {
 	DataRequestExpired,
 	JSONStringify,
 	RevealMismatch,
+	RevealStarted,
 	debouncedInterval,
 	sleep,
 } from "@sedaprotocol/overlay-ts-common";
@@ -277,6 +278,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 			if (result.error instanceof DataRequestExpired) {
 				logger.warn("Data request was expired", {
+					id: this.name,
+				});
+				this.stop();
+				return;
+			}
+
+			if (result.error instanceof RevealStarted) {
+				logger.warn("Reveal stage has started, cannot commit", {
 					id: this.name,
 				});
 				this.stop();
