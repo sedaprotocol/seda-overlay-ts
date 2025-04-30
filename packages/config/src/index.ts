@@ -21,6 +21,7 @@ export async function loadConfig(
 		Just: (value) => resolve(value),
 		Nothing: () => resolveWithHomeDir("config.jsonc", network, homeDir),
 	});
+	logger.info(`Config file: ${finalConfigPath}`);
 
 	const configFileBuffer = await tryAsync(readFile(finalConfigPath));
 
