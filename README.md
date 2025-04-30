@@ -1,11 +1,47 @@
 # SEDA Overlay TypeScript Implementation
 
-## Running the Overlay Node
+## Installation
+
+You can run the SEDA Overlay Node in one of two ways:
+
+### Prebuilt Release (Recommended)
+
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/sedaprotocol/seda-overlay-ts/releases).  
+
+Make it executable if necessary (e.g., `chmod +x seda-overlay` on Unix systems), and execute it directly from your terminal.
+
+### Build from Source
+
+**Requirements:**  
+- [Bun](https://bun.sh/)
+- [Git](https://git-scm.com/)
+
+**Steps:**
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/sedaprotocol/seda-overlay-ts.git
+   cd seda-overlay-ts
+   ```
+2. Install dependencies:
+   ```bash
+   bun install
+   ```
+3. Start the CLI:
+   ```bash
+   bun run start
+   ```
+4. (Optional) Build the project:
+   ```bash
+   bun run build
+   ```
+
+## Initializing the Configuration
 
 To start using the overlay node, you must first initialize it. You can specify the network using the `--network` flag (defaults to `testnet` if not specified).
 
 ```bash
-$ seda-overlay init --network <mainnet | testnet | devnet | planet>
+seda-overlay init --network <mainnet | testnet | devnet | planet>
 
 Initializing the overlay node..
 Config file has been created at: /Users/myuser/.seda/testnet/config.jsonc
@@ -26,7 +62,24 @@ After initialization, a configuration file (`config.jsonc`) will be created in t
 
 You must provide an active mnemonic from the SEDA chain. Alternatively, you can set the `SEDA_MNEMONIC` environment variable.
 
-Next, you'll need to register your identity. Use the identities command:
+After initialization, you can already print your identity public key.
+
+```bash
+seda-overlay identities info --offline --network <mainnet | testnet | devnet | planet>
+
+Config file: /home/bun/.seda/testnet/config.jsonc
+┌───┬────────────────────────────────────────────────────────────────────┐
+│   │ Identity Public Key                                                │
+├───┼────────────────────────────────────────────────────────────────────┤
+│ 0 │ 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 │
+└───┴────────────────────────────────────────────────────────────────────┘
+```
+
+This prints your identity public keys without connecting to the network or requiring any tokens to be staked.
+
+## Registering and Staking Your Overlay Node
+
+Before running your overlay node, you must register your identity and stake SEDA tokens.
 
 ```bash
 seda-overlay identities stake <SEDA_AMOUNT> --network <mainnet | testnet | devnet | planet>
@@ -40,10 +93,12 @@ seda-overlay identities stake 32 --network devnet
 
 2025-04-18 12:31:45.846 info: Identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 already registered (staked: 0.00 SEDA, pending_withdrawal: 0.00 SEDA).
 2025-04-18 12:31:45.849 info: Staking on identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 with 32 SEDA (or 32000000000000000000 aSEDA)
-2025-04-18 12:31:55.527 info: Succesfully staked
+2025-04-18 12:31:55.527 info: Successfully staked
 ```
 
-Once your overlay node is registered, you can start it using the `run` command to begin processing data requests:
+## Running the Overlay Node
+
+After registration and staking, you can start it using the `run` command to begin processing data requests:
 
 ```bash
 seda-overlay run --network <mainnet | testnet | devnet | planet>
@@ -73,7 +128,7 @@ Loading..
 └───┴────────────────────────────────────────────────────────────────────┴──────────┴───────────┴────────────────────┴────────┘
 ```
 
-This display shows the accrued fees available for withdrawal ("Pending Withdrawal") for each identity. A basic setup will typically show only identity 0.
+This display shows the accrued rewards available for withdrawal ("Pending Withdrawal") for each identity. A basic setup will typically show only one identity (identity 0).
 
 ## Withdrawing Rewards
 
@@ -88,7 +143,7 @@ seda-overlay identities withdraw --network devnet
 
 2025-04-18 12:50:18.271 info: Identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 (staked: 2.00 SEDA, pending_withdrawal: 0.12 SEDA).
 2025-04-18 12:50:18.332 info: Withdrawing 0.12 SEDA...
-2025-04-18 12:50:26.323 info: Succesfully withdrawn
+2025-04-18 12:50:26.323 info: Successfully withdrawn
 ```
 
 Your fees have now been successfully withdrawn.
@@ -106,7 +161,7 @@ seda-overlay identities unstake --network devnet
 
 2025-04-18 12:53:08.911 info: Identity 020c4fe9e5063e7b5051284423089682082cf085a3b8f9e86bdb30407d761efc49 (staked: 2.00 SEDA, pending_withdrawal: 0.00 SEDA).
 2025-04-18 12:53:08.966 info: Unstaking 2.00 SEDA...
-2025-04-18 12:53:11.462 info: Succesfully unstaked
+2025-04-18 12:53:11.462 info: Successfully unstaked
 ```
 
 Verify the unstaking status using the `info` command:
@@ -128,7 +183,7 @@ Finally, withdraw your stake using the withdraw command:
 seda-overlay identities withdraw --network devnet
 ```
 
-You have now successfully unstaked your node and withdrawn your stake.
+You have now successfully unstaked your node and withdrawn your tokens.
 
 ## Running with Docker
 
@@ -138,7 +193,7 @@ This project includes a Docker setup managed via a `Makefile` for easier environ
 *   Docker and Docker Compose installed.
 *   `make` installed.
 *   Set required environment variables (e.g., in a `.env` file in the project root or export them in your shell):
-    *   `TARGET_ARCH`: If you're running the project on a mac, set the architecture to `bun-linux-arm64`
+    *   `TARGET_ARCH`: If you're running the project on a Mac, set the architecture to `bun-linux-arm64`
     *   `SEDA_MNEMONIC`: Your SEDA chain mnemonic (required).
     *   `SEDA_AMOUNT`: The amount of SEDA to stake (required for `make stake`).
     *   `SEDA_NETWORK`: The target network (optional, defaults to `testnet`).
@@ -149,7 +204,7 @@ This project includes a Docker setup managed via a `Makefile` for easier environ
     ```bash
     make init
     ```
-    * Verify/edit the generated config in `./.seda/<network>/config.jsonc`. By default this should create a new folder for you in the `.build/docker/.seda/`, which initiates per network.
+    * Verify/edit the generated config in `./.seda/<network>/config.jsonc`. By default this should create a new folder for you in the `.build/docker/.seda/`, which initializes a new folder for each network.
 
 2.  **Stake:** Stake your SEDA tokens.
     ```bash

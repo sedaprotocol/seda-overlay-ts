@@ -84,6 +84,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 			process.exit(1);
 		}
 
-		logger.info("Succesfully withdrawn");
+		logger.info("Successfully withdrawn");
 		process.exit(0);
 	});

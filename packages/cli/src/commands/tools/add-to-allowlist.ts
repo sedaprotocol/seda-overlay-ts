@@ -25,6 +25,6 @@ export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allo
 			process.exit(1);
 		}
 
-		logger.info("Succesfully added to allowlist");
+		logger.info("Successfully added to allowlist");
 		process.exit(0);
 	});

@@ -76,6 +76,6 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 			process.exit(1);
 		}
 
-		logger.info("Succesfully unstaked");
+		logger.info("Successfully unstaked");
 		process.exit(0);
 	});

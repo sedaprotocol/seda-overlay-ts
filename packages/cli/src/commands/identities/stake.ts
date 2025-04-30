@@ -85,6 +85,6 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 			process.exit(1);
 		}
 
-		logger.info("Succesfully staked");
+		logger.info("Successfully staked");
 		process.exit(0);
 	});
