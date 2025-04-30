@@ -22,6 +22,12 @@ export async function signAndSendTxSync(
 	if (gasInput === "auto") {
 		const simulatedGas = await tryAsync(async () => signingClient.simulate(address, messages, memo));
 		if (simulatedGas.isErr) {
+			if (IncorrectAccountSquence.isError(simulatedGas.error)) {
+				// Reset sequence number when we get a mismatch
+				signingClient.accountInfo = Maybe.nothing();
+				return Result.err(new IncorrectAccountSquence(simulatedGas.error.message));
+			}
+			
 			return Result.err(simulatedGas.error);
 		}
 

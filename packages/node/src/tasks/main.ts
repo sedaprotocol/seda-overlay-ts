@@ -23,6 +23,7 @@ const compilerBlob = new Blob([compilerWorkerCode]);
 let compilerWorkerSrc = URL.createObjectURL(compilerBlob);
 
 // If we ever want to run de overlay in Node.js
+// NOTE: We are using sync execution so for now this is unused
 if (typeof Bun === "undefined") {
 	compilerWorkerSrc = "./dist/node/src/tasks/execute-worker/compile-worker.js";
 	executeWorkerSrc = "./dist/node/src/tasks/execute-worker/execute-worker.js";

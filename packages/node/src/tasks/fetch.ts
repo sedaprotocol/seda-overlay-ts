@@ -41,7 +41,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 		const newDataRequests: DataRequest[] = [];
 		for (const dataRequest of result.value.dataRequests) {
 			if (this.pool.hasDataRequest(dataRequest.id)) {
-				logger.debug("Data Request already exists in the pool - skipping", { id: dataRequest.id });
+				logger.trace("Data Request already exists in the pool - skipping", { id: dataRequest.id });
 				// Always update the pool
 				this.pool.insertDataRequest(dataRequest);
 				continue;

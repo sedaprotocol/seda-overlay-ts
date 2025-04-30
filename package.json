@@ -14,8 +14,9 @@
 	],
 	"scripts": {
 		"start": "bun run check-ts && bun run ./packages/cli",
-		"start-unchecked": "bun run ./packages/cli",
-		"start-with-node": "npx tsx --inspect ./packages/cli",
+		"start:inspect": "bun run check-ts && bun run --inspect ./packages/cli",
+		"start:unchecked": "bun run ./packages/cli",
+		"start:node": "npx tsx --inspect ./packages/cli",
 		"build": "bun run ./build.ts",
 		"bundle": "bun run ./bundle.ts",
 		"check-ts": "bunx tsc --noEmit",
