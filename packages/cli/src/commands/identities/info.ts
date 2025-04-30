@@ -1,7 +1,9 @@
 import { Command } from "@commander-js/extra-typings";
 import type { StakingConfig } from "@sedaprotocol/core-contract-schema";
 import { formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { loadConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
 
@@ -17,20 +19,32 @@ export const info = populateWithCommonOptions(new Command("info"))
 	.description("Prints the information about identity staking")
 	.option("--offline", "Run in offline mode - only shows identity IDs without querying the chain")
 	.action(async (options) => {
+		// Offline mode does not require a seda chain instance (core contract address might not exist)
+		if (options.offline) {
+			const config = await loadConfig(Maybe.of(options.config), options.network, Maybe.nothing(), {
+				sedaChain: {
+					mnemonic: options.mnemonic,
+				},
+			});
+
+			if (config.isErr) {
+				logger.error(`Could not load config: ${config.error}`);
+				process.exit(1);
+			}
+
+			const formattedEntries = config.value.sedaChain.identityIds.map((identityId: string) => ({
+				"Identity Public Key": identityId,
+			}));
+			console.table(formattedEntries);
+			process.exit(0);
+		}
+
+		// Online mode requires a seda chain instance with an existing core contract address
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
 			network: options.network,
 		});
-
-		if (options.offline) {
-			const formattedEntries = config.sedaChain.identityIds.map((identityId) => ({
-				"Identity Public Key": identityId,
-			}));
-			console.table(formattedEntries);
-			process.exit(0);
-			return;
-		}
 
 		const stakingConfig = await sedaChain.queryContractSmart<StakingConfig>({
 			get_staking_config: {},

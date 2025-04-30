@@ -27,7 +27,7 @@ export async function signAndSendTxSync(
 				signingClient.accountInfo = Maybe.nothing();
 				return Result.err(new IncorrectAccountSquence(simulatedGas.error.message));
 			}
-			
+
 			return Result.err(simulatedGas.error);
 		}
 
