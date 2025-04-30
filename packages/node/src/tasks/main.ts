@@ -16,23 +16,23 @@ import { EligibilityTask } from "./is-eligible";
 // Embed worker code so we can ouput a single binary
 const vmWorkerCode = getEmbeddedVmWorkerCode();
 const vmBlob = new Blob([vmWorkerCode]);
-let executeWorkerSrc = URL.createObjectURL(vmBlob);
+const executeWorkerSrc = URL.createObjectURL(vmBlob);
 
 const compilerWorkerCode = getEmbeddedCompileWorkerCode();
 const compilerBlob = new Blob([compilerWorkerCode]);
-let compilerWorkerSrc = URL.createObjectURL(compilerBlob);
+const compilerWorkerSrc = URL.createObjectURL(compilerBlob);
 
 const syncExecuteWorkerCode = getEmbeddedSyncExecuteWorkerCode();
 const syncExecuteWorkerBlob = new Blob([syncExecuteWorkerCode]);
-let syncExecuteWorkerSrc = URL.createObjectURL(syncExecuteWorkerBlob);
+const syncExecuteWorkerSrc = URL.createObjectURL(syncExecuteWorkerBlob);
 
 // If we ever want to run de overlay in Node.js
 // NOTE: We are using sync execution so for now this is unused
-if (typeof Bun === "undefined") {
-	compilerWorkerSrc = "./dist/node/src/tasks/execute-worker/compile-worker.js";
-	executeWorkerSrc = "./dist/node/src/tasks/execute-worker/execute-worker.js";
-	syncExecuteWorkerSrc = "./dist/node/src/tasks/execute-worker/sync-execute-worker.js";
-}
+// if (typeof Bun === "undefined") {
+// 	compilerWorkerSrc = "./dist/node/src/tasks/execute-worker/compile-worker.js";
+// 	executeWorkerSrc = "./dist/node/src/tasks/execute-worker/execute-worker.js";
+// 	syncExecuteWorkerSrc = "./dist/node/src/tasks/execute-worker/sync-execute-worker.js";
+// }
 
 export class MainTask {
 	public pool: DataRequestPool = new DataRequestPool();

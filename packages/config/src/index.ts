@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tryAsync, trySync } from "@seda-protocol/utils";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { parse } from "jsonc-parser";
+import { parseJSONC } from "confbox";
 import merge from "lodash.merge";
 import { type Maybe, Result } from "true-myth";
 import { DEVNET_APP_CONFIG, MAINNET_APP_CONFIG, PLANET_APP_CONFIG, TESTNET_APP_CONFIG } from "./constants";
@@ -35,7 +35,7 @@ export async function loadConfig(
 		return Result.err([`${configFileBuffer.error} at ${finalConfigPath}`]);
 	}
 
-	const configFile = trySync<unknown>(() => parse(configFileBuffer.value.toString("utf-8")));
+	const configFile = trySync<unknown>(() => parseJSONC(configFileBuffer.value.toString("utf-8")));
 
 	if (configFile.isErr) {
 		return Result.err([`${configFile.error}`]);
