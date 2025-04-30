@@ -1,4 +1,4 @@
-import { callVm, executeVm, version } from "@seda-protocol/vm";
+import { callVm, executeVm } from "@seda-protocol/vm";
 import type { VmCallData, VmResult } from "@seda-protocol/vm";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -7,6 +7,7 @@ import { type Maybe, Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import { OverlayVmAdapter } from "../overlay-vm-adapter";
 import { Cache } from "../services/cache";
+import { getVmVersion } from "../services/determine-vm-version" with { type: "macro" };
 import { getOracleProgram } from "../services/get-oracle-program";
 import { compile } from "./execute-worker/compile-worker";
 import { executeDataRequestInWorker } from "./execute-worker/sync-execute-worker";
@@ -75,6 +76,7 @@ export async function executeDataRequest(
 		);
 
 		const oracleProgramBinary = binary.value.value;
+		const cacheWasmId = `${dataRequest.execProgramId}_metered_${getVmVersion()}.wasm`;
 
 		// We can do compilation in a seperate thread only if there is enough threads available
 		// Otherwise we will not precompile the binary
@@ -83,9 +85,10 @@ export async function executeDataRequest(
 				const compiledModule = await pool.executeTask(async (worker) => {
 					return compile(worker, oracleProgramBinary, {
 						dir: `${appConfig.wasmCacheDir}`,
-						id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
+						id: cacheWasmId,
 					});
 				});
+
 				return compiledModule;
 			},
 			Nothing: () => {
@@ -98,7 +101,7 @@ export async function executeDataRequest(
 			vmMode: "exec",
 			cache: {
 				dir: `${appConfig.wasmCacheDir}`,
-				id: `${dataRequest.execProgramId}_metered_${version}.wasm`,
+				id: cacheWasmId,
 			},
 			envs: {
 				VM_MODE: "dr",

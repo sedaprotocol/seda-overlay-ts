@@ -19,6 +19,7 @@ export interface AppConfig extends v.InferOutput<typeof AppConfigSchema> {
 	sedaChain: SedaChainConfig;
 	wasmCacheDir: string;
 	logsDir: string;
+	workersDir: string;
 }
 
 export async function parseAppConfig(input: unknown, network: string): Promise<Result<AppConfig, string[]>> {
@@ -30,7 +31,7 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 		const messages = config.error.map((error) => {
 			const path = error.path?.map((p) => p.key).join(".") || "";
 			const issues = error.issues?.map((issue) => issue.message) ?? [];
-			
+
 			return `Failed to parse config: ${error.message} at $.${path} ${issues.map((issue) => `\n${issue}`)}`;
 		});
 
@@ -50,5 +51,6 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 		wasmCacheDir: dataDirPaths.value.wasmCacheDir,
 		sedaChain: sedaChainConfig.value,
 		logsDir: dataDirPaths.value.logsDir,
+		workersDir: dataDirPaths.value.workersDir,
 	});
 }

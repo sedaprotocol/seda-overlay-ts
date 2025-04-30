@@ -32,6 +32,7 @@ type DataDirectories = {
 	dataDir: string;
 	wasmCacheDir: string;
 	logsDir: string;
+	workersDir: string;
 };
 
 export async function createAllDataFolders(
@@ -50,9 +51,14 @@ export async function createAllDataFolders(
 	const createdLogsDir = await tryAsync(mkdir(logsDirPath, { recursive: true }));
 	if (createdLogsDir.isErr) return Result.err(createdLogsDir.error);
 
+	const workersDirPath = resolveWithHomeDir("workers", "", homeDir);
+	const createdWorkersDir = await tryAsync(mkdir(workersDirPath, { recursive: true }));
+	if (createdWorkersDir.isErr) return Result.err(createdWorkersDir.error);
+
 	return Result.ok({
 		dataDir: dataDirPath,
 		wasmCacheDir: wasmCacheDirPath,
 		logsDir: logsDirPath,
+		workersDir: workersDirPath,
 	});
 }

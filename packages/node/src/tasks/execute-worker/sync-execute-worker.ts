@@ -1,11 +1,11 @@
-import { isMainThread, parentPort, type Worker } from "node:worker_threads";
-import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
-import { executeVm, type VmCallData } from "@seda-protocol/vm";
-import { OverlayVmAdapter } from "../../overlay-vm-adapter";
-import { Maybe } from "true-myth";
+import { type Worker, isMainThread, parentPort } from "node:worker_threads";
+import { type VmCallData, executeVm } from "@seda-protocol/vm";
 import { SedaChain } from "@sedaprotocol/overlay-ts-common";
-import { createVmResultError, type VmResultOverlay } from "../execute";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { Maybe } from "true-myth";
 import type { DataRequest } from "../../models/data-request";
+import { OverlayVmAdapter } from "../../overlay-vm-adapter";
+import { type VmResultOverlay, createVmResultError } from "../execute";
 
 export interface ExecuteResponse {
 	result: VmResultOverlay;
@@ -36,15 +36,18 @@ function startWorker() {
 		}
 
 		if (sedaChain.isJust) {
-			const vmAdapter = new OverlayVmAdapter({
-				chainId: message.appConfig.sedaChain.chainId,
-				appConfig: message.appConfig,
-				coreContractAddress: await sedaChain.value.getCoreContractAddress(),
-				dataRequestId: message.dataRequest.id,
-				gasPrice: message.dataRequest.gasPrice,
-				identityPrivateKey: message.identityPrivateKey,
-			}, sedaChain.value);
-	
+			const vmAdapter = new OverlayVmAdapter(
+				{
+					chainId: message.appConfig.sedaChain.chainId,
+					appConfig: message.appConfig,
+					coreContractAddress: await sedaChain.value.getCoreContractAddress(),
+					dataRequestId: message.dataRequest.id,
+					gasPrice: message.dataRequest.gasPrice,
+					identityPrivateKey: message.identityPrivateKey,
+				},
+				sedaChain.value,
+			);
+
 			const result = await executeVm(message.callData, message.dataRequest.id, vmAdapter);
 
 			parentPort?.postMessage({
@@ -73,7 +76,7 @@ export function executeDataRequestInWorker(
 			identityPrivateKey,
 			dataRequest,
 			appConfig,
-			callData
+			callData,
 		};
 
 		function handleMessage(response: ExecuteResponse) {

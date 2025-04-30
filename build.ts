@@ -18,7 +18,7 @@ await Promise.all(
 	PLATFORM_TARGETS.map(async (target) => {
 		const rawTarget = target.replace("bun-", "");
 		console.log(`Compiling for ${rawTarget}..`);
-		
+
 		const cmd = [
 			"bun",
 			"build",

@@ -1,22 +1,27 @@
+import { writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
+import path from "node:path";
 import { type SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
+import { version } from "../../../../package.json";
 import { DataRequestTask } from "../data-request-task";
 import { DataRequestPool } from "../models/data-request-pool";
 import { IdentityPool } from "../models/identitiest-pool";
-import { getEmbeddedCompileWorkerCode, getEmbeddedVmWorkerCode, getEmbeddedSyncExecuteWorkerCode } from "./execute-worker/worker-macro" with {
-	type: "macro",
-};
+import {
+	getEmbeddedCompileWorkerCode,
+	getEmbeddedSyncExecuteWorkerCode,
+	getEmbeddedVmWorkerCode,
+} from "./execute-worker/worker-macro" with { type: "macro" };
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
 
 // Embed worker code so we can ouput a single binary
-const vmWorkerCode = getEmbeddedVmWorkerCode();
-const vmBlob = new Blob([vmWorkerCode]);
-const executeWorkerSrc = URL.createObjectURL(vmBlob);
+const executeWorkerCode = getEmbeddedVmWorkerCode();
+const executeBlob = new Blob([executeWorkerCode]);
+const executeWorkerSrc = URL.createObjectURL(executeBlob);
 
 const compilerWorkerCode = getEmbeddedCompileWorkerCode();
 const compilerBlob = new Blob([compilerWorkerCode]);
@@ -26,13 +31,31 @@ const syncExecuteWorkerCode = getEmbeddedSyncExecuteWorkerCode();
 const syncExecuteWorkerBlob = new Blob([syncExecuteWorkerCode]);
 const syncExecuteWorkerSrc = URL.createObjectURL(syncExecuteWorkerBlob);
 
-// If we ever want to run de overlay in Node.js
-// NOTE: We are using sync execution so for now this is unused
-// if (typeof Bun === "undefined") {
-// 	compilerWorkerSrc = "./dist/node/src/tasks/execute-worker/compile-worker.js";
-// 	executeWorkerSrc = "./dist/node/src/tasks/execute-worker/execute-worker.js";
-// 	syncExecuteWorkerSrc = "./dist/node/src/tasks/execute-worker/sync-execute-worker.js";
-// }
+/// In Node.js we need to write the workers to disk so we can use them in the worker pool
+/// We can't use the URL.createObjectURL() method for Web Workers because it's not supported in Node.js
+function writeWorkersToDisk(workersDir: string) {
+	if (typeof Bun !== "undefined") {
+		return {
+			executeWorkerSrc,
+			compilerWorkerSrc,
+			syncExecuteWorkerSrc,
+		};
+	}
+
+	const compilerWorkerPath = path.join(workersDir, `compile-worker-${version}.js`);
+	const executeWorkerPath = path.join(workersDir, `execute-worker-${version}.js`);
+	const syncExecuteWorkerPath = path.join(workersDir, `sync-execute-worker-${version}.js`);
+
+	writeFileSync(compilerWorkerPath, compilerWorkerCode);
+	writeFileSync(executeWorkerPath, executeWorkerCode);
+	writeFileSync(syncExecuteWorkerPath, syncExecuteWorkerCode);
+
+	return {
+		executeWorkerSrc: executeWorkerPath,
+		compilerWorkerSrc: compilerWorkerPath,
+		syncExecuteWorkerSrc: syncExecuteWorkerPath,
+	};
+}
 
 export class MainTask {
 	public pool: DataRequestPool = new DataRequestPool();
@@ -67,14 +90,17 @@ export class MainTask {
 
 		let threadsAvailable = availableParallelism();
 
+		const workersPaths = writeWorkersToDisk(config.workersDir);
+
 		if (!config.node.forceSyncVm && threadsAvailable >= 2) {
 			logger.debug(`Parallel execution mode activated. Threads available: ${threadsAvailable}`);
 			threadsAvailable = threadsAvailable - 1;
-			this.compilerWorkerPool = Maybe.just(new WorkerPool(compilerWorkerSrc, threadsAvailable));
-			this.executeWorkerPool = Maybe.just(new WorkerPool(executeWorkerSrc, threadsAvailable, true));
+
+			this.compilerWorkerPool = Maybe.just(new WorkerPool(workersPaths.compilerWorkerSrc, threadsAvailable));
+			this.executeWorkerPool = Maybe.just(new WorkerPool(workersPaths.executeWorkerSrc, threadsAvailable, true));
 		} else {
 			logger.debug(`Synchronous execution mode activated. Threads available: ${threadsAvailable})`);
-			this.syncExecuteWorker = Maybe.just(new WorkerPool(syncExecuteWorkerSrc, threadsAvailable, false));
+			this.syncExecuteWorker = Maybe.just(new WorkerPool(workersPaths.syncExecuteWorkerSrc, threadsAvailable, false));
 		}
 
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);
