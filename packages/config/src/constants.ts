@@ -20,6 +20,7 @@ export const DEFAULT_ZERO_FEE_GAS = 500000n;
 export const DEFAULT_QUEUE_INTERVAL = 200;
 export const DEFAULT_BLOCK_LOCALHOST = true;
 export const DEFAULT_FORCE_SYNC_VM = true; // For now we force the VM to be in synchronous mode
+export const DEFAULT_TERMINATE_AFTER_COMPLETION = false;
 export const DEFAULT_LOG_ROTATION_ENABLED = true;
 export const DEFAULT_LOG_ROTATION_LEVEL = "debug";
 export const DEFAULT_LOG_ROTATION_MAX_FILES = "14d";

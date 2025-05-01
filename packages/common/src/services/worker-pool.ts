@@ -45,6 +45,7 @@ export class WorkerPool {
 	async executeTask<T>(task: Task<T>): Promise<T> {
 		const workerInfo = await this.getAvailableWorker();
 
+		const workerPromise = new WorkerPromise();
 		const taskPromise = task(workerInfo.worker).catch((error) => {
 			// Ensure errors are propagated
 			workerInfo.isRunning = false;
@@ -52,7 +53,7 @@ export class WorkerPool {
 			throw error;
 		});
 
-		this.runningTasks.set(workerInfo.id, taskPromise);
+		this.runningTasks.set(workerInfo.id, workerPromise.promise);
 
 		try {
 			return await taskPromise;
@@ -67,6 +68,28 @@ export class WorkerPool {
 
 			this.runningTasks.delete(workerInfo.id);
 			workerInfo.isRunning = false;
+
+			workerPromise.resolve();
 		}
+	}
+}
+
+/**
+ * We need to separate the task promise from the worker promise
+ * so we can fully clean up the worker and task before we make the
+ * worker available again to the pool.
+ */
+class WorkerPromise {
+	public promise: Promise<void>;
+	private resolver!: () => void;
+
+	constructor() {
+		this.promise = new Promise((resolve) => {
+			this.resolver = resolve;
+		});
+	}
+
+	resolve() {
+		this.resolver();
 	}
 }
