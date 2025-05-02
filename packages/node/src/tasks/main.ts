@@ -93,14 +93,22 @@ export class MainTask {
 		const workersPaths = writeWorkersToDisk(config.workersDir);
 
 		if (!config.node.forceSyncVm && threadsAvailable >= 2) {
-			logger.debug(`Parallel execution mode activated. Threads available: ${threadsAvailable}. Terminate after completion: ${config.node.terminateAfterCompletion}`);
+			logger.debug(
+				`Parallel execution mode activated. Threads available: ${threadsAvailable}. Terminate after completion: ${config.node.terminateAfterCompletion}`,
+			);
 			threadsAvailable = threadsAvailable - 1;
 
 			this.compilerWorkerPool = Maybe.just(new WorkerPool(workersPaths.compilerWorkerSrc, threadsAvailable));
-			this.executeWorkerPool = Maybe.just(new WorkerPool(workersPaths.executeWorkerSrc, threadsAvailable, config.node.terminateAfterCompletion));
+			this.executeWorkerPool = Maybe.just(
+				new WorkerPool(workersPaths.executeWorkerSrc, threadsAvailable, config.node.terminateAfterCompletion),
+			);
 		} else {
-			logger.debug(`Synchronous execution mode activated. Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`);
-			this.syncExecuteWorker = Maybe.just(new WorkerPool(workersPaths.syncExecuteWorkerSrc, threadsAvailable, config.node.terminateAfterCompletion));
+			logger.debug(
+				`Synchronous execution mode activated. Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`,
+			);
+			this.syncExecuteWorker = Maybe.just(
+				new WorkerPool(workersPaths.syncExecuteWorkerSrc, threadsAvailable, config.node.terminateAfterCompletion),
+			);
 		}
 
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);

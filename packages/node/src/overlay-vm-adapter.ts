@@ -53,6 +53,9 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		const clonedAction = structuredClone(action);
 		clonedAction.options.method = HttpFetchMethod.Options;
 
+		// OPTIONS requests should not have a body
+		clonedAction.options.body = undefined;
+
 		const httpFetchResult = await tryAsync(
 			this.httpFetch({
 				options: clonedAction.options,
@@ -117,17 +120,19 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		const publicKeyRaw = Maybe.of(httpResponse.data.headers["x-seda-publickey"]);
 
 		if (signatureRaw.isNothing) {
-			return HttpFetchResponse.createRejectedPromise("Header x-seda-signature was not available");
+			const bodyText = Buffer.from(httpResponse.data.bytes).toString("utf-8");
+			return HttpFetchResponse.createRejectedPromise(`Header x-seda-signature was not available. Body: ${bodyText}`);
 		}
 
 		if (publicKeyRaw.isNothing) {
-			return HttpFetchResponse.createRejectedPromise("Header x-seda-publickey was not available");
+			const bodyText = Buffer.from(httpResponse.data.bytes).toString("utf-8");
+			return HttpFetchResponse.createRejectedPromise(`Header x-seda-publickey was not available. Body: ${bodyText}`);
 		}
 
 		// Verify the signature:
 		const signature = Buffer.from(signatureRaw.value, "hex");
 		const publicKey = Buffer.from(action.public_key ?? publicKeyRaw.value, "hex");
-		const isValidSignature = verifyProxyHttpResponse(signature, publicKey, action, httpResponse);
+		const isValidSignature = await verifyProxyHttpResponse(signature, publicKey, action, httpResponse);
 
 		if (!isValidSignature) {
 			return HttpFetchResponse.createRejectedPromise("Invalid signature");
