@@ -11,7 +11,9 @@ interface DataRequestsResponse {
 	isPaused: boolean;
 }
 
-// TODO: Check if lastSeenIndex is needed
+type LastSeenIndex = GetDataRequestsByStatusResponse["last_seen_index"];
+let lastSeenIndex: LastSeenIndex = null;
+
 export async function getDataRequests(
 	sedaChain: SedaChain,
 	limit: number,
@@ -20,6 +22,7 @@ export async function getDataRequests(
 		get_data_requests_by_status: {
 			status: "committing",
 			limit,
+			last_seen_index: lastSeenIndex,
 		},
 	});
 
@@ -27,7 +30,9 @@ export async function getDataRequests(
 		return Result.err(result.error);
 	}
 
+	lastSeenIndex = result.value.last_seen_index;
 	const dataRequests = result.value.data_requests.map((request) => transformDataRequestFromContract(request));
+
 	return Result.ok({
 		dataRequests,
 		total: result.value.total,

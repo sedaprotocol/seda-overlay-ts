@@ -28,6 +28,9 @@ jobs:
       - name: 🔨 Build binary
         run: bun run build
 
+      - name: 🔨 Build bundle
+        run: bun run bundle
+
       - name: 📝 Generate Changelog
         id: changelog
         uses: TriPSs/conventional-changelog-action@v5.3.0
@@ -50,6 +53,7 @@ jobs:
             build/seda-overlay-linux-x64
             build/seda-overlay-linux-x64-musl
             build/seda-overlay-windows-x64.exe
+            dist/cli/src/index.js
 
       - name: 🎉 Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -66,4 +70,5 @@ jobs:
             build/seda-overlay-linux-x64
             build/seda-overlay-linux-x64-musl
             build/seda-overlay-windows-x64.exe
+            dist/cli/src/index.js
           token: ${{ secrets.GITHUB_TOKEN }}
