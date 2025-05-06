@@ -17,7 +17,7 @@
 		"start:inspect": "bun run check-ts && bun run --inspect ./packages/cli",
 		"start:unchecked": "bun run ./packages/cli",
 		"start:node": "npx tsx --inspect ./packages/cli",
-		"build": "bun run ./build.ts",
+		"build": "bun run ./build.ts && bun run bundle",
 		"bundle": "bun run ./bundle.ts",
 		"check-ts": "bunx tsc --noEmit",
 		"fmt": "bunx biome check --write .",

@@ -4,11 +4,33 @@
 
 You can run the SEDA Overlay Node in one of two ways:
 
-### Prebuilt Release (Recommended)
+### Prebuilt Release
 
-Download the latest release for your platform from the [GitHub Releases page](https://github.com/sedaprotocol/seda-overlay-ts/releases).  
+To run the overlay node we have two options:
 
-Make it executable if necessary (e.g., `chmod +x seda-overlay` on Unix systems), and execute it directly from your terminal.
+1. **Prebuilt Binary**
+   - Download the latest release from [GitHub Releases](https://github.com/sedaprotocol/seda-overlay-ts/releases)
+   - Make it executable: `chmod +x seda-overlay`
+   - Run directly from terminal
+
+2. **Node.js Version** (Recommended)
+   - Download the `seda-overlay.js` file from [GitHub Releases](https://github.com/sedaprotocol/seda-overlay-ts/releases)
+   - Run with Node.js: `node ./seda-overlay.js <command>`
+   - Example commands:
+     ```bash
+     # Initialize the overlay node
+     node ./seda-overlay.js init --network testnet
+
+     # Run the overlay node
+     node ./seda-overlay.js run --network testnet
+
+     # Check identity status
+     node ./seda-overlay.js identities info --network testnet
+     ```
+
+> **Important Note:** While both options are available, we currently recommend using the Node.js version. The prebuilt binary (which uses Bun runtime) may experience segmentation faults after extended runtime (4+ days). The Node.js version has proven more stable in testing. We are actively working to improve the prebuilt binary's stability.
+
+> **System Requirements:** The overlay node has been tested with Node.js v23.8.0. While it may work with other versions, we recommend using v23.8.0 or higher.
 
 ### Build from Source
 

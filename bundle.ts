@@ -1,12 +1,10 @@
-import { resolve } from "node:path";
 import { rename } from "node:fs/promises";
+import { resolve } from "node:path";
 
 console.log("Bundling code..");
 
-const result =await Bun.build({
-	entrypoints: [
-		resolve(import.meta.dir, "./packages/cli/src/index.ts"),
-	],
+const result = await Bun.build({
+	entrypoints: [resolve(import.meta.dir, "./packages/cli/src/index.ts")],
 	outdir: "./build",
 	target: "node",
 });

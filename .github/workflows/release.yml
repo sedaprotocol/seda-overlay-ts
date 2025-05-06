@@ -28,9 +28,6 @@ jobs:
       - name: 🔨 Build binary
         run: bun run build
 
-      - name: 🔨 Build bundle
-        run: bun run bundle
-
       - name: 📝 Generate Changelog
         id: changelog
         uses: TriPSs/conventional-changelog-action@v5.3.0
