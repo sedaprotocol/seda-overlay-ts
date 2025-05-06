@@ -30,7 +30,12 @@ export async function getDataRequests(
 		return Result.err(result.error);
 	}
 
-	lastSeenIndex = result.value.last_seen_index;
+	if (result.value.data_requests.length !== limit) {
+		lastSeenIndex = null;
+	} else {
+		lastSeenIndex = result.value.last_seen_index;
+	}
+
 	const dataRequests = result.value.data_requests.map((request) => transformDataRequestFromContract(request));
 
 	return Result.ok({

@@ -28,7 +28,6 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 	async fetch(): Promise<Result<Unit, Error>> {
 		logger.info("🔎 Looking for Data Requests...");
-
 		const result = await getDataRequests(this.sedaChain, LIMIT);
 
 		if (result.isErr) {
