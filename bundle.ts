@@ -1,13 +1,17 @@
 import { resolve } from "node:path";
+import { rename } from "node:fs/promises";
 
 console.log("Bundling code..");
 
-await Bun.build({
+const result =await Bun.build({
 	entrypoints: [
 		resolve(import.meta.dir, "./packages/cli/src/index.ts"),
-		resolve(import.meta.dir, "./packages/node/src/tasks/execute-worker/compile-worker.ts"),
-		resolve(import.meta.dir, "./packages/node/src/tasks/execute-worker/execute-worker.ts"),
 	],
-	outdir: "./dist",
+	outdir: "./build",
 	target: "node",
 });
+
+const output = result.outputs[0];
+await rename(output.path, resolve(import.meta.dir, "./build/seda-overlay.js"));
+
+console.log("Bundled code");

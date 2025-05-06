@@ -53,7 +53,7 @@ jobs:
             build/seda-overlay-linux-x64
             build/seda-overlay-linux-x64-musl
             build/seda-overlay-windows-x64.exe
-            dist/cli/src/index.js
+            build/seda-overlay.js
 
       - name: 🎉 Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -70,5 +70,5 @@ jobs:
             build/seda-overlay-linux-x64
             build/seda-overlay-linux-x64-musl
             build/seda-overlay-windows-x64.exe
-            dist/cli/src/index.js
+            build/seda-overlay.js
           token: ${{ secrets.GITHUB_TOKEN }}
