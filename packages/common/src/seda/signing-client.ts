@@ -8,7 +8,6 @@ import {
 import type { DeliverTxResponse, SequenceResponse } from "@cosmjs/stargate";
 import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-// import { tryAsync } from "@seda-protocol/utils";
 import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import makeFetchCookie from "fetch-cookie";
 import { Maybe, Result } from "true-myth";
@@ -73,8 +72,6 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 const fetchCookie = makeFetchCookie(fetch);
 
 class SedaHttpClient extends HttpClient {
-	// private cookies: Maybe<string> = Maybe.nothing();
-
 	async execute(request: JsonRpcRequest): Promise<JsonRpcSuccessResponse> {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",

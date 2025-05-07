@@ -26,7 +26,7 @@ jobs:
         run: bun install
 
       - name: 🔨 Build binary
-        run: bun run build
+        run: bun run build:node
 
       - name: 📝 Generate Changelog
         id: changelog
@@ -43,13 +43,8 @@ jobs:
         uses: jmgilman/actions-generate-checksum@v1
         with:
           patterns: |
-            build/seda-overlay-darwin-arm64
-            build/seda-overlay-darwin-x64
             build/seda-overlay-linux-arm64
-            build/seda-overlay-linux-arm64-musl
             build/seda-overlay-linux-x64
-            build/seda-overlay-linux-x64-musl
-            build/seda-overlay-windows-x64.exe
             build/seda-overlay.js
 
       - name: 🎉 Create GitHub Release
@@ -60,12 +55,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changelog }}
           artifacts: |
             checksum.txt
-            build/seda-overlay-darwin-arm64
-            build/seda-overlay-darwin-x64
             build/seda-overlay-linux-arm64
-            build/seda-overlay-linux-arm64-musl
             build/seda-overlay-linux-x64
-            build/seda-overlay-linux-x64-musl
-            build/seda-overlay-windows-x64.exe
             build/seda-overlay.js
           token: ${{ secrets.GITHUB_TOKEN }}
