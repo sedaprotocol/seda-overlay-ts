@@ -1,16 +1,13 @@
-FROM oven/bun:1.2-alpine
-
-ARG TARGET_ARCH
-
+FROM ubuntu:latest
 WORKDIR /app
 
-COPY . .
+RUN apt update -y && apt install wget -y
 
-RUN bun install --frozen-lockfile
+RUN wget https://github.com/sedaprotocol/seda-overlay-ts/releases/download/v1.0.0-rc.10/seda-overlay-linux-x64
 
-# Build the seda-overlay executable from the cli package
-RUN bun build --compile --minify --sourcemap ./packages/cli/src/index.ts --outfile seda-overlay --target=${TARGET_ARCH}
-RUN chmod +x seda-overlay
+RUN chmod a+x seda-overlay-linux-x64
 
-ENTRYPOINT ["./seda-overlay"]
-CMD ["run"]
+RUN ./seda-overlay-linux-x64 init --network testnet
+
+ENTRYPOINT ["./seda-overlay-linux-x64"]
+CMD ["run", "--network", "testnet"]
