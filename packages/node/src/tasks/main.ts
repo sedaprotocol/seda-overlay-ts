@@ -94,7 +94,7 @@ export class MainTask {
 
 		if (!config.node.forceSyncVm && threadsAvailable >= 2) {
 			logger.debug(
-				`Parallel execution mode activated. Threads available: ${threadsAvailable}. Terminate after completion: ${config.node.terminateAfterCompletion}`,
+				`Parallel execution mode activated. (Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`,
 			);
 			threadsAvailable = threadsAvailable - 1;
 
@@ -104,10 +104,19 @@ export class MainTask {
 			);
 		} else {
 			logger.debug(
-				`Synchronous execution mode activated. Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`,
+				`Synchronous execution mode activated. (Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`,
 			);
+
+			if (config.node.threadAmount) {
+				logger.debug(`Using configured thread amount: ${config.node.threadAmount}`);
+			}
+
 			this.syncExecuteWorker = Maybe.just(
-				new WorkerPool(workersPaths.syncExecuteWorkerSrc, threadsAvailable, config.node.terminateAfterCompletion),
+				new WorkerPool(
+					workersPaths.syncExecuteWorkerSrc,
+					config.node.threadAmount ?? threadsAvailable,
+					config.node.terminateAfterCompletion,
+				),
 			);
 		}
 
