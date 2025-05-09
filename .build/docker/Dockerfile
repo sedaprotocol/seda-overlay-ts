@@ -13,7 +13,7 @@ RUN bun install --frozen-lockfile
 RUN bun build --compile --minify --sourcemap ./packages/cli/src/index.ts --outfile seda-overlay --target=${BUN_TARGET_ARCH}
 RUN chmod +x seda-overlay
 
-RUN ./seda-overlay init --network ${NETWORK_NAME}
+RUN ./seda-overlay init --network testnet
 
 ENTRYPOINT ["./seda-overlay"]
-CMD ["run", "--network", "${NETWORK_NAME}"]
+CMD ["run", "--network", "testnet"]
