@@ -60,7 +60,7 @@ jobs:
   build_and_push_docker_images:
     name: 🐳 Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: build 
+    needs: build
     permissions:
       contents: read
       packages: write
@@ -106,8 +106,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            TARGET_ARCH_amd64=bun-linux-x64
-            TARGET_ARCH_arm64=bun-linux-arm64
+            BUN_TARGET_ARCH=bun-linux-x64
+            BUN_TARGET_ARCH=bun-linux-arm64
 
   create_release:
     name: 🎉 Create GitHub Release
@@ -125,7 +125,7 @@ jobs:
         with:
           allowUpdates: true
           generateReleaseNotes: true
-          artifactPath: ./release-assets/* # Path to the artifacts from the build job
+          artifactPath: ./release-assets/*
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit: ${{ github.sha }} 
+          commit: ${{ github.sha }}
           tag: ${{ github.ref_name }} 
