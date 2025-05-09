@@ -100,13 +100,12 @@ jobs:
         with:
           context: .
           file: .build/docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUN_TARGET_ARCH=bun-linux-x64
-            BUN_TARGET_ARCH=bun-linux-arm64
 
   create_release:
     name: 🎉 Create GitHub Release
