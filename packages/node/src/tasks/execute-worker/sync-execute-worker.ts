@@ -1,3 +1,4 @@
+import "@sedaprotocol/overlay-ts-common";
 import { type Worker, isMainThread, parentPort } from "node:worker_threads";
 import { type VmCallData, executeVm } from "@seda-protocol/vm";
 import { SedaChain } from "@sedaprotocol/overlay-ts-common";

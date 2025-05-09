@@ -1,3 +1,4 @@
+export * from "./instrumentation";
 export { isBrowser } from "./services/is-browser";
 export * from "./services/try-async";
 export * from "./services/timer";
