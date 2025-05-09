@@ -4,8 +4,9 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Hono } from "hono";
 import type { MainTask } from "../tasks/main";
 import { createApi } from "./routes/api";
+import getPort, { portNumbers } from "get-port";
 
-export function startHttpServer(appConfig: AppConfig, mainTask: MainTask) {
+export async function startHttpServer(appConfig: AppConfig, mainTask: MainTask) {
 	const app = new Hono();
 
 	// Healthcheck endpoints
@@ -14,10 +15,16 @@ export function startHttpServer(appConfig: AppConfig, mainTask: MainTask) {
 
 	app.route("/api", createApi(mainTask));
 
+	const port = await getPort({ port: portNumbers(appConfig.httpServer.port, appConfig.httpServer.port + 100) });
+
+	if (port !== appConfig.httpServer.port) {
+		logger.warn(`HTTP Port ${appConfig.httpServer.port} is already in use. Switching to ${port}`);
+	}
+
 	if (typeof Bun !== "undefined") {
 		const server = Bun.serve({
 			fetch: app.fetch,
-			port: appConfig.httpServer.port,
+			port,
 		});
 
 		logger.info(`HTTP server started on ${server.url}`);
@@ -25,7 +32,7 @@ export function startHttpServer(appConfig: AppConfig, mainTask: MainTask) {
 		serve(
 			{
 				fetch: app.fetch,
-				port: appConfig.httpServer.port,
+				port,
 			},
 			(info) => {
 				logger.info(`${info.family} HTTP server started on ${info.address}${info.port}`);

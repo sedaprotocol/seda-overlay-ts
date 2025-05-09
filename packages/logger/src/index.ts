@@ -1,7 +1,10 @@
 import { isBrowser } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Maybe } from "true-myth";
+import { logs } from "@opentelemetry/api-logs";
 import { type Logger as WinstonLogger, format, transports } from "winston";
+import { LoggerProvider, SimpleLogRecordProcessor, ConsoleLogRecordExporter } from "@opentelemetry/sdk-logs";
+import { OpenTelemetryTransportV3 } from "@opentelemetry/winston-transport";
 import "winston-daily-rotate-file";
 
 const logFormat = (withColors: boolean) =>
@@ -36,11 +39,17 @@ export class Logger {
 	winston: Maybe<WinstonLogger> = Maybe.nothing();
 
 	async init(appConfig: AppConfig) {
+		const loggerProvider = new LoggerProvider();
+
+		loggerProvider.addLogRecordProcessor(new SimpleLogRecordProcessor(new ConsoleLogRecordExporter()));
+		logs.setGlobalLoggerProvider(loggerProvider);
+
 		if (!isBrowser()) {
 			const { createLogger, format } = await import("winston");
 
 			const myTransports = [];
 			myTransports.push(consoleTransport);
+			myTransports.push(new OpenTelemetryTransportV3())
 
 			if (appConfig.node.logRotationEnabled) {
 				const rotateFileTransport = new transports.DailyRotateFile({

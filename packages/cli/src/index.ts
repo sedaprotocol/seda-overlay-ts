@@ -1,3 +1,5 @@
+// Makes sure the instrumentation is loaded first
+import "@sedaprotocol/overlay-ts-common";
 import { Command } from "@commander-js/extra-typings";
 import { isBrowser } from "@sedaprotocol/overlay-ts-common";
 import dotenv from "dotenv";
