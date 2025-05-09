@@ -1,6 +1,7 @@
 FROM oven/bun:1.2-alpine
 
 ARG TARGET_ARCH
+ARG NETWORK_NAME=testnet
 
 WORKDIR /app
 
@@ -13,4 +14,4 @@ RUN bun build --compile --minify --sourcemap ./packages/cli/src/index.ts --outfi
 RUN chmod +x seda-overlay
 
 ENTRYPOINT ["./seda-overlay"]
-CMD ["run"]
+CMD ["run", "--network", "${NETWORK_NAME}"]

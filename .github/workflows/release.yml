@@ -13,8 +13,10 @@ env:
 
 jobs:
   build:
-    name: 🛠️ Build Binary
+    name: 🛠️ Build JS Artifact and Changelog
     runs-on: ubuntu-latest
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -25,8 +27,10 @@ jobs:
       - name: 📦 Install Dependencies
         run: bun install
 
-      - name: 🔨 Build binary
-        run: bun run build:node
+      - name: 🔨 Build seda-overlay.js
+        run: |
+          mkdir -p build
+          bun build --minify --sourcemap ./packages/cli/src/index.ts --outfile build/seda-overlay.js --target=node
 
       - name: 📝 Generate Changelog
         id: changelog
@@ -39,23 +43,89 @@ jobs:
           skip-git-pull: true
           git-push: false
 
-      - name: 🔢 Generate Checksum
+      - name: 🔢 Generate Checksum for JS artifact
         uses: jmgilman/actions-generate-checksum@v1
         with:
           patterns: |
-            build/seda-overlay-linux-arm64
-            build/seda-overlay-linux-x64
             build/seda-overlay.js
+
+      - name: ⬆️ Upload JS artifact and checksum for release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            build/seda-overlay.js
+            checksum.txt
+
+  build_and_push_docker_images:
+    name: 🐳 Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build 
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 🔧 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            latest
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .build/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TARGET_ARCH_amd64=bun-linux-x64
+            TARGET_ARCH_arm64=bun-linux-arm64
+
+  create_release:
+    name: 🎉 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, build_and_push_docker_images]
+    steps:
+      - name: 📥 Download all release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: ./release-assets
 
       - name: 🎉 Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
           generateReleaseNotes: true
-          body: ${{ steps.changelog.outputs.changelog }}
-          artifacts: |
-            checksum.txt
-            build/seda-overlay-linux-arm64
-            build/seda-overlay-linux-x64
-            build/seda-overlay.js
+          artifactPath: ./release-assets/* # Path to the artifacts from the build job
           token: ${{ secrets.GITHUB_TOKEN }}
+          commit: ${{ github.sha }} 
+          tag: ${{ github.ref_name }} 
