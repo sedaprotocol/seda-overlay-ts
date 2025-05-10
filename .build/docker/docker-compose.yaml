@@ -6,7 +6,7 @@ services:
       args:
         # Default to bun-linux-x64 if not specified
         # NOTE: On mac devices you should export `bun-linux-arm64`
-        TARGET_ARCH: ${TARGET_ARCH:-bun-linux-x64}
+        BUN_TARGET_ARCH: ${TARGET_ARCH:-bun-linux-arm64}
     environment:
       # Network to connect to (e.g., mainnet, testnet, devnet, planet)
       SEDA_NETWORK: ${SEDA_NETWORK:-testnet}

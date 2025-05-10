@@ -1,16 +1,21 @@
-FROM oven/bun:1.2-alpine
+FROM oven/bun:1.2
 
-ARG TARGET_ARCH
+ARG BUN_TARGET_ARCH
+ARG NETWORK_NAME=testnet
 
 WORKDIR /app
 
 COPY . .
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
-# Build the seda-overlay executable from the cli package
-RUN bun build --compile --minify --sourcemap ./packages/cli/src/index.ts --outfile seda-overlay --target=${TARGET_ARCH}
-RUN chmod +x seda-overlay
+RUN bun run build:node
+RUN ls -la /app/build
 
-ENTRYPOINT ["./seda-overlay"]
-CMD ["run"]
+RUN ldd ./build/seda-overlay-linux-x64 || echo "ldd failed"
+
+
+RUN ./build/seda-overlay-linux-x64 init --network testnet
+
+ENTRYPOINT ["./build/seda-overlay-linux-x64"]
+CMD ["run", "--network", "testnet"]
