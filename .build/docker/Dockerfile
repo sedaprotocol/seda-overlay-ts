@@ -1,4 +1,4 @@
-FROM oven/bun:1.2-alpine
+FROM oven/bun:1.2
 
 ARG BUN_TARGET_ARCH
 ARG NETWORK_NAME=testnet
