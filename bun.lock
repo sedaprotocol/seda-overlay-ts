@@ -97,7 +97,16 @@
         "semver": "7.7.1",
       },
       "devDependencies": {
+        "@sedaprotocol/overlay-ts-test": "0.0.0",
         "@types/semver": "7.7.0",
+      },
+    },
+    "packages/test": {
+      "name": "@sedaprotocol/overlay-ts-test",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sedaprotocol/overlay-ts-config": "0.0.0",
+        "@sedaprotocol/overlay-ts-node": "0.0.0",
       },
     },
   },
@@ -259,6 +268,8 @@
     "@sedaprotocol/overlay-ts-logger": ["@sedaprotocol/overlay-ts-logger@workspace:packages/logger"],
 
     "@sedaprotocol/overlay-ts-node": ["@sedaprotocol/overlay-ts-node@workspace:packages/node"],
+
+    "@sedaprotocol/overlay-ts-test": ["@sedaprotocol/overlay-ts-test@workspace:packages/test"],
 
     "@types/big.js": ["@types/big.js@6.2.2", "", {}, "sha512-e2cOW9YlVzFY2iScnGBBkplKsrn2CsObHQ2Hiw4V1sSyiGbgWL8IyqE3zFi1Pt5o1pdAtYkDAIsF3KKUPjdzaA=="],
 

@@ -10,7 +10,8 @@
 		"./packages/config",
 		"./packages/contract",
 		"./packages/logger",
-		"./packages/node"
+		"./packages/node",
+		"./packages/test"
 	],
 	"scripts": {
 		"start": "bun run check-ts && bun run ./packages/cli",

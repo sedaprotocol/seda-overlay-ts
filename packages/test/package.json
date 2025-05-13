@@ -1,0 +1,11 @@
+{
+    "name": "@sedaprotocol/overlay-ts-test",
+    "version": "0.0.0",
+    "type": "module",
+    "main": "./src/index.ts",
+    "dependencies": {
+        "@sedaprotocol/overlay-ts-node": "0.0.0",
+        "@sedaprotocol/overlay-ts-config": "0.0.0"
+    },
+    "devDependencies": {}
+}

@@ -246,6 +246,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		logger.info("💫 Executed Data Request", {
 			id: this.name,
 		});
+
+		await this.handleCommit(dataRequest);
 	}
 
 	async handleCommit(dataRequest: DataRequest) {

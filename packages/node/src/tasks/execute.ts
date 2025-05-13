@@ -29,6 +29,10 @@ export function createVmResultError(error: Error): VmResultOverlay {
 	};
 }
 
+export function createCacheId(execProgramId: string) {
+	return `${execProgramId}_metered_${getVmVersion()}.wasm`;
+}
+
 // 14 seconds execution cache
 const executionResultCache = new Cache<VmResultOverlay>(14_000);
 
@@ -76,7 +80,7 @@ export async function executeDataRequest(
 		);
 
 		const oracleProgramBinary = binary.value.value;
-		const cacheWasmId = `${dataRequest.execProgramId}_metered_${getVmVersion()}.wasm`;
+		const cacheWasmId = createCacheId(dataRequest.execProgramId);
 
 		// We can do compilation in a seperate thread only if there is enough threads available
 		// Otherwise we will not precompile the binary

@@ -57,3 +57,8 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 		});
 	}
 }
+
+// Exports for testing purposes
+export { DataRequestPool } from "./models/data-request-pool";
+export { IdentityPool } from "./models/identitiest-pool";
+export type { DataRequest } from "./models/data-request";
