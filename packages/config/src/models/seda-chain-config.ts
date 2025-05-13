@@ -4,6 +4,9 @@ import { HDNodeWallet, Mnemonic } from "ethers";
 import { Result } from "true-myth";
 import * as v from "valibot";
 import {
+	DEFAULT_ADJUSTMENT_FACTOR,
+	DEFAULT_GAS,
+	DEFAULT_GAS_PRICE,
 	DEFAULT_IDENTITIES_AMOUNT,
 	DEFAULT_MAX_RETRIES,
 	DEFAULT_QUEUE_INTERVAL,
@@ -23,6 +26,9 @@ export const SedaChainConfigSchema = v.object({
 	transactionPollInterval: v.optional(v.number(), DEFAULT_TRANSACTION_POLL_INTERVAL),
 	queueInterval: v.optional(v.number(), DEFAULT_QUEUE_INTERVAL),
 	zeroFeeGas: v.optional(v.bigint(), DEFAULT_ZERO_FEE_GAS),
+	gasPrice: v.optional(v.string(), DEFAULT_GAS_PRICE),
+	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
+	gas: v.optional(v.union([v.number(), v.literal("auto"), v.literal("zero")]), DEFAULT_GAS),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

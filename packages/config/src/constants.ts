@@ -26,6 +26,9 @@ export const DEFAULT_LOG_ROTATION_LEVEL = "debug";
 export const DEFAULT_LOG_ROTATION_MAX_FILES = "14d";
 export const DEFAULT_LOG_ROTATION_MAX_SIZE = "10m";
 export const DEFAULT_HTTP_SERVER_PORT = 3000;
+export const DEFAULT_ADJUSTMENT_FACTOR = 1.8;
+export const DEFAULT_GAS_PRICE = "10000000000";
+export const DEFAULT_GAS = "auto";
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

@@ -5,7 +5,7 @@ import { tryAsync, trySync } from "@seda-protocol/utils";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Maybe, Result } from "true-myth";
 import { IncorrectAccountSquence } from "./errors";
-import { DEFAULT_ADJUSTMENT_FACTOR, DEFAULT_GAS, DEFAULT_GAS_PRICE, type GasOptions } from "./gas-options";
+import type { GasOptions } from "./gas-options";
 import type { SedaSigningCosmWasmClient } from "./signing-client";
 
 export async function signAndSendTxSync(
@@ -16,7 +16,7 @@ export async function signAndSendTxSync(
 	gasOptions: GasOptions = {},
 	memo = "Sent from SEDA Overlay 🥟",
 ): Promise<Result<string, IncorrectAccountSquence | Error>> {
-	const gasInput = gasOptions.gas ?? DEFAULT_GAS;
+	const gasInput = gasOptions.gas ?? config.gas;
 
 	let gas: bigint;
 	if (gasInput === "auto") {
@@ -31,7 +31,7 @@ export async function signAndSendTxSync(
 			return Result.err(simulatedGas.error);
 		}
 
-		const adjustmentFactor = gasOptions.adjustmentFactor ?? DEFAULT_ADJUSTMENT_FACTOR;
+		const adjustmentFactor = gasOptions.adjustmentFactor ?? config.gasAdjustmentFactor;
 		gas = BigInt(Math.round(simulatedGas.value * adjustmentFactor));
 	} else if (gasInput === "zero") {
 		gas = config.zeroFeeGas;
@@ -43,7 +43,7 @@ export async function signAndSendTxSync(
 		gas = manualGas.value;
 	}
 
-	const gasPrice = trySync(() => BigInt(gasOptions.gasPrice ?? DEFAULT_GAS_PRICE));
+	const gasPrice = trySync(() => BigInt(gasOptions.gasPrice ?? config.gasPrice));
 	if (gasPrice.isErr) {
 		return Result.err(gasPrice.error);
 	}

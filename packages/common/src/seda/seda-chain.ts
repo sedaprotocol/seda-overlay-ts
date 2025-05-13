@@ -18,7 +18,7 @@ import {
 	RevealMismatch,
 	RevealStarted,
 } from "./errors";
-import { DEFAULT_GAS, type GasOptions } from "./gas-options";
+import type { GasOptions } from "./gas-options";
 import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
 import { type ISigner, Signer } from "./signer";
@@ -166,7 +166,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 		if (txMessage.isNothing) return;
 
 		const cosmosMessage = txMessage.value.message;
-		const gasOption = txMessage.value.gasOptions ?? { gas: DEFAULT_GAS };
+		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
 		const result = await signAndSendTxSync(
 			this.config.sedaChain,
 			this.signerClient,
