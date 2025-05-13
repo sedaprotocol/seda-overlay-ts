@@ -33,8 +33,6 @@ export async function signAndSendTxSync(
 
 		const adjustmentFactor = gasOptions.adjustmentFactor ?? config.gasAdjustmentFactor;
 		gas = BigInt(Math.round(simulatedGas.value * adjustmentFactor));
-	} else if (gasInput === "zero") {
-		gas = config.zeroFeeGas;
 	} else {
 		const manualGas = trySync(() => BigInt(gasInput));
 		if (manualGas.isErr) {

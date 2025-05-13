@@ -12,7 +12,6 @@ import {
 	DEFAULT_QUEUE_INTERVAL,
 	DEFAULT_SLEEP_BETWEEN_FAILED_TX,
 	DEFAULT_TRANSACTION_POLL_INTERVAL,
-	DEFAULT_ZERO_FEE_GAS,
 } from "../constants";
 
 export const SedaChainConfigSchema = v.object({
@@ -25,10 +24,9 @@ export const SedaChainConfigSchema = v.object({
 	sleepBetweenFailedTx: v.optional(v.number(), DEFAULT_SLEEP_BETWEEN_FAILED_TX),
 	transactionPollInterval: v.optional(v.number(), DEFAULT_TRANSACTION_POLL_INTERVAL),
 	queueInterval: v.optional(v.number(), DEFAULT_QUEUE_INTERVAL),
-	zeroFeeGas: v.optional(v.bigint(), DEFAULT_ZERO_FEE_GAS),
 	gasPrice: v.optional(v.string(), DEFAULT_GAS_PRICE),
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
-	gas: v.optional(v.union([v.number(), v.literal("auto"), v.literal("zero")]), DEFAULT_GAS),
+	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

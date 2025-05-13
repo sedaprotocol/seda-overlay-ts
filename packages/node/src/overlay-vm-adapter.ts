@@ -21,6 +21,7 @@ type Options = {
 	identityPrivateKey: Buffer;
 	gasPrice: bigint;
 	appConfig: AppConfig;
+	timeout: number;
 };
 
 export class OverlayVmAdapter extends DataRequestVmAdapter {
@@ -31,7 +32,9 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		private options: Options,
 		sedaChain: SedaChain,
 	) {
-		super({});
+		super({
+			timeout: options.timeout,
+		});
 
 		this.dataProxyRpcQueryClient = new sedachain.data_proxy.v1.QueryClientImpl(sedaChain.getProtobufRpcClient());
 	}

@@ -71,6 +71,7 @@ export async function executeDataRequest(
 				gasPrice: dataRequest.gasPrice,
 				identityPrivateKey,
 				appConfig,
+				timeout: appConfig.node.httpTimeout,
 			},
 			sedaChain,
 		);

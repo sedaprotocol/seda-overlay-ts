@@ -2,6 +2,7 @@ import * as v from "valibot";
 import {
 	DEFAULT_BLOCK_LOCALHOST,
 	DEFAULT_FORCE_SYNC_VM,
+	DEFAULT_HTTP_TIMEOUT,
 	DEFAULT_LOG_ROTATION_ENABLED,
 	DEFAULT_LOG_ROTATION_LEVEL,
 	DEFAULT_LOG_ROTATION_MAX_FILES,
@@ -28,6 +29,7 @@ export const NodeConfigSchema = v.object({
 	logRotationLevel: v.optional(v.string(), DEFAULT_LOG_ROTATION_LEVEL),
 	logRotationMaxFiles: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_FILES),
 	logRotationMaxSize: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_SIZE),
+	httpTimeout: v.optional(v.number(), DEFAULT_HTTP_TIMEOUT),
 });
 
 export type NodeConfig = v.InferOutput<typeof NodeConfigSchema>;

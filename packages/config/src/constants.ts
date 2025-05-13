@@ -16,7 +16,6 @@ export const DEFAULT_MAX_CONCURRENT_REQUESTS = Number.MAX_SAFE_INTEGER;
 export const DEFAULT_MAX_GAS_LIMIT = 300_000_000_000_000n; // 300 Tgas (in gas units)
 export const DEFAULT_MAX_VM_RESULT_SIZE_BYTES = 96000; // 96KB
 export const DEFAULT_MAX_VM_LOGS_SIZE_BYTES = 32768; // 32KB
-export const DEFAULT_ZERO_FEE_GAS = 500000n;
 export const DEFAULT_QUEUE_INTERVAL = 200;
 export const DEFAULT_BLOCK_LOCALHOST = true;
 export const DEFAULT_FORCE_SYNC_VM = true; // For now we force the VM to be in synchronous mode
@@ -29,6 +28,7 @@ export const DEFAULT_HTTP_SERVER_PORT = 3000;
 export const DEFAULT_ADJUSTMENT_FACTOR = 1.8;
 export const DEFAULT_GAS_PRICE = "10000000000";
 export const DEFAULT_GAS = "auto";
+export const DEFAULT_HTTP_TIMEOUT = 2_000;
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

@@ -44,6 +44,7 @@ function startWorker() {
 					dataRequestId: message.dataRequest.id,
 					gasPrice: message.dataRequest.gasPrice,
 					identityPrivateKey: message.identityPrivateKey,
+					timeout: message.appConfig.node.httpTimeout,
 				},
 				sedaChain.value,
 			);
