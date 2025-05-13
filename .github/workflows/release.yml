@@ -30,7 +30,7 @@ jobs:
       - name: 🔨 Build seda-overlay-ts.js
         run: |
           mkdir -p build
-          bun build --minify --sourcemap ./packages/cli/src/index.ts --outfile build/seda-overlay-ts.js --target=node
+          bun run build:node
 
       - name: 📝 Generate Changelog
         id: changelog
@@ -43,18 +43,22 @@ jobs:
           skip-git-pull: true
           git-push: false
 
-      - name: 🔢 Generate Checksum for JS artifact
+      - name: 🔢 Generate Checksum
         uses: jmgilman/actions-generate-checksum@v1
         with:
           patterns: |
-            build/seda-overlay-ts.js
+            build/seda-overlay-linux-arm64
+            build/seda-overlay-linux-x64
+            build/seda-overlay.js
 
       - name: ⬆️ Upload JS artifact and checksum for release
         uses: actions/upload-artifact@v4
         with:
           name: release-assets
           path: |
-            build/seda-overlay-ts.js
+            build/seda-overlay.js
+            build/seda-overlay-linux-arm64
+            build/seda-overlay-linux-x64
             checksum.txt
 
   build_and_push_docker_images:
@@ -123,7 +127,8 @@ jobs:
         with:
           allowUpdates: true
           generateReleaseNotes: true
-          artifactPath: ./release-assets/*
+          body: ${{ needs.build.outputs.changelog }}
+          artifacts: ./release-assets/**/*
           token: ${{ secrets.GITHUB_TOKEN }}
           commit: ${{ github.sha }}
           tag: ${{ github.ref_name }} 
