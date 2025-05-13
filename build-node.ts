@@ -40,7 +40,7 @@ await build({
 		SeaEsbuildPlugin({
 			name: "seda-overlay",
 			nodeVersion: "23.9.0",
-			os: ["linux-x64","linux-arm64"],
+			os: ["linux-x64", "linux-arm64"],
 			assets: {},
 		}),
 	],
