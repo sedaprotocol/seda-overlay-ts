@@ -1,13 +1,18 @@
-FROM ubuntu:latest
+FROM oven/bun:latest AS builder
+
 WORKDIR /app
 
-RUN apt update -y && apt install wget -y
+COPY . .
 
-RUN wget https://github.com/sedaprotocol/seda-overlay-ts/releases/download/v1.0.0-rc.10/seda-overlay-linux-x64
+RUN bun install
 
-RUN chmod a+x seda-overlay-linux-x64
+# Just for building the bundle that Node.js needs
+RUN bun run build:node
 
-RUN ./seda-overlay-linux-x64 init --network testnet
+FROM node:23.11.0-bullseye AS runner
 
-ENTRYPOINT ["./seda-overlay-linux-x64"]
-CMD ["run", "--network", "testnet"]
+WORKDIR /app
+
+COPY --from=builder /app/build ./build
+
+CMD ["node", "./build/bundle.cjs", "run", "--network", "testnet"]
