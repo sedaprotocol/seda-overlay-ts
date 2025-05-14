@@ -3,7 +3,7 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 
 export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allowlist"))
-	.description("stakes on a certain identity")
+	.description("adds an identity to the allowlist")
 	.argument("<identity-index>", "Identity public key you want to add")
 	.action(async (identityId, options) => {
 		const { sedaChain } = await loadConfigAndSedaChain({

@@ -309,6 +309,30 @@
 						}
 					},
 					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_executors"],
+					"properties": {
+						"get_executors": {
+							"type": "object",
+							"required": ["limit", "offset"],
+							"properties": {
+								"limit": {
+									"type": "integer",
+									"format": "uint32",
+									"minimum": 0.0
+								},
+								"offset": {
+									"type": "integer",
+									"format": "uint32",
+									"minimum": 0.0
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
 				}
 			]
 		},
