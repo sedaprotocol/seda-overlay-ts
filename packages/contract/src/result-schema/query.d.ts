@@ -139,6 +139,12 @@ export type QueryMsg2 =
     }
   | {
       get_staking_config: {};
+    }
+  | {
+      get_executors: {
+        limit: number;
+        offset: number;
+      };
     };
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.

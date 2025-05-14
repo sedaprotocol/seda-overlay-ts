@@ -16,3 +16,4 @@ export {
 	createUnstakeMessageSignatureHash,
 } from "./identity";
 export type { StakingConfig } from "./result-schema/response_to_get_staking_config";
+export type { GetExecutorsResponse } from "./result-schema/response_to_get_executors";
