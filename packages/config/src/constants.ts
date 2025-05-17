@@ -28,7 +28,8 @@ export const DEFAULT_HTTP_SERVER_PORT = 3000;
 export const DEFAULT_ADJUSTMENT_FACTOR = 1.8;
 export const DEFAULT_GAS_PRICE = "10000000000";
 export const DEFAULT_GAS = "auto";
-export const DEFAULT_HTTP_TIMEOUT = 2_000;
+export const DEFAULT_REQUEST_TIMEOUT = 2_000;
+export const DEFAULT_TOTAL_HTTP_TIME_LIMIT = 20_000;
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

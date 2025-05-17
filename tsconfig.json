@@ -20,6 +20,11 @@
 		// Some stricter flags (disabled by default)
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
-		"noPropertyAccessFromIndexSignature": false
+		"noPropertyAccessFromIndexSignature": false,
+		// Performance optimizations
+		"incremental": true,
+		"tsBuildInfoFile": "./node_modules/.cache/.tsbuildinfo",
+		"isolatedModules": true,
+		"preserveWatchOutput": true
 	}
 }

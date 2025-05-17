@@ -1,4 +1,4 @@
-import { rename } from "node:fs/promises";
+import { copyFile, rename } from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { build } from "esbuild";
 import { SeaEsbuildPlugin } from "sea-plugin";
@@ -45,5 +45,7 @@ await build({
 		}),
 	],
 });
+
+await copyFile(path.join(outDir, "bundle.cjs"), path.join(outDir, "seda-overlay.cjs"));
 
 console.log("Built binaries");

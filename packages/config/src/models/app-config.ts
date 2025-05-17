@@ -1,6 +1,7 @@
 import { tryParseSync } from "@seda-protocol/utils";
 import { Maybe, Result } from "true-myth";
 import * as v from "valibot";
+import { checkFilePermissions } from "../check-permissions";
 import { createAllDataFolders } from "../home-dir";
 import { HttpServerConfigSchema } from "./http-server-config";
 import { IntervalsConfigSchema } from "./intervals-config";
@@ -46,11 +47,17 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 		return Result.err([sedaChainConfig.error.message]);
 	}
 
-	return Result.ok({
+	const appConfig: AppConfig = {
 		...config.value,
 		wasmCacheDir: dataDirPaths.value.wasmCacheDir,
 		sedaChain: sedaChainConfig.value,
 		logsDir: dataDirPaths.value.logsDir,
 		workersDir: dataDirPaths.value.workersDir,
-	});
+	};
+
+	// Do one last check to ensure all folders have the correct permissions
+	const filePermissions = await checkFilePermissions(appConfig);
+	if (filePermissions.isErr) return Result.err([filePermissions.error]);
+
+	return Result.ok(appConfig);
 }

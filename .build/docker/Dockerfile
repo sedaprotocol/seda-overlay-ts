@@ -15,4 +15,4 @@ WORKDIR /app
 
 COPY --from=builder /app/build ./build
 
-CMD ["node", "./build/bundle.cjs", "run", "--network", "testnet"]
+CMD ["node", "./build/seda-overlay.cjs", "run", "--network", "testnet"]
