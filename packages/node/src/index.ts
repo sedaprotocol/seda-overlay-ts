@@ -44,7 +44,7 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 	const mainTask = new MainTask(appConfig, sedaChain.value);
 	mainTask.start();
 
-	startHttpServer(appConfig, mainTask);
+	await startHttpServer(appConfig, mainTask);
 
 	if (exitController.isJust) {
 		exitController.value.signal.addEventListener("abort", () => {
