@@ -97,3 +97,4 @@ export async function createConfig(
 
 export type { AppConfig };
 export { parseAppConfig };
+export { getAppVersions } from "./models/app-versions";

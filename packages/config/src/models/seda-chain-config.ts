@@ -1,5 +1,5 @@
 import { trySync } from "@seda-protocol/utils";
-import { strip0x } from "@sedaprotocol/overlay-ts-common";
+import { getRuntime, strip0x } from "@sedaprotocol/overlay-ts-common";
 import { HDNodeWallet, Mnemonic } from "ethers";
 import { Result } from "true-myth";
 import * as v from "valibot";
@@ -13,6 +13,7 @@ import {
 	DEFAULT_SLEEP_BETWEEN_FAILED_TX,
 	DEFAULT_TRANSACTION_POLL_INTERVAL,
 } from "../constants";
+import { getAppVersions } from "./app-versions" with { type: "macro" };
 
 export const SedaChainConfigSchema = v.object({
 	rpc: v.string(),
@@ -27,12 +28,14 @@ export const SedaChainConfigSchema = v.object({
 	gasPrice: v.optional(v.string(), DEFAULT_GAS_PRICE),
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
 	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
+	memoSuffix: v.optional(v.string(), ""),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {
 	/// Public key -> Private Key
 	identities: Map<string, Buffer>;
 	identityIds: string[];
+	memo: string;
 }
 
 export function createSedaChainConfig(
@@ -53,9 +56,13 @@ export function createSedaChainConfig(
 		identities.set(publicKey, Buffer.from(privateKey, "hex"));
 	}
 
+	const appVersions = getAppVersions();
+	const emoji = getRuntime() === "bun" ? "🥟" : "🐢";
+
 	return Result.ok({
 		...input,
 		identityIds,
 		identities,
+		memo: `Sent from SEDA Overlay ${emoji} ${appVersions.overlay} (vm/${appVersions.vm}) ${input.memoSuffix}`,
 	});
 }

@@ -151,6 +151,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			this.signer.getAddress(),
 			[message],
 			gasOptions,
+			this.config.sedaChain.memo,
 		);
 		return result;
 	}
@@ -173,6 +174,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			this.signer.getAddress(),
 			[cosmosMessage],
 			gasOption,
+			this.config.sedaChain.memo,
 		);
 
 		if (result.isErr) {
