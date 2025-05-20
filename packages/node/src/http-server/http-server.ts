@@ -1,8 +1,10 @@
 import { serve } from "@hono/node-server";
+import { getRuntime } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import getPort, { portNumbers } from "get-port";
 import { Hono } from "hono";
+import { match } from "ts-pattern";
 import type { MainTask } from "../tasks/main";
 import { createApi } from "./routes/api";
 
@@ -25,22 +27,30 @@ export async function startHttpServer(appConfig: AppConfig, mainTask: MainTask) 
 		}
 	}
 
-	if (typeof Bun !== "undefined") {
-		const server = Bun.serve({
-			fetch: app.fetch,
-			port,
-		});
+	const runtime = getRuntime();
 
-		logger.info(`HTTP server started on ${server.url}`);
-	} else {
-		serve(
-			{
+	match(runtime)
+		.with("bun", () => {
+			const server = Bun.serve({
 				fetch: app.fetch,
 				port,
-			},
-			(info) => {
-				logger.info(`${info.family} HTTP server started on ${info.address}${info.port}`);
-			},
-		);
-	}
+			});
+
+			logger.info(`HTTP server started on ${server.url}`);
+		})
+		.with("node", () => {
+			serve(
+				{
+					fetch: app.fetch,
+					port,
+				},
+				(info) => {
+					logger.info(`${info.family} HTTP server started on ${info.address}${info.port}`);
+				},
+			);
+		})
+		.with("deno", () => {
+			const server = Deno.serve({ port }, app.fetch);
+			logger.info(`HTTP server started on ${server.addr.transport}://${server.addr.hostname}:${server.addr.port}`);
+		});
 }

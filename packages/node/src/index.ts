@@ -27,7 +27,6 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 
 	match(runtime)
 		.with("deno", () => {
-			// @ts-ignore
 			logger.info(`Running on Deno v${Deno.version.deno}`);
 		})
 		.with("bun", () => {
