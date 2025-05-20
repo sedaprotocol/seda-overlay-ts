@@ -15,7 +15,6 @@ import {
 	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
 	DEFAULT_TOTAL_HTTP_TIME_LIMIT,
-	DEFAULT_DEBUG,
 } from "../constants";
 
 export const NodeConfigSchema = v.object({
