@@ -2,6 +2,7 @@ import { trySync } from "@seda-protocol/utils";
 import { getRuntime, strip0x } from "@sedaprotocol/overlay-ts-common";
 import { HDNodeWallet, Mnemonic } from "ethers";
 import { Result } from "true-myth";
+import { match } from "ts-pattern";
 import * as v from "valibot";
 import {
 	DEFAULT_ADJUSTMENT_FACTOR,
@@ -57,7 +58,12 @@ export function createSedaChainConfig(
 	}
 
 	const appVersions = getAppVersions();
-	const emoji = getRuntime() === "bun" ? "🥟" : "🐢";
+
+	const emoji = match(getRuntime())
+		.with("bun", () => "🥟")
+		.with("deno", () => "🦕")
+		.with("node", () => "🐢")
+		.exhaustive();
 
 	return Result.ok({
 		...input,

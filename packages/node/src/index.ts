@@ -1,8 +1,9 @@
-import { SedaChain, isBun } from "@sedaprotocol/overlay-ts-common";
+import { SedaChain, getRuntime } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import semver from "semver";
 import { Maybe } from "true-myth";
+import { match } from "ts-pattern";
 import { version } from "../../../package.json";
 import { MIN_MAJOR_NODE_VERSION } from "./constants";
 import { startHttpServer } from "./http-server";
@@ -22,18 +23,27 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 		process.exit(1);
 	}
 
-	if (isBun()) {
-		logger.info(`Running on Bun v${Bun.version}`);
-	} else {
-		const nodeVersion = semver.parse(process.version);
+	const runtime = getRuntime();
 
-		if (nodeVersion?.major && nodeVersion.major < MIN_MAJOR_NODE_VERSION) {
-			logger.warn(`Overlay Node was tested with Node.js v${MIN_MAJOR_NODE_VERSION} or higher`);
-			logger.warn("This may cause unexpected behavior");
-		}
+	match(runtime)
+		.with("deno", () => {
+			// @ts-ignore
+			logger.info(`Running on Deno v${Deno.version.deno}`);
+		})
+		.with("bun", () => {
+			logger.info(`Running on Bun v${Bun.version}`);
+		})
+		.with("node", () => {
+			const nodeVersion = semver.parse(process.version);
 
-		logger.info(`Running on Node.js ${process.version}`);
-	}
+			if (nodeVersion?.major && nodeVersion.major < MIN_MAJOR_NODE_VERSION) {
+				logger.warn(`Overlay Node was tested with Node.js v${MIN_MAJOR_NODE_VERSION} or higher`);
+				logger.warn("This may cause unexpected behavior");
+			}
+
+			logger.info(`Running on Node.js ${process.version}`);
+		})
+		.exhaustive();
 
 	logger.info(`Talking to RPC: ${appConfig.sedaChain.rpc}`);
 	logger.info(`Using chain ID: ${appConfig.sedaChain.chainId}`);
