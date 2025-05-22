@@ -225,9 +225,11 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		logger.debug(`Raw results: ${JSONStringify(vmResult.value)}`, {
-			id: this.name,
-		});
+		if (this.appConfig.node.debug) {
+			logger.debug(`Raw results: ${JSONStringify(vmResult.value)}`, {
+				id: this.name,
+			});
+		}
 
 		this.executionResult = Maybe.just<ExecutionResult>({
 			stderr: [vmResult.value.stderr],
