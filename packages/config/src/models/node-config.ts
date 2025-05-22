@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import {
 	DEFAULT_BLOCK_LOCALHOST,
+	DEFAULT_DEBUG,
 	DEFAULT_FORCE_SYNC_VM,
 	DEFAULT_LOG_ROTATION_ENABLED,
 	DEFAULT_LOG_ROTATION_LEVEL,
@@ -17,6 +18,7 @@ import {
 } from "../constants";
 
 export const NodeConfigSchema = v.object({
+	debug: v.optional(v.boolean(), DEFAULT_DEBUG),
 	forceSyncVm: v.optional(v.boolean(), DEFAULT_FORCE_SYNC_VM),
 	threadAmount: v.optional(v.number()),
 	terminateAfterCompletion: v.optional(v.boolean(), DEFAULT_TERMINATE_AFTER_COMPLETION),
