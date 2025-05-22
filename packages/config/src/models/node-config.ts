@@ -14,9 +14,11 @@ import {
 	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
 	DEFAULT_TOTAL_HTTP_TIME_LIMIT,
+	DEFAULT_DEBUG,
 } from "../constants";
 
 export const NodeConfigSchema = v.object({
+	debug: v.optional(v.boolean(), DEFAULT_DEBUG),
 	forceSyncVm: v.optional(v.boolean(), DEFAULT_FORCE_SYNC_VM),
 	threadAmount: v.optional(v.number()),
 	terminateAfterCompletion: v.optional(v.boolean(), DEFAULT_TERMINATE_AFTER_COMPLETION),

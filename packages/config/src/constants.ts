@@ -2,7 +2,7 @@ import type { AppConfig } from "./models/app-config";
 import type { DeepPartial } from "./types";
 
 export const DEFAULT_IDENTITIES_AMOUNT = 1;
-
+export const DEFAULT_DEBUG = false;
 export const DEFAULT_FETCH_TASK_INTERVAL = 1_000;
 export const DEFAULT_IDENTITY_CHECK_INTERVAL = 20 * 60 * 1000; // 20 minutes in milliseconds
 export const DEFAULT_SLEEP_BETWEEN_FAILED_TX = 3_000; // 5 seconds in milliseconds
