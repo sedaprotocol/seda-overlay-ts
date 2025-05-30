@@ -10,9 +10,11 @@ import {
 } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { DEFAULT_MAX_REVEAL_SIZE } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe } from "true-myth";
+import { EXECUTION_EXIT_CODE_RESULT_TOO_LARGE } from "./constants";
 import { type DataRequest, isDrInRevealStage } from "./models/data-request";
 import { type DataRequestPool, IdentityDataRequestStatus } from "./models/data-request-pool";
 import type { ExecutionResult } from "./models/execution-result";
@@ -231,16 +233,34 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			});
 		}
 
+		// Check if reveal is too large.
+		const maxRevealSize = Math.floor(DEFAULT_MAX_REVEAL_SIZE / dataRequest.replicationFactor);
+		let reveal = Buffer.from(vmResult.value.result ?? []);
+		let exitCode = vmResult.value.exitCode;
+		let stderr = vmResult.value.stderr;
+
+		const revealSize = reveal.byteLength;
+		if (revealSize > maxRevealSize) {
+			const errMsg = `Reveal size ${revealSize} bytes exceeds the limit ${maxRevealSize} bytes`;
+			reveal = Buffer.from([]);
+			exitCode = EXECUTION_EXIT_CODE_RESULT_TOO_LARGE;
+			stderr = `${errMsg}\n${stderr}`;
+
+			logger.error(errMsg, {
+				id: this.name,
+			});
+		}
+
 		this.executionResult = Maybe.just<ExecutionResult>({
-			stderr: [vmResult.value.stderr],
+			stderr: [stderr],
 			stdout: [vmResult.value.stdout],
 			revealBody: {
-				exit_code: vmResult.value.exitCode,
+				exit_code: exitCode,
 				gas_used: vmResult.value.gasUsed,
 				dr_id: this.drId,
 				dr_block_height: Number(dr.value.height),
 				proxy_public_keys: vmResult.value.usedProxyPublicKeys,
-				reveal: Buffer.from(vmResult.value.result ?? []),
+				reveal: reveal,
 			},
 		});
 
