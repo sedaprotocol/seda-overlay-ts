@@ -4,8 +4,9 @@ import dotenv from "dotenv";
 import { version } from "../../../package.json";
 import { identities } from "./commands/identities/identities";
 import { init } from "./commands/init";
-import { run } from "./commands/run";
+import { runCmd } from "./commands/run";
 import { tools } from "./commands/tools/tools";
+import { validateCmd } from "./commands/validate";
 
 async function main() {
 	dotenv.config();
@@ -14,7 +15,8 @@ async function main() {
 		.description(`SEDA Overlay Node v${version} Command Line Interface`)
 		.version(version)
 		.addCommand(init)
-		.addCommand(run)
+		.addCommand(runCmd)
+		.addCommand(validateCmd)
 		.addCommand(identities)
 		.addHelpText("after", "\r");
 

@@ -6,9 +6,9 @@ import { listenForExit } from "@sedaprotocol/overlay-ts-node/src/services/listen
 import { Maybe } from "true-myth";
 import { populateWithCommonOptions } from "../common-options";
 
-export const run = populateWithCommonOptions(new Command("run"))
+export const runCmd = populateWithCommonOptions(new Command("run"))
 	.addOption(new Option("--port <number>", "The port to run the HTTP server on").env("PORT"))
-	.description("Runs the SEDA overlay node")
+	.description("Runs the SEDA Overlay node")
 	.action(async (options) => {
 		const config = await loadConfig(Maybe.of(options.config), options.network, Maybe.nothing(), {
 			sedaChain: {
