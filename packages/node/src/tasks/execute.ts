@@ -143,7 +143,7 @@ export async function executeDataRequest(
 		});
 
 		return Result.ok({
-			usedProxyPublicKeys: vmAdapter.usePublicKeys,
+			usedProxyPublicKeys: vmAdapter.usedProxyPublicKeys,
 			// The Sync worker will return the result with the usedProxyPublicKeys
 			...result,
 		});

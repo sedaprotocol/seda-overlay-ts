@@ -55,7 +55,7 @@ function startWorker() {
 			parentPort?.postMessage({
 				result: {
 					...result,
-					usedProxyPublicKeys: vmAdapter.usePublicKeys,
+					usedProxyPublicKeys: vmAdapter.usedProxyPublicKeys,
 				},
 			} as ExecuteResponse);
 		}

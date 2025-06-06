@@ -27,7 +27,7 @@ type Options = {
 
 export class OverlayVmAdapter extends DataRequestVmAdapter {
 	private dataProxyRpcQueryClient: sedachain.data_proxy.v1.QueryClientImpl;
-	public usePublicKeys: string[] = [];
+	public usedProxyPublicKeys: string[] = [];
 
 	constructor(
 		private options: Options,
@@ -143,7 +143,7 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 			return HttpFetchResponse.createRejectedPromise("Invalid signature");
 		}
 
-		this.usePublicKeys.push(publicKeyRaw.value);
+		this.usedProxyPublicKeys.push(publicKeyRaw.value);
 		return rawHttpResponse;
 	}
 }
