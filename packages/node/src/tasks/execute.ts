@@ -108,6 +108,7 @@ export async function executeDataRequest(
 			envs: {
 				VM_MODE: "dr",
 				DR_ID: dataRequest.id,
+				DR_HEIGHT: dataRequest.height.toString(),
 				EXEC_PROGRAM_ID: dataRequest.execProgramId,
 				DR_REPLICATION_FACTOR: dataRequest.replicationFactor.toString(),
 				DR_GAS_PRICE: dataRequest.gasPrice.toString(),
