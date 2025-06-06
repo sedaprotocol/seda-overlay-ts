@@ -8,7 +8,7 @@ import {
 	type PromiseStatus,
 	type ProxyHttpFetchAction,
 } from "@seda-protocol/vm";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { type SedaChain, sleep } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import isLocalhostIp from "is-localhost-ip";
 import { Maybe, Result } from "true-myth";
@@ -24,6 +24,9 @@ type Options = {
 	requestTimeout: number;
 	totalHttpTimeLimit: number;
 };
+
+const MAX_PROXY_HTTP_ATTEMPTS = 2;
+type RetryDelay = (attempt: number) => number;
 
 export class OverlayVmAdapter extends DataRequestVmAdapter {
 	private dataProxyRpcQueryClient: sedachain.data_proxy.v1.QueryClientImpl;
@@ -115,12 +118,22 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 			this.options.coreContractAddress,
 		);
 
-		const rawHttpResponse = await this.httpFetch({
-			...clonedAction,
-			type: "http-fetch-action",
-		});
+		const rawHttpResponse = await this.fetchWithRetry(
+			{
+				...clonedAction,
+				type: "http-fetch-action",
+			},
+			MAX_PROXY_HTTP_ATTEMPTS,
+		);
 
 		const httpResponse = HttpFetchResponse.fromPromise(rawHttpResponse);
+		if (!isOkStatus(httpResponse.data.status)) {
+			const bodyText = Buffer.from(httpResponse.data.bytes).toString("utf-8");
+			return HttpFetchResponse.createRejectedPromise(
+				`Proxy HTTP fetch failed with status ${httpResponse.data.status}. Body: ${bodyText}`,
+			);
+		}
+
 		const signatureRaw = Maybe.of(httpResponse.data.headers["x-seda-signature"]);
 		const publicKeyRaw = Maybe.of(httpResponse.data.headers["x-seda-publickey"]);
 
@@ -140,10 +153,48 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		const isValidSignature = await verifyProxyHttpResponse(signature, publicKey, action, httpResponse);
 
 		if (!isValidSignature) {
-			return HttpFetchResponse.createRejectedPromise("Invalid signature");
+			return HttpFetchResponse.createRejectedPromise("Invalid proxy signature");
 		}
 
 		this.usedProxyPublicKeys.push(publicKeyRaw.value);
 		return rawHttpResponse;
 	}
+
+	/**
+	 * Wraps the httpFetch method with basic retry logic. It will retry the request up to maxAttempts times.
+	 * If the request succeeds, it will return the result.
+	 * If the request fails before maxAttempts, it will try again.
+	 * If the request fails after maxAttempts, it will return the last result.
+	 *
+	 * It will always attempt the request at least once, even if maxAttempts is a non-positive number.
+	 * Optionally takes a retry delay function. By default it will wait 1 second between attempts.
+	 */
+	async fetchWithRetry(
+		action: HttpFetchAction,
+		maxAttempts: number,
+		retryDelay: RetryDelay = (_attempt) => 1000,
+	): Promise<PromiseStatus<HttpFetchResponse>> {
+		let attempts = 0;
+		let result: PromiseStatus<HttpFetchResponse>;
+
+		do {
+			result = await this.httpFetch(action);
+			const httpResponse = HttpFetchResponse.fromPromise(result);
+
+			if (isOkStatus(httpResponse.data.status)) return result;
+
+			attempts++;
+
+			const delay = retryDelay(attempts);
+			if (delay > 0) {
+				await sleep(delay);
+			}
+		} while (attempts < maxAttempts);
+
+		return result;
+	}
+}
+
+function isOkStatus(status: number): boolean {
+	return status >= 200 && status < 300;
 }
