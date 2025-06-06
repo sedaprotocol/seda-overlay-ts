@@ -8,6 +8,7 @@
 		"@commander-js/extra-typings": "^12.1.0",
 		"@sedaprotocol/overlay-ts-common": "0.0.0",
 		"@sedaprotocol/overlay-ts-logger": "0.0.0",
-		"@sedaprotocol/overlay-ts-node": "0.0.0"
+		"@sedaprotocol/overlay-ts-node": "0.0.0",
+		"@seda-protocol/vm": "1.0.11"
 	}
 }
