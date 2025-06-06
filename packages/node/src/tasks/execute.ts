@@ -142,18 +142,6 @@ export async function executeDataRequest(
 			},
 		});
 
-		// Check result size against config limit
-		const resultSize = result.result?.byteLength ?? 0;
-		if (resultSize > appConfig.node.maxVmResultSizeBytes) {
-			return Result.ok({
-				...result,
-				result: new Uint8Array(),
-				usedProxyPublicKeys: vmAdapter.usePublicKeys,
-				exitCode: 1,
-				stderr: `${result.stderr}\nResult size (${resultSize} bytes) exceeds maximum allowed size (${appConfig.node.maxVmResultSizeBytes} bytes)`,
-			});
-		}
-
 		return Result.ok({
 			usedProxyPublicKeys: vmAdapter.usePublicKeys,
 			// The Sync worker will return the result with the usedProxyPublicKeys
