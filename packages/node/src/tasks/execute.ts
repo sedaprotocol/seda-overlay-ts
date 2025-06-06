@@ -108,6 +108,7 @@ export async function executeDataRequest(
 			envs: {
 				VM_MODE: "dr",
 				DR_ID: dataRequest.id,
+				DR_HEIGHT: dataRequest.height.toString(),
 				EXEC_PROGRAM_ID: dataRequest.execProgramId,
 				DR_REPLICATION_FACTOR: dataRequest.replicationFactor.toString(),
 				DR_GAS_PRICE: dataRequest.gasPrice.toString(),
@@ -141,20 +142,8 @@ export async function executeDataRequest(
 			},
 		});
 
-		// Check result size against config limit
-		const resultSize = result.result?.byteLength ?? 0;
-		if (resultSize > appConfig.node.maxVmResultSizeBytes) {
-			return Result.ok({
-				...result,
-				result: new Uint8Array(),
-				usedProxyPublicKeys: vmAdapter.usePublicKeys,
-				exitCode: 1,
-				stderr: `${result.stderr}\nResult size (${resultSize} bytes) exceeds maximum allowed size (${appConfig.node.maxVmResultSizeBytes} bytes)`,
-			});
-		}
-
 		return Result.ok({
-			usedProxyPublicKeys: vmAdapter.usePublicKeys,
+			usedProxyPublicKeys: vmAdapter.usedProxyPublicKeys,
 			// The Sync worker will return the result with the usedProxyPublicKeys
 			...result,
 		});
