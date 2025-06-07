@@ -168,4 +168,10 @@ export class MainTask {
 	stop() {
 		this.fetchTask.stop();
 	}
+
+	getTransactionStats() {
+		return {
+			sedaChain: this.sedaChain.getTransactionStats(),
+		};
+	}
 }
