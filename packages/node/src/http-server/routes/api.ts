@@ -11,6 +11,8 @@ export function createApi(mainTask: MainTask) {
 			dataRequestPoolSize: mainTask.pool.size,
 			completedDataRequests: mainTask.completedDataRequests,
 
+			txStats: mainTask.getTransactionStats(),
+
 			activeIdentities: Array.from(mainTask.identityPool.all()).map(({ identityId, enabled }) => ({
 				identityId,
 				enabled,
