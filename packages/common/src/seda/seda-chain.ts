@@ -42,6 +42,11 @@ export class SedaChain extends EventEmitter<EventMap> {
 	private intervalId?: Timer;
 	private nonceId = 0;
 
+	// Metrics:
+	private txSuccessCount = 0;
+	private txFailureCount = 0;
+	private txRetryCount = 0;
+
 	private constructor(
 		public signer: ISigner,
 		private signerClient: SedaSigningCosmWasmClient,
@@ -82,6 +87,15 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	async getTransaction(txHash: string) {
 		return getTransaction(this.signerClient, txHash);
+	}
+
+	getTransactionStats() {
+		return {
+			successCount: this.txSuccessCount,
+			failureCount: this.txFailureCount,
+			pendingCount: this.transactionQueue.length,
+			retryCount: this.txRetryCount,
+		};
 	}
 
 	async queueSmartContractMessage(
@@ -180,11 +194,15 @@ export class SedaChain extends EventEmitter<EventMap> {
 		if (result.isErr) {
 			if (result.error instanceof IncorrectAccountSquence) {
 				logger.warn(`Incorrect account sequence, adding tx back to the queue: ${result.error}`);
+				this.txRetryCount++;
 				this.transactionQueue.push(txMessage.value);
 				return;
 			}
 
+			this.txFailureCount++;
 			logger.error(`Transaction failed: ${result.error}`);
+		} else {
+			this.txSuccessCount++;
 		}
 
 		const callback = Maybe.of(this.queueCallbacks.get(txMessage.value.id));
