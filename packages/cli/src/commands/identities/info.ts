@@ -58,6 +58,7 @@ export const info = populateWithCommonOptions(new Command("info"))
 		const entries: TableEntry[] = [];
 
 		console.info("Loading..");
+		console.info(`Signer Address: ${sedaChain.getSignerAddress()}`);
 
 		for (const [index, identityId] of config.sedaChain.identityIds.entries()) {
 			const response = await getStakerAndSequenceInfo(identityId, sedaChain);
