@@ -245,12 +245,15 @@ export class SedaChain extends EventEmitter<EventMap> {
 		executeMsg: ExecuteMsg,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
-	): Promise<Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | Error>> {
+	): Promise<
+		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
+	> {
 		return new Promise(async (resolve) => {
 			const transactionHash = await this.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
 
 			if (transactionHash.isErr) {
-				resolve(Result.err(transactionHash.error));
+				const error = narrowDownError(transactionHash.error);
+				resolve(Result.err(error));
 				return;
 			}
 
@@ -262,35 +265,9 @@ export class SedaChain extends EventEmitter<EventMap> {
 						id: transactionHash.value,
 					});
 
-					if (AlreadyCommitted.isError(transactionResult.error)) {
-						clearInterval(checkTransactionInterval);
-						resolve(Result.err(new AlreadyCommitted(transactionResult.error.message)));
-					}
-
-					if (RevealMismatch.isError(transactionResult.error)) {
-						clearInterval(checkTransactionInterval);
-						resolve(Result.err(new RevealMismatch(transactionResult.error.message)));
-					}
-
-					if (AlreadyRevealed.isError(transactionResult.error)) {
-						clearInterval(checkTransactionInterval);
-						resolve(Result.err(new AlreadyRevealed(transactionResult.error.message)));
-					}
-
-					if (DataRequestExpired.isError(transactionResult.error)) {
-						clearInterval(checkTransactionInterval);
-						resolve(Result.err(new DataRequestExpired(transactionResult.error.message)));
-					}
-
-					if (DataRequestNotFound.isError(transactionResult.error)) {
-						clearInterval(checkTransactionInterval);
-						resolve(Result.err(new DataRequestNotFound(transactionResult.error.message)));
-					}
-
-					if (RevealStarted.isError(transactionResult.error)) {
-						clearInterval(checkTransactionInterval);
-						resolve(Result.err(new RevealStarted(transactionResult.error.message)));
-					}
+					const error = narrowDownError(transactionResult.error);
+					clearInterval(checkTransactionInterval);
+					resolve(Result.err(error));
 
 					return;
 				}
@@ -311,4 +288,41 @@ export class SedaChain extends EventEmitter<EventMap> {
 			}, this.config.sedaChain.transactionPollInterval);
 		});
 	}
+}
+
+function narrowDownError(
+	error: Error,
+):
+	| AlreadyCommitted
+	| RevealMismatch
+	| AlreadyRevealed
+	| DataRequestExpired
+	| DataRequestNotFound
+	| RevealStarted
+	| Error {
+	if (AlreadyCommitted.isError(error)) {
+		return new AlreadyCommitted(error.message);
+	}
+
+	if (RevealMismatch.isError(error)) {
+		return new RevealMismatch(error.message);
+	}
+
+	if (AlreadyRevealed.isError(error)) {
+		return new AlreadyRevealed(error.message);
+	}
+
+	if (DataRequestExpired.isError(error)) {
+		return new DataRequestExpired(error.message);
+	}
+
+	if (DataRequestNotFound.isError(error)) {
+		return new DataRequestNotFound(error.message);
+	}
+
+	if (RevealStarted.isError(error)) {
+		return new RevealStarted(error.message);
+	}
+
+	return error;
 }
