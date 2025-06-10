@@ -55,9 +55,15 @@ export async function executeDataRequest(
 			return Result.ok(createVmResultError(new Error(`Binary ${dataRequest.execProgramId} does not exist`)));
 		}
 
-		logger.info("📦 Downloaded Oracle Program", {
-			id: dataRequest.id,
-		});
+		if (binary.value.value.fromCache) {
+			logger.info("📦 Got Oracle Program from cache", {
+				id: dataRequest.id,
+			});
+		} else {
+			logger.info("📦 Downloaded Oracle Program", {
+				id: dataRequest.id,
+			});
+		}
 
 		const drExecGasLimit = dataRequest.execGasLimit / BigInt(dataRequest.replicationFactor);
 		// Clamp the gas limit to the maximum allowed by node config
@@ -77,7 +83,7 @@ export async function executeDataRequest(
 			sedaChain,
 		);
 
-		const oracleProgramBinary = binary.value.value;
+		const oracleProgramBinary = binary.value.value.bytes;
 		const cacheWasmId = `${dataRequest.execProgramId}_metered_${getVmVersion()}.wasm`;
 
 		// We can do compilation in a seperate thread only if there is enough threads available

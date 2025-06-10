@@ -6,16 +6,21 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe, Result } from "true-myth";
 
+type OracleProgram = {
+	bytes: Buffer;
+	fromCache: boolean;
+};
+
 export async function getOracleProgram(
 	execProgramId: string,
 	appConfig: AppConfig,
 	sedaChain: SedaChain,
-): Promise<Result<Maybe<Buffer>, Error>> {
+): Promise<Result<Maybe<OracleProgram>, Error>> {
 	const wasmPath = resolve(appConfig.wasmCacheDir, `${execProgramId}.wasm`);
 	const cachedWasmFile = await tryAsync(readFile(wasmPath));
 
 	if (cachedWasmFile.isOk) {
-		return Result.ok(Maybe.just(cachedWasmFile.value));
+		return Result.ok(Maybe.just({ bytes: cachedWasmFile.value, fromCache: true }));
 	}
 
 	const binary = await tryAsync(sedaChain.getWasmStorageQueryClient().OracleProgram({ hash: execProgramId }));
@@ -40,5 +45,5 @@ export async function getOracleProgram(
 		logger.error(`Could not cache WASM file. Will use memory: ${writeResult.error}`);
 	}
 
-	return Result.ok(Maybe.just(binaryBuffer.value));
+	return Result.ok(Maybe.just({ bytes: binaryBuffer.value, fromCache: false }));
 }
