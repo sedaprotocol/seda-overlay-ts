@@ -11,6 +11,10 @@ type Task<T = void> = (worker: Worker) => Promise<T>;
 export class WorkerPool {
 	private runningTasks: Map<number, Promise<unknown>> = new Map();
 	private pool: WorkerInfo[] = [];
+	// Using round-robin to pick workers for parallel data request execution.
+	// More efficient than picking the first available worker since workers spend lots of time waiting on HTTP calls.
+	// TODO: Could make this smarter by picking workers that are actually free.
+	private index = 0;
 
 	constructor(
 		private workerSrcUrl: string,
@@ -27,19 +31,11 @@ export class WorkerPool {
 	}
 
 	private async getAvailableWorker(): Promise<WorkerInfo> {
-		// Find first non-running worker
-		const availableWorker = this.pool.find((w) => !w.isRunning);
-		if (availableWorker) {
-			availableWorker.isRunning = true;
-			return availableWorker;
-		}
-
-		// Wait for any running task to complete
-		const runningTaskPromises = Array.from(this.runningTasks.values());
-		await Promise.race(runningTaskPromises);
-
-		// Try again after a task completed
-		return this.getAvailableWorker();
+		const workerIndex = this.index % this.pool.length;
+		const worker = this.pool[workerIndex];
+		this.index += 1;
+		worker.isRunning = true;
+		return worker;
 	}
 
 	async executeTask<T>(task: Task<T>): Promise<T> {

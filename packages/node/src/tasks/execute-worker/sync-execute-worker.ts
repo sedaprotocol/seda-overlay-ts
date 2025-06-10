@@ -9,6 +9,7 @@ import { type VmResultOverlay, createVmResultError } from "../execute";
 
 export interface ExecuteResponse {
 	result: VmResultOverlay;
+	drId: string;
 }
 
 export interface ExecuteMessage {
@@ -53,6 +54,7 @@ function startWorker() {
 			const result = await executeVm(message.callData, message.dataRequest.id, vmAdapter);
 
 			parentPort?.postMessage({
+				drId: message.dataRequest.id,
 				result: {
 					...result,
 					usedProxyPublicKeys: vmAdapter.usedProxyPublicKeys,
@@ -82,6 +84,12 @@ export function executeDataRequestInWorker(
 		};
 
 		function handleMessage(response: ExecuteResponse) {
+			// This is not our response, we ignore it
+			// (This thread is shared by multiple data requests)
+			if (response.drId !== dataRequest.id) {
+				return;
+			}
+
 			worker.off("message", handleMessage);
 			resolve(response.result);
 		}
