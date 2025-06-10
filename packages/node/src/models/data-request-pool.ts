@@ -79,6 +79,15 @@ export class DataRequestPool {
 		return this.identityDataRequests.values();
 	}
 
+	/**
+	 * Check if the data request is being processed by any identity
+	 * @param drId - The data request id
+	 * @returns true if the data request is being processed by any identity, false otherwise
+	 */
+	isDrBeingProcessed(drId: DataRequestId): boolean {
+		return this.identityDataRequests.values().some((identityDataRequest) => identityDataRequest.drId === drId);
+	}
+
 	insertDataRequest(dataRequest: DataRequest) {
 		this.items.set(dataRequest.id, dataRequest);
 	}

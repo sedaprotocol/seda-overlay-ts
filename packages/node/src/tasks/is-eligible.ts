@@ -8,7 +8,7 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe } from "true-myth";
-import { type DataRequest, type DataRequestId, isDrStale } from "../models/data-request";
+import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } from "../models/data-request";
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
@@ -125,6 +125,9 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 
 		// Check if data request is stale and needs refreshing from chain
 		if (isDrStale(dataRequest)) {
+			logger.debug("Data Request is stale, refreshing from chain", {
+				id: dataRequest.id,
+			});
 			const result = await getDataRequest(dataRequest.id, this.sedaChain);
 
 			const isResolved = result.match({
@@ -150,6 +153,20 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			});
 
 			if (isResolved) return;
+		}
+
+		// When the data request is in the reveal stage we can't process it
+		// other nodes will take care of it
+		if (isDrInRevealStage(dataRequest)) {
+			// If no identities are currently processing this data request, we can stop checking eligibility
+			if (!this.pool.isDrBeingProcessed(dataRequest.id)) {
+				logger.debug("Dr is in reveal stage, and no identities are processing it, deleting from pool", {
+					id: dataRequest.id,
+				});
+				this.pool.deleteDataRequest(dataRequest.id);
+				return;
+			}
+			return;
 		}
 
 		for (const identityInfo of this.identities.all()) {

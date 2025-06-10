@@ -4,11 +4,11 @@ import {
 	createRevealBodyHash,
 	createRevealMessageHash,
 } from "@sedaprotocol/core-contract-schema/src/commit";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { RevealStarted, type SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Result } from "true-myth";
-import type { DataRequest } from "../models/data-request";
+import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
 
@@ -19,7 +19,12 @@ export async function commitDr(
 	identityPool: IdentityPool,
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
-): Promise<Result<Buffer, DataRequestExpired | AlreadyCommitted | Error>> {
+): Promise<Result<Buffer, DataRequestExpired | AlreadyCommitted | RevealStarted | Error>> {
+	// Fail safe, if the data request is in the reveal stage we can't commit and it shouldn't even try to
+	if (isDrInRevealStage(dataRequest)) {
+		return Result.err(new RevealStarted());
+	}
+
 	const chainId = appConfig.sedaChain.chainId;
 	const contractAddr = await sedaChain.getCoreContractAddress();
 

@@ -4,7 +4,7 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result, type Unit } from "true-myth";
-import type { DataRequest } from "../models/data-request";
+import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";
 import { getDataRequests } from "../services/get-data-requests";
 
@@ -42,6 +42,15 @@ export class FetchTask extends EventEmitter<EventMap> {
 			if (this.pool.hasDataRequest(dataRequest.id)) {
 				// Always update the pool
 				this.pool.insertDataRequest(dataRequest);
+				continue;
+			}
+
+			// When the data request is in the reveal stage we can't process it
+			// other nodes will take care of it
+			if (isDrInRevealStage(dataRequest)) {
+				logger.debug("Skipping fetched data request in reveal stage", {
+					id: dataRequest.id,
+				});
 				continue;
 			}
 
