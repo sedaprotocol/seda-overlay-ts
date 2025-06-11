@@ -1,0 +1,50 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "GetExecutorEligibilityResponse",
+	"description": "Response for the `GetExecutorEligibility` query",
+	"type": "object",
+	"required": ["block_height", "status"],
+	"properties": {
+		"block_height": {
+			"type": "integer",
+			"format": "uint64",
+			"minimum": 0.0
+		},
+		"status": {
+			"$ref": "#/definitions/ExecutorEligibilityStatus"
+		}
+	},
+	"additionalProperties": false,
+	"definitions": {
+		"ExecutorEligibilityStatus": {
+			"description": "Status codes for executor eligibility",
+			"oneOf": [
+				{
+					"description": "Executor is eligible for the data request",
+					"type": "string",
+					"enum": ["eligible"]
+				},
+				{
+					"description": "Executor is not eligible for the data request",
+					"type": "string",
+					"enum": ["not_eligible"]
+				},
+				{
+					"description": "Data request not found",
+					"type": "string",
+					"enum": ["data_request_not_found"]
+				},
+				{
+					"description": "Executor is not a staker",
+					"type": "string",
+					"enum": ["not_staker"]
+				},
+				{
+					"description": "Invalid signature",
+					"type": "string",
+					"enum": ["invalid_signature"]
+				}
+			]
+		}
+	}
+}

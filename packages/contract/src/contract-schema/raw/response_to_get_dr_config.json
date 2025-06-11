@@ -1,0 +1,81 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "DrConfig",
+	"description": "Governance-controlled timeout configuration parameters",
+	"type": "object",
+	"required": [
+		"backup_delay_in_blocks",
+		"commit_timeout_in_blocks",
+		"consensus_filter_limit_in_bytes",
+		"dr_reveal_size_limit_in_bytes",
+		"exec_input_limit_in_bytes",
+		"memo_limit_in_bytes",
+		"payback_address_limit_in_bytes",
+		"reveal_timeout_in_blocks",
+		"seda_payload_limit_in_bytes",
+		"tally_input_limit_in_bytes"
+	],
+	"properties": {
+		"backup_delay_in_blocks": {
+			"description": "This is the delay before the backup executors are allowed to start executing the data request.",
+			"type": "integer",
+			"format": "uint8",
+			"minimum": 1.0
+		},
+		"commit_timeout_in_blocks": {
+			"description": "Number of blocks after which a data request is timed out while waiting for commits.",
+			"type": "integer",
+			"format": "uint8",
+			"minimum": 1.0
+		},
+		"consensus_filter_limit_in_bytes": {
+			"description": "The maximum size of the consensus filter.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		},
+		"dr_reveal_size_limit_in_bytes": {
+			"description": "The maximum size of all the reveals in a data request.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		},
+		"exec_input_limit_in_bytes": {
+			"description": "The maximum size of the input for the execution program.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		},
+		"memo_limit_in_bytes": {
+			"description": "The maximum size of the memo.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		},
+		"payback_address_limit_in_bytes": {
+			"description": "The maximum size of the payback address.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		},
+		"reveal_timeout_in_blocks": {
+			"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
+			"type": "integer",
+			"format": "uint8",
+			"minimum": 1.0
+		},
+		"seda_payload_limit_in_bytes": {
+			"description": "The maximum size of the SEDA payload.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		},
+		"tally_input_limit_in_bytes": {
+			"description": "The maximum size of the input for the tally program.",
+			"type": "integer",
+			"format": "uint16",
+			"minimum": 1.0
+		}
+	},
+	"additionalProperties": false
+}

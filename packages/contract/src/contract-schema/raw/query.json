@@ -216,6 +216,17 @@
 						}
 					},
 					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_dr_config"],
+					"properties": {
+						"get_dr_config": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
 				}
 			]
 		},
@@ -301,6 +312,16 @@
 				},
 				{
 					"type": "object",
+					"required": ["get_executor_eligibility"],
+					"properties": {
+						"get_executor_eligibility": {
+							"$ref": "#/definitions/Query"
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
 					"required": ["get_staking_config"],
 					"properties": {
 						"get_staking_config": {
@@ -365,6 +386,17 @@
 					"required": ["is_paused"],
 					"properties": {
 						"is_paused": {
+							"type": "object",
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["get_allow_list"],
+					"properties": {
+						"get_allow_list": {
 							"type": "object",
 							"additionalProperties": false
 						}

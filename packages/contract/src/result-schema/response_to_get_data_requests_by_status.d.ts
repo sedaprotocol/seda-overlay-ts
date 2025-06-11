@@ -27,7 +27,7 @@ export type Binary = string;
 export type Uint128 = string;
 
 export interface GetDataRequestsByStatusResponse {
-  data_requests: DataRequest[];
+  data_requests: DataRequestResponse[];
   is_paused: boolean;
   /**
    * @minItems 3
@@ -78,7 +78,7 @@ export interface GetDataRequestsByStatusResponse {
 /**
  * Represents a data request at creation time
  */
-export interface DataRequest {
+export interface DataRequestResponse {
   /**
    * Commitments submitted by executors
    */
