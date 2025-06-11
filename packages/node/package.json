@@ -19,7 +19,8 @@
 		"is-localhost-ip": "^2.0.0",
 		"semver": "7.7.1",
 		"hono": "4.7.10",
-		"get-port": "^7.1.0"
+		"get-port": "^7.1.0",
+		"glob": "11.0.2"
 	},
 	"devDependencies": {
 		"@types/semver": "7.7.0"

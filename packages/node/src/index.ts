@@ -8,6 +8,7 @@ import { version } from "../../../package.json";
 import { MIN_MAJOR_NODE_VERSION } from "./constants";
 import { startHttpServer } from "./http-server";
 import { MainTask } from "./tasks/main";
+import { clearWasmCache } from "./services/wasm-cache";
 
 export interface RunOptions {
 	exitController?: AbortController;
@@ -48,6 +49,8 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 	logger.info(`Talking to RPC: ${appConfig.sedaChain.rpc}`);
 	logger.info(`Using chain ID: ${appConfig.sedaChain.chainId}`);
 	logger.info(`Using SEDA address: ${sedaChain.value.getSignerAddress()}`);
+
+	await clearWasmCache(appConfig);
 
 	sedaChain.value.start();
 
