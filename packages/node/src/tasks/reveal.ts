@@ -1,6 +1,6 @@
 import { createRevealBodyHash, createRevealMessageHash } from "@sedaprotocol/core-contract-schema/src/commit";
 // import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { TransactionProcessingMode, type SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyRevealed, DataRequestExpired, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Result, type Unit } from "true-myth";
@@ -42,7 +42,7 @@ export async function revealDr(
 			stderr: executionResult.stderr,
 			stdout: executionResult.stdout,
 		},
-	});
+	}, TransactionProcessingMode.Batch); // Reveal should be batched because that will not fail most of the time
 
 	if (revealResponse.isErr) return Result.err(new EnchancedRevealError(revealResponse.error, revealBodyHash));
 	return Result.ok();

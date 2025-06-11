@@ -5,6 +5,7 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
+import { TransactionProcessingMode } from "@sedaprotocol/overlay-ts-common";
 
 export const stake = populateWithCommonOptions(new Command("stake"))
 	.description("stakes on a certain identity")
@@ -76,6 +77,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 					memo: memo.map((v) => v.toString("base64")).unwrapOr(null),
 				},
 			},
+			TransactionProcessingMode.Single,
 			attoSedaAmount,
 			{ gas: "auto" },
 		);

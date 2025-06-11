@@ -15,7 +15,7 @@ export const DEFAULT_DR_TASK_INTERVAL = 100; // Add this line
 export const DEFAULT_MAX_CONCURRENT_REQUESTS = Number.MAX_SAFE_INTEGER;
 export const DEFAULT_MAX_GAS_LIMIT = 300_000_000_000_000n; // 300 Tgas (in gas units)
 export const DEFAULT_MAX_VM_LOGS_SIZE_BYTES = 32768; // 32KB
-export const DEFAULT_QUEUE_INTERVAL = 200;
+export const DEFAULT_QUEUE_INTERVAL = 100;
 export const DEFAULT_BLOCK_LOCALHOST = true;
 export const DEFAULT_FORCE_SYNC_VM = true; // For now we force the VM to be in synchronous mode
 export const DEFAULT_TERMINATE_AFTER_COMPLETION = false;
@@ -30,6 +30,7 @@ export const DEFAULT_GAS = "auto";
 export const DEFAULT_REQUEST_TIMEOUT = 2_000;
 export const DEFAULT_TOTAL_HTTP_TIME_LIMIT = 20_000;
 export const DEFAULT_MAX_REVEAL_SIZE = 24_000; // 24KB (should be divided by the replication factor)
+export const DEFAULT_BATCHED_TX_AMOUNT = 1;
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

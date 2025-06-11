@@ -5,6 +5,7 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
+import { TransactionProcessingMode } from "@sedaprotocol/overlay-ts-common";
 
 export const unstake = populateWithCommonOptions(new Command("unstake"))
 	.description("Unstakes the entire stake from a certain identity")
@@ -67,6 +68,7 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 					public_key: identityId.value,
 				},
 			},
+			TransactionProcessingMode.Single,
 			undefined,
 			{ gas: "auto" },
 		);

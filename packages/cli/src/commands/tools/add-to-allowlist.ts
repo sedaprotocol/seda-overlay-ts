@@ -1,6 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
+import { TransactionProcessingMode } from "@sedaprotocol/overlay-ts-common";
 
 export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allowlist"))
 	.description("adds an identity to the allowlist")
@@ -18,7 +19,7 @@ export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allo
 			add_to_allowlist: {
 				public_key: identityId,
 			},
-		});
+		}, TransactionProcessingMode.Single);
 
 		if (response.isErr) {
 			logger.error(`Adding failed: ${response.error}`);

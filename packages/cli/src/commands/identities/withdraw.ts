@@ -5,6 +5,7 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
+import { TransactionProcessingMode } from "@sedaprotocol/overlay-ts-common";
 
 export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 	.description("Withdraws from a certain identity")
@@ -75,6 +76,7 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 					withdraw_address: withdrawAddress,
 				},
 			},
+			TransactionProcessingMode.Single,
 			undefined,
 			{ gas: "auto" },
 		);

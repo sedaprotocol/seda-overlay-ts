@@ -11,6 +11,7 @@ import { Result } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
+import { TransactionProcessingMode } from "@sedaprotocol/overlay-ts-common";
 
 export async function commitDr(
 	identityId: string,
@@ -57,7 +58,7 @@ export async function commitDr(
 			proof: commitProof.value.toString("hex"),
 			public_key: identityId,
 		},
-	});
+	}, TransactionProcessingMode.Single); // Commit should not be batched because there is a high chance of failure
 
 	if (commitResponse.isErr) {
 		return Result.err(commitResponse.error);

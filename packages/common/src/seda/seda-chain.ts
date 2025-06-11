@@ -34,11 +34,22 @@ export interface TransactionMessage {
 	message: EncodeObject;
 	type: string;
 	gasOptions?: GasOptions;
+	processingMode: TransactionProcessingMode;
+}
+
+type CallBackInfo = {
+	txHash: Result<string, Error>;
+	batchMessageIndex: number;
+};
+
+export enum TransactionProcessingMode {
+	Batch = 0,
+	Single = 1,
 }
 
 export class SedaChain extends EventEmitter<EventMap> {
 	public transactionQueue: TransactionMessage[] = [];
-	private queueCallbacks: Map<string, (value: Result<string, Error>) => void> = new Map();
+	private queueCallbacks: Map<string, (value: CallBackInfo) => void> = new Map();
 	private intervalId?: Timer;
 	private nonceId = 0;
 
@@ -100,9 +111,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	async queueSmartContractMessage(
 		executeMsg: ExecuteMsg,
+		processingMode: TransactionProcessingMode,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
-	): Promise<Result<string, Error>> {
+	): Promise<CallBackInfo> {
 		return new Promise(async (resolve) => {
 			this.nonceId += 1;
 
@@ -121,6 +133,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 					id: this.nonceId.toString(),
 					message,
 					gasOptions,
+					processingMode,
 					type: "contract",
 				},
 			]);
@@ -170,6 +183,33 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return result;
 	}
 
+	private getNextBatchOfMessages(): TransactionMessage[] {
+		const result: TransactionMessage[] = [];
+		const indexesToRemove: number[] = [];
+
+		// Get all the batch messages
+		for (const [index, msg] of this.transactionQueue.entries()) {
+			if (result.length >= this.config.sedaChain.batchedTxAmount) break;
+
+			if (msg.processingMode === TransactionProcessingMode.Batch) {
+				result.push(msg);
+				indexesToRemove.push(index);
+			}
+		}
+
+		// Remove the messages that we are going to process
+		for (const index of indexesToRemove) {
+			this.transactionQueue.splice(index, 1);
+		}
+
+		// When there are no batch messages, get one single message
+		if (result.length === 0) {
+			return this.transactionQueue.splice(0, 1);
+		}
+
+		return result;
+	}
+
 	/**
 	 * Processes a single transaction from the queue to maintain proper sequence numbers.
 	 * In Cosmos blockchains, transactions must be processed sequentially with incrementing
@@ -177,16 +217,16 @@ export class SedaChain extends EventEmitter<EventMap> {
 	 * @returns void
 	 */
 	async processQueue() {
-		const txMessage = Maybe.of(this.transactionQueue.shift());
-		if (txMessage.isNothing) return;
+		const txMessages = this.getNextBatchOfMessages();
+		if (txMessages.length === 0) return;
 
-		const cosmosMessage = txMessage.value.message;
-		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
+		const cosmosMessage = txMessages.map(msg => msg.message);
+		const gasOption = txMessages[0].gasOptions ?? { gas: this.config.sedaChain.gas };
 		const result = await signAndSendTxSync(
 			this.config.sedaChain,
 			this.signerClient,
 			this.signer.getAddress(),
-			[cosmosMessage],
+			cosmosMessage,
 			gasOption,
 			this.config.sedaChain.memo,
 		);
@@ -195,25 +235,50 @@ export class SedaChain extends EventEmitter<EventMap> {
 			if (result.error instanceof IncorrectAccountSquence) {
 				logger.warn(`Incorrect account sequence, adding tx back to the queue: ${result.error}`);
 				this.txRetryCount++;
-				this.transactionQueue.push(txMessage.value);
+				this.transactionQueue.push(...txMessages);
 				return;
 			}
 
 			this.txFailureCount++;
 			logger.error(`Transaction failed: ${result.error}`);
+
+			// TODO: Remove the failing transaction from the queue and process the rest.
+			const messageIndex = getBatchMessageIndexFromError(result.error);
+
+			if (messageIndex.isJust) {
+				const erroredTx = txMessages.splice(messageIndex.value, 1);
+
+				// Only call the callback for the errored transaction if it exists
+				const callback = Maybe.of(this.queueCallbacks.get(erroredTx[0].id));
+				if (callback.isJust) {
+					callback.value({
+						txHash: Result.err(result.error),
+						batchMessageIndex: messageIndex.value,
+					});
+					this.queueCallbacks.delete(erroredTx[0].id);
+				}
+
+				// Re-queue the rest of the transactions
+				this.transactionQueue.push(...txMessages);
+			}
 		} else {
 			this.txSuccessCount++;
 		}
 
-		const callback = Maybe.of(this.queueCallbacks.get(txMessage.value.id));
+		for (const [index, txMessage] of txMessages.entries()) {
+			const callback = Maybe.of(this.queueCallbacks.get(txMessage.id));
 
-		if (callback.isNothing) {
-			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`);
-			return;
+			if (callback.isNothing) {
+				logger.error(`Could not find callback for message id: ${txMessage.id}: ${txMessage}`);
+				return;
+			}
+
+			callback.value({
+				txHash: result,
+				batchMessageIndex: index,
+			});
+			this.queueCallbacks.delete(txMessage.id);
 		}
-
-		callback.value(result);
-		this.queueCallbacks.delete(txMessage.value.id);
 	}
 
 	stop() {
@@ -243,44 +308,62 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	async waitForSmartContractTransaction(
 		executeMsg: ExecuteMsg,
+		processingMode: TransactionProcessingMode,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
 	): Promise<
 		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
 	> {
 		return new Promise(async (resolve) => {
-			const transactionHash = await this.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
+			const transactionHash = await this.queueSmartContractMessage(executeMsg, processingMode, attachedAttoSeda, gasOptions);
 
-			if (transactionHash.isErr) {
-				const error = narrowDownError(transactionHash.error);
-				resolve(Result.err(error));
+			if (transactionHash.txHash.isErr) {
+				const messageIndex = getBatchMessageIndexFromError(transactionHash.txHash.error);
+
+				// If the error was caused by this transaction, return the error,
+				// otherwise we should retry the transaction.
+				if (messageIndex.isJust && transactionHash.batchMessageIndex === messageIndex.value) {
+					const error = narrowDownError(transactionHash.txHash.error);
+					resolve(Result.err(error));
+					return;
+				}
+
+				resolve(await this.waitForSmartContractTransaction(executeMsg, processingMode, attachedAttoSeda, gasOptions));
 				return;
 			}
 
 			const checkTransactionInterval = debouncedInterval(async () => {
-				const transactionResult = await this.getTransaction(transactionHash.value);
+				const transactionResult = await this.getTransaction(transactionHash.txHash.unwrapOr(""));
 
 				if (transactionResult.isErr) {
 					logger.error(`Transaction could not be received: ${transactionResult.error}`, {
-						id: transactionHash.value,
+						id: transactionHash.txHash.unwrapOr(""),
 					});
 
 					const error = narrowDownError(transactionResult.error);
+					const messageIndex = getBatchMessageIndexFromError(error);
 					clearInterval(checkTransactionInterval);
-					resolve(Result.err(error));
 
+					// If the error was caused by this transaction, return the error,
+					// otherwise we should retry the transaction.
+					if (messageIndex.isJust && transactionHash.batchMessageIndex === messageIndex.value) {
+						resolve(Result.err(error));
+						return;
+					}
+
+					resolve(await this.waitForSmartContractTransaction(executeMsg, processingMode, attachedAttoSeda, gasOptions));
 					return;
 				}
 
 				if (transactionResult.value.isNothing) {
 					logger.debug("No tx result found yet", {
-						id: transactionHash.value,
+						id: transactionHash.txHash.unwrapOr(""),
 					});
 					return;
 				}
 
 				logger.debug("Tx result found", {
-					id: transactionHash.value,
+					id: transactionHash.txHash.unwrapOr(""),
 				});
 
 				clearInterval(checkTransactionInterval);
@@ -325,4 +408,15 @@ function narrowDownError(
 	}
 
 	return error;
+}
+
+function getBatchMessageIndexFromError(error: Error): Maybe<number> {
+	const messageIndexRegex = new RegExp(/message index: (\d+)/gm);
+	const capturedGroup = Maybe.of(messageIndexRegex.exec(error.message));
+
+	if (capturedGroup.isJust) {
+		return Maybe.of(Number(capturedGroup.value[1]));
+	}
+
+	return Maybe.nothing();
 }

@@ -6,6 +6,7 @@ import { match } from "ts-pattern";
 import * as v from "valibot";
 import {
 	DEFAULT_ADJUSTMENT_FACTOR,
+	DEFAULT_BATCHED_TX_AMOUNT,
 	DEFAULT_GAS,
 	DEFAULT_GAS_PRICE,
 	DEFAULT_IDENTITIES_AMOUNT,
@@ -30,6 +31,7 @@ export const SedaChainConfigSchema = v.object({
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
 	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
 	memoSuffix: v.optional(v.string(), ""),
+	batchedTxAmount: v.optional(v.number(), DEFAULT_BATCHED_TX_AMOUNT),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

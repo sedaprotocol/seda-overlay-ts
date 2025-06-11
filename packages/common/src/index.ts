@@ -2,7 +2,7 @@ export { isBrowser } from "./services/is-browser";
 export * from "./services/try-async";
 export * from "./services/timer";
 export * from "./services/hex-utils";
-export { SedaChain, type TransactionMessage } from "./seda/seda-chain";
+export { SedaChain, type TransactionMessage, TransactionProcessingMode } from "./seda/seda-chain";
 export { keccak256 } from "./services/keccak";
 export { formatTokenUnits, parseTokenUnits } from "./services/tokens";
 export { JSONStringify } from "./services/json";
