@@ -77,6 +77,7 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 				chainId: config.value.sedaChain.chainId,
 				coreContractAddress: await sedaChain.getCoreContractAddress(),
 				dataRequestId: "cli",
+				eligibilityHeight: 0n,
 				gasPrice: BigInt(gasPrice),
 				identityPrivateKey,
 				appConfig: config.value,

@@ -148,7 +148,7 @@ export class MainTask {
 			this.eligibilityTask.process();
 		});
 
-		this.eligibilityTask.on("eligible", async (drId, identityId) => {
+		this.eligibilityTask.on("eligible", async (drId, eligibilityHeight, identityId) => {
 			const drTask = new DataRequestTask(
 				this.pool,
 				this.identityPool,
@@ -156,6 +156,7 @@ export class MainTask {
 				this.sedaChain,
 				drId,
 				identityId,
+				eligibilityHeight,
 				this.executeWorkerPool,
 				this.compilerWorkerPool,
 				this.syncExecuteWorker,

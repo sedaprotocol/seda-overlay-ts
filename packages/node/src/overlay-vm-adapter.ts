@@ -16,6 +16,12 @@ import { createProxyHttpProof, verifyProxyHttpResponse } from "./services/proxy-
 
 type Options = {
 	dataRequestId: string;
+	/**
+	 * The height at which the identity was eligible for execution. It can be greater
+	 * than the height at which it became eligible. We need this for data-proxy calls
+	 * so they can know if their RPC is up to date.
+	 */
+	eligibilityHeight: bigint;
 	coreContractAddress: string;
 	chainId: string;
 	identityPrivateKey: Buffer;
@@ -111,6 +117,7 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 
 	async proxyHttpFetch(action: ProxyHttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
 		const clonedAction = structuredClone(action);
+		clonedAction.options.headers["x-seda-height"] = this.options.eligibilityHeight.toString();
 		clonedAction.options.headers["x-seda-proof"] = await createProxyHttpProof(
 			this.options.identityPrivateKey,
 			this.options.dataRequestId,

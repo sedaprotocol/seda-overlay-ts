@@ -35,6 +35,7 @@ const executionResultCache = new Cache<VmResultOverlay>(14_000);
 export async function executeDataRequest(
 	identityPrivateKey: Buffer,
 	dataRequest: DataRequest,
+	eligibilityHeight: bigint,
 	appConfig: AppConfig,
 	sedaChain: SedaChain,
 	vmWorkerPool: Maybe<WorkerPool>,
@@ -76,6 +77,7 @@ export async function executeDataRequest(
 				dataRequestId: dataRequest.id,
 				gasPrice: dataRequest.gasPrice,
 				identityPrivateKey,
+				eligibilityHeight,
 				appConfig,
 				requestTimeout: appConfig.node.requestTimeout,
 				totalHttpTimeLimit: appConfig.node.totalHttpTimeLimit,
@@ -140,7 +142,14 @@ export async function executeDataRequest(
 			Nothing: async () => {
 				if (syncExecuteWorker.isJust) {
 					return syncExecuteWorker.value.executeTask(async (worker) => {
-						return await executeDataRequestInWorker(worker, identityPrivateKey, dataRequest, appConfig, callData);
+						return await executeDataRequestInWorker(
+							worker,
+							identityPrivateKey,
+							eligibilityHeight,
+							dataRequest,
+							appConfig,
+							callData,
+						);
 					});
 				}
 

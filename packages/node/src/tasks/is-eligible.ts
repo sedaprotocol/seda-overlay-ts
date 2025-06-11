@@ -1,5 +1,5 @@
 import {
-	type IsExecutorEligibleResponse,
+	type GetExecutorEligibilityResponse,
 	createEligibilityHash,
 	createEligibilityMessageData,
 } from "@sedaprotocol/core-contract-schema";
@@ -14,8 +14,19 @@ import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
 
 type EventMap = {
-	eligible: [DataRequestId, string];
+	eligible: [drId: DataRequestId, eligibilityHeight: bigint, identityId: string];
 };
+
+type EligibilityCheckResult =
+	| {
+			identityId: string;
+			eligible: false;
+	  }
+	| {
+			identityId: string;
+			eligible: true;
+			height: bigint;
+	  };
 
 // TODO: Move eligibility checking to a worker thread to improve performance with large identity pools.
 // Since eligibility verification is CPU-bound and independent of other operations,
@@ -45,7 +56,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		dataRequest: DataRequest,
 		identityId: string,
 		coreContractAddress: string,
-	): Promise<{ identityId: string; eligible: boolean }> {
+	): Promise<EligibilityCheckResult> {
 		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
 		const messageSignature = this.identities.sign(identityId, messageHash);
 
@@ -57,7 +68,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			};
 		}
 
-		const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
+		const response = await this.sedaChain.queryContractSmart<GetExecutorEligibilityResponse>({
 			is_executor_eligible: {
 				data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
 			},
@@ -71,9 +82,12 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			};
 		}
 
-		logger.debug(`${response.value ? "🟢 Eligible" : "🔴 Not eligible"}`, {
-			id: dataRequest.id,
-		});
+		logger.debug(
+			`${response.value.status === "eligible" ? "🟢 Eligible" : "🔴 Not eligible: ${response.value.status}"}`,
+			{
+				id: dataRequest.id,
+			},
+		);
 
 		// Check if the data request is still in Commit Stage on chain
 		const drFromChain = await getDataRequest(dataRequest.id, this.sedaChain);
@@ -113,8 +127,9 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		}
 
 		return {
-			eligible: response.value,
+			eligible: response.value.status === "eligible",
 			identityId,
+			height: BigInt(response.value.block_height),
 		};
 	}
 
@@ -185,10 +200,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 							this.pool.insertIdentityDataRequest(
 								dataRequest.id,
 								response.identityId,
+								response.height,
 								Maybe.nothing(),
 								IdentityDataRequestStatus.EligibleForExecution,
 							);
-							this.emit("eligible", dataRequest.id, response.identityId);
+							this.emit("eligible", dataRequest.id, response.height, response.identityId);
 						}
 					},
 				),

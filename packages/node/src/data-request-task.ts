@@ -45,6 +45,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		private sedaChain: SedaChain,
 		private drId: string,
 		private identityId: string,
+		private eligibilityHeight: bigint,
 		private executeWorkerPool: Maybe<WorkerPool>,
 		private compilerWorkerPool: Maybe<WorkerPool>,
 		private syncExecuteWorker: Maybe<WorkerPool>,
@@ -57,7 +58,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private transitionStatus(toStatus: IdentityDataRequestStatus) {
 		this.retries = 0;
 		this.status = toStatus;
-		this.pool.insertIdentityDataRequest(this.drId, this.identityId, Maybe.nothing(), toStatus);
+		this.pool.insertIdentityDataRequest(this.drId, this.identityId, this.eligibilityHeight, Maybe.nothing(), toStatus);
 	}
 
 	private stop() {
@@ -211,6 +212,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		const vmResult = await executeDataRequest(
 			info.value.privateKey,
 			dataRequest,
+			this.eligibilityHeight,
 			this.appConfig,
 			this.sedaChain,
 			this.executeWorkerPool,

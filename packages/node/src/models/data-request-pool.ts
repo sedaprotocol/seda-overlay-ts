@@ -28,6 +28,12 @@ export enum IdentityDataRequestStatus {
 interface IdentityDataRequest {
 	drId: string;
 	identityId: string;
+	/**
+	 * The height at which the identity was eligible for execution. It can be greater
+	 * than the height at which it became eligible. We need this for data-proxy calls
+	 * so they can know if their RPC is up to date.
+	 */
+	eligibilityHeight: bigint;
 	status: IdentityDataRequestStatus;
 	executionResult: Maybe<ExecutionResult>;
 }
@@ -56,6 +62,7 @@ export class DataRequestPool {
 	insertIdentityDataRequest(
 		drId: DataRequestId,
 		identityId: string,
+		eligibilityHeight: bigint,
 		executionResult: Maybe<ExecutionResult>,
 		status: IdentityDataRequestStatus,
 	) {
@@ -64,6 +71,7 @@ export class DataRequestPool {
 			executionResult,
 			identityId,
 			status,
+			eligibilityHeight,
 		});
 	}
 

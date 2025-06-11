@@ -17,6 +17,7 @@ export interface ExecuteMessage {
 	dataRequest: DataRequest;
 	callData: VmCallData;
 	identityPrivateKey: Buffer;
+	eligibilityHeight: string;
 }
 
 function startWorker() {
@@ -43,6 +44,7 @@ function startWorker() {
 					appConfig: message.appConfig,
 					coreContractAddress: await sedaChain.value.getCoreContractAddress(),
 					dataRequestId: message.dataRequest.id,
+					eligibilityHeight: BigInt(message.eligibilityHeight),
 					gasPrice: message.dataRequest.gasPrice,
 					identityPrivateKey: message.identityPrivateKey,
 					requestTimeout: message.appConfig.node.requestTimeout,
@@ -71,6 +73,7 @@ if (!isMainThread) {
 export function executeDataRequestInWorker(
 	worker: Worker,
 	identityPrivateKey: Buffer,
+	eligibilityHeight: bigint,
 	dataRequest: DataRequest,
 	appConfig: AppConfig,
 	callData: VmCallData,
@@ -81,6 +84,7 @@ export function executeDataRequestInWorker(
 			dataRequest,
 			appConfig,
 			callData,
+			eligibilityHeight: eligibilityHeight.toString(),
 		};
 
 		function handleMessage(response: ExecuteResponse) {
