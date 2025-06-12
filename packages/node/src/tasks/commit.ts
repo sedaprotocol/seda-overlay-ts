@@ -7,6 +7,7 @@ import {
 import { RevealStarted, type SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
@@ -25,8 +26,14 @@ export async function commitDr(
 		return Result.err(new RevealStarted());
 	}
 
+	const traceId = `${dataRequest.id}_${identityId}`;
+
 	const chainId = appConfig.sedaChain.chainId;
 	const contractAddr = await sedaChain.getCoreContractAddress();
+
+	logger.trace("Creating commit proof", {
+		id: traceId,
+	});
 
 	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
 	const revealMessageHash = createRevealMessageHash(revealBodyHash, chainId, contractAddr);
@@ -50,13 +57,26 @@ export async function commitDr(
 	const commitProof = identityPool.sign(identityId, commitMessageHash);
 	if (commitProof.isErr) return Result.err(commitProof.error);
 
-	const commitResponse = await sedaChain.waitForSmartContractTransaction({
-		commit_data_result: {
-			dr_id: dataRequest.id,
-			commitment: commitment.toString("hex"),
-			proof: commitProof.value.toString("hex"),
-			public_key: identityId,
+	logger.trace("Waiting for commit transaction to be processed", {
+		id: traceId,
+	});
+
+	const commitResponse = await sedaChain.waitForSmartContractTransaction(
+		{
+			commit_data_result: {
+				dr_id: dataRequest.id,
+				commitment: commitment.toString("hex"),
+				proof: commitProof.value.toString("hex"),
+				public_key: identityId,
+			},
 		},
+		undefined,
+		undefined,
+		traceId,
+	);
+
+	logger.trace("Commit transaction processed", {
+		id: traceId,
 	});
 
 	if (commitResponse.isErr) {

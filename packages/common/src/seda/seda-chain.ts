@@ -35,6 +35,7 @@ export interface TransactionMessage {
 	type: string;
 	gasOptions?: GasOptions;
 	signerIndex: number;
+	traceId?: string;
 }
 
 export class SedaChain extends EventEmitter<EventMap> {
@@ -99,10 +100,33 @@ export class SedaChain extends EventEmitter<EventMap> {
 		};
 	}
 
+	async queueCosmosMessage(
+		message: EncodeObject,
+		gasOptions?: GasOptions,
+		accountIndex = 0,
+	): Promise<Result<string, Error>> {
+		return new Promise(async (resolve) => {
+			this.nonceId += 1;
+
+			this.queueMessages([
+				{
+					id: this.nonceId.toString(),
+					message,
+					gasOptions,
+					type: "cosmos",
+					signerIndex: accountIndex,
+				},
+			]);
+
+			this.queueCallbacks.set(this.nonceId.toString(), resolve);
+		});
+	}
+
 	async queueSmartContractMessage(
 		executeMsg: ExecuteMsg,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
+		traceId?: string,
 	): Promise<Result<string, Error>> {
 		return new Promise(async (resolve) => {
 			this.nonceId += 1;
@@ -126,6 +150,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 					gasOptions,
 					type: "contract",
 					signerIndex,
+					traceId,
 				},
 			]);
 
@@ -193,6 +218,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 		const txMessage = this.getNextTransaction(accountIndex);
 		if (txMessage.isNothing) return;
 
+		logger.trace("Processing transaction", {
+			id: txMessage.value.traceId,
+		});
+
 		const cosmosMessage = txMessage.value.message;
 		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
 		const result = await signAndSendTxSync(
@@ -206,14 +235,19 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		if (result.isErr) {
 			if (result.error instanceof IncorrectAccountSquence) {
-				logger.warn(`Incorrect account sequence, adding tx back to the queue: ${result.error}`);
+				logger.warn(`Incorrect account sequence, adding tx back to the queue: ${result.error}`, {
+					id: txMessage.value.traceId,
+				});
+
 				this.txRetryCount++;
 				this.transactionQueue.push(txMessage.value);
 				return;
 			}
 
 			this.txFailureCount++;
-			logger.error(`Transaction failed: ${result.error}`);
+			logger.error(`Transaction failed: ${result.error}`, {
+				id: txMessage.value.traceId,
+			});
 		} else {
 			this.txSuccessCount++;
 		}
@@ -221,9 +255,15 @@ export class SedaChain extends EventEmitter<EventMap> {
 		const callback = Maybe.of(this.queueCallbacks.get(txMessage.value.id));
 
 		if (callback.isNothing) {
-			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`);
+			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`, {
+				id: txMessage.value.traceId,
+			});
 			return;
 		}
+
+		logger.trace("Transaction processed", {
+			id: txMessage.value.traceId,
+		});
 
 		callback.value(result);
 		this.queueCallbacks.delete(txMessage.value.id);
@@ -275,24 +315,41 @@ export class SedaChain extends EventEmitter<EventMap> {
 		executeMsg: ExecuteMsg,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
+		traceId?: string,
 	): Promise<
 		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
 	> {
 		return new Promise(async (resolve) => {
+			logger.trace("Queueing smart contract transaction", {
+				id: traceId,
+			});
+
 			const transactionHash = await this.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
 
 			if (transactionHash.isErr) {
+				logger.trace(`Transaction could not be queued for ${traceId}: ${transactionHash.error}`, {
+					id: traceId,
+				});
+
 				const error = narrowDownError(transactionHash.error);
 				resolve(Result.err(error));
 				return;
 			}
 
+			logger.trace("Waiting for smart contract transaction to be included in a block", {
+				id: traceId,
+			});
+
 			const checkTransactionInterval = debouncedInterval(async () => {
+				logger.trace("Checking if transaction is included in a block", {
+					id: traceId,
+				});
+
 				const transactionResult = await this.getTransaction(transactionHash.value);
 
 				if (transactionResult.isErr) {
-					logger.error(`Transaction could not be received: ${transactionResult.error}`, {
-						id: transactionHash.value,
+					logger.error(`Transaction could not be received for ${transactionHash.value}: ${transactionResult.error}`, {
+						id: traceId,
 					});
 
 					const error = narrowDownError(transactionResult.error);
@@ -303,14 +360,14 @@ export class SedaChain extends EventEmitter<EventMap> {
 				}
 
 				if (transactionResult.value.isNothing) {
-					logger.debug("No tx result found yet", {
-						id: transactionHash.value,
+					logger.debug(`No tx result found yet for ${transactionHash.value}`, {
+						id: traceId,
 					});
 					return;
 				}
 
-				logger.debug("Tx result found", {
-					id: transactionHash.value,
+				logger.debug(`Tx result found for ${transactionHash.value}`, {
+					id: traceId,
 				});
 
 				clearInterval(checkTransactionInterval);

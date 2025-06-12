@@ -81,6 +81,7 @@ export async function executeDataRequest(
 				totalHttpTimeLimit: appConfig.node.totalHttpTimeLimit,
 			},
 			sedaChain,
+			dataRequest.id,
 		);
 
 		const oracleProgramBinary = binary.value.value.bytes;
@@ -131,6 +132,10 @@ export async function executeDataRequest(
 			stdoutLimit: appConfig.node.maxVmLogsSizeBytes,
 		};
 
+		logger.trace("Executing data request", {
+			id: dataRequest.id,
+		});
+
 		const result = await vmWorkerPool.match({
 			Just: async (pool) => {
 				return pool.executeTask(async (worker) => {
@@ -146,6 +151,10 @@ export async function executeDataRequest(
 
 				return executeVm(callData, dataRequest.id, vmAdapter);
 			},
+		});
+
+		logger.trace("Data request executed", {
+			id: dataRequest.id,
 		});
 
 		return Result.ok({

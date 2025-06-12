@@ -63,6 +63,12 @@ export class FetchTask extends EventEmitter<EventMap> {
 			newDataRequests.push(dataRequest);
 		}
 
+		console.log('[DEBUG]: result.value.hasMore ::: ', result.value.hasMore);
+
+		if (result.value.hasMore) {
+			await this.fetch();
+		}
+
 		// Emit data requests sequentially after they are added to the pool to ensure a single process() call handles them
 		for (const dataRequest of newDataRequests) {
 			this.emit("data-request", dataRequest);

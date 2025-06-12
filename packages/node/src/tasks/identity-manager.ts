@@ -1,5 +1,4 @@
-import { GasPrice } from "@cosmjs/stargate";
-import { debouncedInterval, formatTokenUnits, sleep } from "@sedaprotocol/overlay-ts-common";
+import { debouncedInterval, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -90,14 +89,12 @@ export class IdentityManagerTask {
 	/**
 	 * Making sure all accounts have at least the minimum SEDA amount
 	 * This is to be able to execute transactions on the chain. Not alot is needed since the chain refunds succesfully executed transactions.
-	 * 
+	 *
 	 * TODO: This is a very bad implementation. We should use a better way to do this. It does not take sequence numbers into account.
 	 */
 	private async sendTokensToAllAddresses() {
+		// We only want to send tokens from the first account
 		const sender = this.sedaChain.getSignerAddress(0);
-
-		// @ts-ignore
-		this.sedaChain.signerClients[0].gasPrice = GasPrice.fromString(`${this.config.sedaChain.gasPrice}aseda`);
 
 		for (const [accountIndex, _] of this.sedaChain.signerClients.entries()) {
 			if (accountIndex === 0) continue;
@@ -112,23 +109,25 @@ export class IdentityManagerTask {
 					`${accountIndex}: Sending ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
 				);
 
-				await this.sedaChain.signerClients[0].sendTokens(
-					sender,
-					this.sedaChain.getSignerAddress(accountIndex),
-					[
-						{
-							denom: "aseda",
-							amount: this.config.sedaChain.minSedaPerAccount.toString(),
-						},
-					],
-					"auto",
-				);
+				const sendMsg = {
+					typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+					value: {
+						fromAddress: sender,
+						toAddress: this.sedaChain.getSignerAddress(accountIndex),
+						amount: [
+							{
+								denom: "aseda",
+								amount: this.config.sedaChain.minSedaPerAccount.toString(),
+							},
+						],
+					},
+				};
+
+				await this.sedaChain.queueCosmosMessage(sendMsg, undefined, 0);
 
 				logger.info(
 					`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
 				);
-
-				await sleep(2000);
 			} else {
 				logger.info(
 					`${accountIndex}: ${this.sedaChain.getSignerAddress(accountIndex)} has enough SEDA (min: ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA, current: ${formatTokenUnits(balance.amount)} SEDA)`,
@@ -149,7 +148,5 @@ export class IdentityManagerTask {
 		debouncedInterval(async () => {
 			await this.processAllIdentities();
 		}, this.config.intervals.identityCheck);
-
-		process.exit(0);
 	}
 }

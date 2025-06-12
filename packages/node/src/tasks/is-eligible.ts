@@ -46,16 +46,24 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		identityId: string,
 		coreContractAddress: string,
 	): Promise<{ identityId: string; eligible: boolean }> {
+		const traceId = `${dataRequest.id}_${identityId}`;
 		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
 		const messageSignature = this.identities.sign(identityId, messageHash);
 
 		if (messageSignature.isErr) {
-			logger.error(`Failed signing message for eligibility: ${messageSignature.error}`);
+			logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
+				id: traceId,
+			});
+
 			return {
 				eligible: false,
 				identityId,
 			};
 		}
+
+		logger.trace("Checking identity eligibility for data request", {
+			id: traceId,
+		});
 
 		const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
 			is_executor_eligible: {
@@ -64,7 +72,10 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		});
 
 		if (response.isErr) {
-			logger.error(`Could not fetch eligibility status for data request: ${response.error}`);
+			logger.error(`Could not fetch eligibility status for data request: ${response.error}`, {
+				id: traceId,
+			});
+
 			return {
 				eligible: false,
 				identityId,
@@ -72,13 +83,16 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		}
 
 		logger.debug(`${response.value ? "🟢 Eligible" : "🔴 Not eligible"}`, {
-			id: dataRequest.id,
+			id: traceId,
 		});
 
 		// Check if the data request is still in Commit Stage on chain
 		const drFromChain = await getDataRequest(dataRequest.id, this.sedaChain);
 		if (drFromChain.isErr) {
-			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`);
+			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`, {
+				id: traceId,
+			});
+
 			return {
 				eligible: false,
 				identityId,
@@ -88,7 +102,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			if (drFromChain.value.isNothing) {
 				this.pool.deleteDataRequest(dataRequest.id);
 				logger.info("🏁 Data Request no longer exists on chain - likely resolved", {
-					id: dataRequest.id,
+					id: traceId,
 				});
 
 				return {
@@ -103,7 +117,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				drFromChain.value.value.commitsLength === drFromChain.value.value.replicationFactor
 			) {
 				logger.debug("💨 Data Request already in reveal stage - skipping eligibility check", {
-					id: dataRequest.id,
+					id: traceId,
 				});
 				return {
 					eligible: false,
@@ -119,6 +133,8 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 	}
 
 	async checkEligibility(dataRequest: DataRequest) {
+		const traceId = `${dataRequest.id}`;
+
 		const coreContractAddress = await this.sedaChain.getCoreContractAddress();
 		// We check in parallel to speed things up
 		const eligibilityChecks: Promise<void>[] = [];
@@ -126,7 +142,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		// Check if data request is stale and needs refreshing from chain
 		if (isDrStale(dataRequest)) {
 			logger.debug("Data Request is stale, refreshing from chain", {
-				id: dataRequest.id,
+				id: traceId,
 			});
 			const result = await getDataRequest(dataRequest.id, this.sedaChain);
 
@@ -135,7 +151,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					if (refreshedDr.isNothing) {
 						this.pool.deleteDataRequest(dataRequest.id);
 						logger.info("✅ Data Request has been resolved on chain", {
-							id: dataRequest.id,
+							id: traceId,
 						});
 
 						return true;
@@ -145,7 +161,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				},
 				Err: (error) => {
 					logger.error(`Could not fetch information about dr: ${error}`, {
-						id: dataRequest.id,
+						id: traceId,
 					});
 
 					return false;
@@ -161,13 +177,17 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			// If no identities are currently processing this data request, we can stop checking eligibility
 			if (!this.pool.isDrBeingProcessed(dataRequest.id)) {
 				logger.debug("Dr is in reveal stage, and no identities are processing it, deleting from pool", {
-					id: dataRequest.id,
+					id: traceId,
 				});
 				this.pool.deleteDataRequest(dataRequest.id);
 				return;
 			}
 			return;
 		}
+
+		logger.trace("Checking eligibility", {
+			id: traceId,
+		});
 
 		for (const identityInfo of this.identities.all()) {
 			// We already create an instance for this, no need to check eligibility

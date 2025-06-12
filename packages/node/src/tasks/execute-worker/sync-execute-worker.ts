@@ -37,6 +37,8 @@ function startWorker() {
 		}
 
 		if (sedaChain.isJust) {
+			const traceId = `${message.dataRequest.id}`;
+
 			const vmAdapter = new OverlayVmAdapter(
 				{
 					chainId: message.appConfig.sedaChain.chainId,
@@ -49,6 +51,7 @@ function startWorker() {
 					totalHttpTimeLimit: message.appConfig.node.totalHttpTimeLimit,
 				},
 				sedaChain.value,
+				traceId,
 			);
 
 			const result = await executeVm(message.callData, message.dataRequest.id, vmAdapter);

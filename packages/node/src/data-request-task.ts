@@ -78,6 +78,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	}
 
 	public start() {
+		logger.trace("Starting data request task", {
+			id: this.name,
+		});
+
 		this.refreshDataRequestDataIntervalId = Maybe.of(
 			debouncedInterval(async () => {
 				await this.handleRefreshDataRequestData(this.drId);
