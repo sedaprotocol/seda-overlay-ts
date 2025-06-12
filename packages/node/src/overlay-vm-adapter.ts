@@ -10,6 +10,7 @@ import {
 } from "@seda-protocol/vm";
 import { type SedaChain, sleep } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 import isLocalhostIp from "is-localhost-ip";
 import { Maybe, Result } from "true-myth";
 import { createProxyHttpProof, verifyProxyHttpResponse } from "./services/proxy-http";
@@ -41,6 +42,7 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 	constructor(
 		private options: Options,
 		sedaChain: SedaChain,
+		private traceId: string,
 	) {
 		super({
 			requestTimeout: options.requestTimeout,
@@ -51,8 +53,16 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 	}
 
 	async httpFetch(action: HttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
+		logger.trace("HTTP fetch", {
+			id: this.traceId,
+		});
+
 		const url = trySync(() => new URL(action.url));
 		if (url.isErr) return HttpFetchResponse.createRejectedPromise(`${action.url} is not a valid URL`);
+
+		logger.trace("HTTP fectch checking if localhost", {
+			id: this.traceId,
+		});
 
 		const isLocalIp = await isLocalhostIp(url.value.hostname);
 
@@ -60,7 +70,17 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 			return HttpFetchResponse.createRejectedPromise(`${action.url} is not allowed`);
 		}
 
-		return super.httpFetch(action);
+		logger.trace("HTTP fetch making request", {
+			id: this.traceId,
+		});
+
+		const result = await super.httpFetch(action);
+
+		logger.trace("HTTP fetch result", {
+			id: this.traceId,
+		});
+
+		return result;
 	}
 
 	async getProxyHttpFetchGasCost(action: ProxyHttpFetchAction): Promise<Result<bigint, Error>> {
@@ -70,6 +90,10 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		// OPTIONS requests should not have a body
 		clonedAction.options.body = undefined;
 
+		logger.trace("Getting proxy HTTP fetch gas cost", {
+			id: this.traceId,
+		});
+
 		const httpFetchResult = await tryAsync(
 			this.httpFetch({
 				options: clonedAction.options,
@@ -77,6 +101,10 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 				type: "http-fetch-action",
 			}),
 		);
+
+		logger.trace("Proxy HTTP fetch gas cost result", {
+			id: this.traceId,
+		});
 
 		if (httpFetchResult.isErr) return Result.err(httpFetchResult.error);
 		const httpResponse = HttpFetchResponse.fromPromise(httpFetchResult.value);
@@ -116,6 +144,10 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 	}
 
 	async proxyHttpFetch(action: ProxyHttpFetchAction): Promise<PromiseStatus<HttpFetchResponse>> {
+		logger.trace("Proxy HTTP fetch creating proof", {
+			id: this.traceId,
+		});
+
 		const clonedAction = structuredClone(action);
 		clonedAction.options.headers["x-seda-blockheight"] = this.options.eligibilityHeight.toString();
 		clonedAction.options.headers["x-seda-proof"] = await createProxyHttpProof(
@@ -125,6 +157,10 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 			this.options.coreContractAddress,
 		);
 
+		logger.trace("Proxy HTTP fetch with retry", {
+			id: this.traceId,
+		});
+
 		const rawHttpResponse = await this.fetchWithRetry(
 			{
 				...clonedAction,
@@ -132,6 +168,10 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 			},
 			MAX_PROXY_HTTP_ATTEMPTS,
 		);
+
+		logger.trace("Proxy HTTP fetch result", {
+			id: this.traceId,
+		});
 
 		const httpResponse = HttpFetchResponse.fromPromise(rawHttpResponse);
 		if (!isOkStatus(httpResponse.data.status)) {
@@ -157,7 +197,16 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		// Verify the signature:
 		const signature = Buffer.from(signatureRaw.value, "hex");
 		const publicKey = Buffer.from(action.public_key ?? publicKeyRaw.value, "hex");
+
+		logger.trace("Proxy HTTP fetch verifying signature", {
+			id: this.traceId,
+		});
+
 		const isValidSignature = await verifyProxyHttpResponse(signature, publicKey, action, httpResponse);
+
+		logger.trace("Proxy HTTP fetch signature verified", {
+			id: this.traceId,
+		});
 
 		if (!isValidSignature) {
 			return HttpFetchResponse.createRejectedPromise("Invalid proxy signature");

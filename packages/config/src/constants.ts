@@ -20,7 +20,7 @@ export const DEFAULT_BLOCK_LOCALHOST = true;
 export const DEFAULT_FORCE_SYNC_VM = true; // For now we force the VM to be in synchronous mode
 export const DEFAULT_TERMINATE_AFTER_COMPLETION = false;
 export const DEFAULT_LOG_ROTATION_ENABLED = true;
-export const DEFAULT_LOG_ROTATION_LEVEL = "debug";
+export const DEFAULT_LOG_ROTATION_LEVEL = "silly";
 export const DEFAULT_LOG_ROTATION_MAX_FILES = "14d";
 export const DEFAULT_LOG_ROTATION_MAX_SIZE = "10m";
 export const DEFAULT_HTTP_SERVER_PORT = 3000;
@@ -32,6 +32,7 @@ export const DEFAULT_TOTAL_HTTP_TIME_LIMIT = 20_000;
 export const DEFAULT_MAX_REVEAL_SIZE = 24_000; // 24KB (should be divided by the replication factor)
 export const DEFAULT_ACCOUNT_AMOUNTS = 10;
 export const DEFAULT_MIN_SEDA_PER_ACCOUNT = 1_000_000_000_000_000_000n; // 1 SEDA
+export const DEFAULT_LOG_LEVEL = "silly";
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

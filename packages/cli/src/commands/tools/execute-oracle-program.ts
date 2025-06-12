@@ -85,6 +85,7 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 				totalHttpTimeLimit: config.value.node.totalHttpTimeLimit,
 			},
 			sedaChain,
+			"cli",
 		);
 
 		const callData: VmCallData = {

@@ -34,8 +34,10 @@ const consoleTransport = new transports.Console({
 
 export class Logger {
 	winston: Maybe<WinstonLogger> = Maybe.nothing();
+	logLevel = "debug";
 
 	async init(appConfig: AppConfig) {
+		this.logLevel = appConfig.node.logLevel;
 		if (!isBrowser()) {
 			const { createLogger, format } = await import("winston");
 
@@ -58,7 +60,7 @@ export class Logger {
 
 			this.winston = Maybe.just(
 				createLogger({
-					level: "debug",
+					level: this.logLevel,
 					transports: myTransports,
 					format: format.combine(
 						format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
@@ -73,8 +75,10 @@ export class Logger {
 	}
 
 	trace(message: string, extra?: ExtraInfo): void {
+		if (this.logLevel !== "silly") return;
+
 		if (this.winston.isJust) {
-			this.winston.value.debug(`${message}: ${new Error().stack}`, extra);
+			this.winston.value.debug(message, extra);
 		} else {
 			console.trace(message);
 		}

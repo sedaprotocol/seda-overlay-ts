@@ -14,6 +14,7 @@ import {
 	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
 	DEFAULT_TOTAL_HTTP_TIME_LIMIT,
+	DEFAULT_LOG_LEVEL,
 } from "../constants";
 
 export const NodeConfigSchema = v.object({
@@ -26,6 +27,7 @@ export const NodeConfigSchema = v.object({
 	maxVmLogsSizeBytes: v.optional(v.number(), DEFAULT_MAX_VM_LOGS_SIZE_BYTES),
 	processDrInterval: v.optional(v.number(), DEFAULT_PROCESS_DR_INTERVAL),
 	blockLocalhost: v.optional(v.boolean(), DEFAULT_BLOCK_LOCALHOST),
+	logLevel: v.optional(v.string(), DEFAULT_LOG_LEVEL),
 	logRotationEnabled: v.optional(v.boolean(), DEFAULT_LOG_ROTATION_ENABLED),
 	logRotationLevel: v.optional(v.string(), DEFAULT_LOG_ROTATION_LEVEL),
 	logRotationMaxFiles: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_FILES),
