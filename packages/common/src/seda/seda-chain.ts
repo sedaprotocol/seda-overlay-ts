@@ -34,12 +34,13 @@ export interface TransactionMessage {
 	message: EncodeObject;
 	type: string;
 	gasOptions?: GasOptions;
+	signerIndex: number;
 }
 
 export class SedaChain extends EventEmitter<EventMap> {
 	public transactionQueue: TransactionMessage[] = [];
 	private queueCallbacks: Map<string, (value: Result<string, Error>) => void> = new Map();
-	private intervalId?: Timer;
+	private intervalIds: Timer[] = [];
 	private nonceId = 0;
 
 	// Metrics:
@@ -48,8 +49,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 	private txRetryCount = 0;
 
 	private constructor(
-		public signer: ISigner,
-		private signerClient: SedaSigningCosmWasmClient,
+		public signers: ISigner[],
+		public signerClients: SedaSigningCosmWasmClient[],
 		private protoClient: ProtobufRpcClient,
 		private wasmStorageQueryClient: sedachain.wasm_storage.v1.QueryClientImpl,
 		private config: AppConfig,
@@ -65,8 +66,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return this.wasmStorageQueryClient;
 	}
 
-	getSignerAddress() {
-		return this.signer.getAddress();
+	getSignerAddress(accountIndex = 0) {
+		return this.signers[accountIndex].getAddress();
 	}
 
 	/**
@@ -75,8 +76,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 	 * Gets the address of the core SEDA protocol smart contract that this chain instance is configured to interact with
 	 * @returns The address of the core SEDA protocol smart contract
 	 */
-	getCoreContractAddress() {
-		return this.signer.getCoreContractAddress();
+	getCoreContractAddress(accountIndex = 0) {
+		return this.signers[accountIndex].getCoreContractAddress();
 	}
 
 	queueMessages(messages: TransactionMessage[]) {
@@ -85,8 +86,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 		}
 	}
 
-	async getTransaction(txHash: string) {
-		return getTransaction(this.signerClient, txHash);
+	async getTransaction(txHash: string, accountIndex = 0) {
+		return getTransaction(this.signerClients[accountIndex], txHash);
 	}
 
 	getTransactionStats() {
@@ -106,10 +107,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return new Promise(async (resolve) => {
 			this.nonceId += 1;
 
+			const signerIndex = this.nonceId % this.signers.length;
+
 			const message = {
 				typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
 				value: {
-					sender: this.getSignerAddress(),
+					sender: this.getSignerAddress(signerIndex),
 					contract: await this.getCoreContractAddress(),
 					funds: attachedAttoSeda ? [{ denom: "aseda", amount: attachedAttoSeda.toString() }] : [],
 					msg: Buffer.from(JSON.stringify(executeMsg)),
@@ -122,6 +125,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 					message,
 					gasOptions,
 					type: "contract",
+					signerIndex,
 				},
 			]);
 
@@ -129,10 +133,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 		});
 	}
 
-	async queryContractSmart<T = unknown>(queryMsg: QueryMsg): Promise<Result<T, Error>> {
-		const coreContractAddress = await this.getCoreContractAddress();
+	async queryContractSmart<T = unknown>(queryMsg: QueryMsg, accountIndex = 0): Promise<Result<T, Error>> {
+		const coreContractAddress = await this.getCoreContractAddress(accountIndex);
 
-		return tryAsync<T>(() => this.signerClient.queryContractSmart(coreContractAddress, queryMsg));
+		return tryAsync<T>(() => this.signerClients[accountIndex].queryContractSmart(coreContractAddress, queryMsg));
 	}
 
 	/**
@@ -148,11 +152,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 		executeMsg: ExecuteMsg,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
+		accountIndex = 0,
 	): Promise<Result<string, Error>> {
 		const message = {
 			typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
 			value: {
-				sender: this.getSignerAddress(),
+				sender: this.getSignerAddress(accountIndex),
 				contract: await this.getCoreContractAddress(),
 				funds: attachedAttoSeda ? [{ denom: "aseda", amount: attachedAttoSeda.toString() }] : [],
 				msg: Buffer.from(JSON.stringify(executeMsg)),
@@ -161,13 +166,21 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		const result = await signAndSendTxSync(
 			this.config.sedaChain,
-			this.signerClient,
-			this.signer.getAddress(),
+			this.signerClients[accountIndex],
+			this.getSignerAddress(accountIndex),
 			[message],
 			gasOptions,
 			this.config.sedaChain.memo,
 		);
 		return result;
+	}
+
+	private getNextTransaction(accountIndex: number): Maybe<TransactionMessage> {
+		const txMessageIndex = this.transactionQueue.findIndex((tx) => tx.signerIndex === accountIndex);
+		if (txMessageIndex === -1) return Maybe.nothing();
+
+		const txMessage = this.transactionQueue.splice(txMessageIndex, 1)[0];
+		return Maybe.just(txMessage);
 	}
 
 	/**
@@ -176,16 +189,16 @@ export class SedaChain extends EventEmitter<EventMap> {
 	 * sequence numbers. This method ensures transactions are handled one at a time in order.
 	 * @returns void
 	 */
-	async processQueue() {
-		const txMessage = Maybe.of(this.transactionQueue.shift());
+	async processQueue(accountIndex: number) {
+		const txMessage = this.getNextTransaction(accountIndex);
 		if (txMessage.isNothing) return;
 
 		const cosmosMessage = txMessage.value.message;
 		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
 		const result = await signAndSendTxSync(
 			this.config.sedaChain,
-			this.signerClient,
-			this.signer.getAddress(),
+			this.signerClients[txMessage.value.signerIndex],
+			this.getSignerAddress(txMessage.value.signerIndex),
 			[cosmosMessage],
 			gasOption,
 			this.config.sedaChain.memo,
@@ -217,28 +230,45 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 
 	stop() {
-		clearInterval(this.intervalId);
+		for (const intervalId of this.intervalIds) {
+			clearInterval(intervalId);
+		}
 	}
 
 	start() {
 		this.stop();
 
-		this.intervalId = debouncedInterval(async () => {
-			await this.processQueue();
-		}, this.config.sedaChain.queueInterval);
+		for (const [accountIndex] of this.signerClients.entries()) {
+			this.intervalIds.push(
+				debouncedInterval(async () => {
+					await this.processQueue(accountIndex);
+				}, this.config.sedaChain.queueInterval),
+			);
+		}
 	}
 
 	static async fromConfig(config: AppConfig, cacheSequenceNumber = true): Promise<Result<SedaChain, unknown>> {
-		const signer = await Signer.fromConfig(config);
-		const protoClient = await createProtoQueryClient(config.sedaChain.rpc);
-		const signingClient = await createSigningClient(signer, cacheSequenceNumber);
-		const wasmStorageClient = await createWasmQueryClient(config.sedaChain.rpc);
+		const signerClients: SedaSigningCosmWasmClient[] = [];
+		const signers: Signer[] = [];
 
-		if (signingClient.isErr) {
-			return Result.err(signingClient.error);
+		for (const [accountIndex] of Array(config.sedaChain.accountAmounts).entries()) {
+			const signer = await Signer.fromConfig(config, accountIndex);
+			const signingClient = await createSigningClient(signer, cacheSequenceNumber);
+
+			if (signingClient.isErr) {
+				return Result.err(signingClient.error);
+			}
+
+			signers.push(signer);
+			signerClients.push(signingClient.value.client);
 		}
 
-		return Result.ok(new SedaChain(signer, signingClient.value.client, protoClient, wasmStorageClient, config));
+		// const signer = await Signer.fromConfig(config);
+		const protoClient = await createProtoQueryClient(config.sedaChain.rpc);
+		// const signingClient = await createSigningClient(signer, cacheSequenceNumber);
+		const wasmStorageClient = await createWasmQueryClient(config.sedaChain.rpc);
+
+		return Result.ok(new SedaChain(signers, signerClients, protoClient, wasmStorageClient, config));
 	}
 
 	async waitForSmartContractTransaction(

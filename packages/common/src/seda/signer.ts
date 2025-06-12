@@ -1,3 +1,4 @@
+import { stringToPath } from "@cosmjs/crypto";
 import { DirectSecp256k1HdWallet, type OfflineSigner } from "@cosmjs/proto-signing";
 import { tryAsync } from "@seda-protocol/utils";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -27,9 +28,10 @@ export class Signer implements ISigner {
 	 *
 	 * @throws Error when initialising wallet or deriving address fails.
 	 */
-	static async fromConfig(config: AppConfig): Promise<Signer> {
+	static async fromConfig(config: AppConfig, index = 0): Promise<Signer> {
 		const wallet = await DirectSecp256k1HdWallet.fromMnemonic(config.sedaChain.mnemonic, {
 			prefix: BECH32_ADDRESS_PREFIX,
+			hdPaths: [stringToPath(`m/44'/118'/0'/0/${index}`)],
 		});
 
 		const contract = await resolveCoreContractAddress(config);

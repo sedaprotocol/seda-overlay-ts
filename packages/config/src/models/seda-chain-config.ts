@@ -5,11 +5,13 @@ import { Result } from "true-myth";
 import { match } from "ts-pattern";
 import * as v from "valibot";
 import {
+	DEFAULT_ACCOUNT_AMOUNTS,
 	DEFAULT_ADJUSTMENT_FACTOR,
 	DEFAULT_GAS,
 	DEFAULT_GAS_PRICE,
 	DEFAULT_IDENTITIES_AMOUNT,
 	DEFAULT_MAX_RETRIES,
+	DEFAULT_MIN_SEDA_PER_ACCOUNT,
 	DEFAULT_QUEUE_INTERVAL,
 	DEFAULT_SLEEP_BETWEEN_FAILED_TX,
 	DEFAULT_TRANSACTION_POLL_INTERVAL,
@@ -19,6 +21,8 @@ import { getAppVersions } from "./app-versions" with { type: "macro" };
 export const SedaChainConfigSchema = v.object({
 	rpc: v.string(),
 	mnemonic: v.string(),
+	accountAmounts: v.optional(v.number(), DEFAULT_ACCOUNT_AMOUNTS),
+	minSedaPerAccount: v.optional(v.bigint(), DEFAULT_MIN_SEDA_PER_ACCOUNT),
 	chainId: v.string(),
 	contract: v.optional(v.string(), "auto"),
 	identitiesAmount: v.optional(v.number(), DEFAULT_IDENTITIES_AMOUNT),
