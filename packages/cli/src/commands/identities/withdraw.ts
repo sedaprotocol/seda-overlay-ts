@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema/src/identity";
-import { formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, TransactionPriority, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
@@ -75,8 +75,11 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 					withdraw_address: withdrawAddress,
 				},
 			},
+			TransactionPriority.LOW,
 			undefined,
 			{ gas: "auto" },
+			0,
+			"withdraw",
 		);
 
 		if (response.isErr) {

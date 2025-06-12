@@ -58,6 +58,10 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		coreContractAddress: string,
 	): Promise<EligibilityCheckResult> {
 		const traceId = `${dataRequest.id}_${identityId}`;
+		logger.trace("Creating hash for eligibility check", {
+			id: traceId,
+		});
+
 		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
 		const messageSignature = this.identities.sign(identityId, messageHash);
 
@@ -200,7 +204,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		logger.trace("Checking eligibility", {
+		logger.trace(`Checking eligibility for ${this.config.sedaChain.identityIds.length} identity(ies)`, {
 			id: traceId,
 		});
 
@@ -211,7 +215,12 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			}
 
 			// If we don't have enough stake it doesn't make sense to check
-			if (!identityInfo.enabled) continue;
+			if (!identityInfo.enabled) {
+				logger.error(`Identity ${identityInfo.identityId} is not enabled, skipping eligibility check`, {
+					id: traceId,
+				});
+				continue;
+			};
 
 			eligibilityChecks.push(
 				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress).then(

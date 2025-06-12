@@ -8,15 +8,12 @@ import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";
 import { getDataRequests } from "../services/get-data-requests";
 
-const LIMIT = 10;
-
 type EventMap = {
 	"data-request": [DataRequest];
 };
 
 export class FetchTask extends EventEmitter<EventMap> {
 	private timerId: Maybe<Timer> = Maybe.nothing();
-	// private lastSeenIndex: Maybe<number> = Maybe.nothing();
 
 	constructor(
 		private pool: DataRequestPool,
@@ -28,7 +25,11 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 	async fetch(): Promise<Result<Unit, Error>> {
 		logger.info("🔎 Looking for Data Requests...");
-		const result = await getDataRequests(this.sedaChain, LIMIT);
+		const startFetchingTime = performance.now();
+		const result = await getDataRequests(this.sedaChain, this.config.node.drFetchLimit);
+		const endFetchingTime = performance.now();
+
+		logger.trace(`Fetching time: ${endFetchingTime - startFetchingTime}ms`);
 
 		if (result.isErr) {
 			return Result.err(result.error);
@@ -37,6 +38,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 		logger.debug(
 			`Fetched ${result.value.dataRequests.length} Data Requests in committing status (total: ${result.value.total})`,
 		);
+
 		const newDataRequests: DataRequest[] = [];
 		for (const dataRequest of result.value.dataRequests) {
 			if (this.pool.hasDataRequest(dataRequest.id)) {
@@ -63,10 +65,12 @@ export class FetchTask extends EventEmitter<EventMap> {
 			newDataRequests.push(dataRequest);
 		}
 
-		console.log('[DEBUG]: result.value.hasMore ::: ', result.value.hasMore);
-
 		if (result.value.hasMore) {
 			await this.fetch();
+		}
+
+		if (this.pool.size < result.value.total) {
+			logger.trace(`Data requests in memory pool: ${this.pool.size} vs on chain: ${result.value.total} (missing ${result.value.total - this.pool.size})`);
 		}
 
 		// Emit data requests sequentially after they are added to the pool to ensure a single process() call handles them

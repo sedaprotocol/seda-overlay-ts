@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createStakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits, parseTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, parseTokenUnits, TransactionPriority, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
@@ -16,11 +16,15 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 		const memo = Maybe.of(options.memo).map((value) => Buffer.from(value));
 		const attoSedaAmount = BigInt(parseTokenUnits(amount));
 
+		
 		const { config, sedaChain } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
 			network: options.network,
 		});
+		
+		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
 
 		const identityId = Maybe.of(config.sedaChain.identityIds.at(Number(index)));
 
@@ -76,8 +80,11 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 					memo: memo.map((v) => v.toString("base64")).unwrapOr(null),
 				},
 			},
+			TransactionPriority.LOW,
 			attoSedaAmount,
 			{ gas: "auto" },
+			0,
+			"stake",
 		);
 
 		if (response.isErr) {

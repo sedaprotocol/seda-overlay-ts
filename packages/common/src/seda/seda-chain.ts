@@ -29,17 +29,25 @@ type EventMap = {
 	"tx-success": [TransactionMessage, IndexedTx];
 };
 
+// Transactions with a high priority will be put in the front of the queue
+export enum TransactionPriority {
+	LOW = "low",
+	HIGH = "high",
+}
+
 export interface TransactionMessage {
 	id: string;
 	message: EncodeObject;
 	type: string;
 	gasOptions?: GasOptions;
-	signerIndex: number;
+	accountIndex: number;
+	priority: TransactionPriority;
 	traceId?: string;
 }
 
 export class SedaChain extends EventEmitter<EventMap> {
-	public transactionQueue: TransactionMessage[] = [];
+	public lowPriorityTransactionQueue: TransactionMessage[] = [];
+	public highPriorityTransactionQueue: TransactionMessage[] = [];
 	private queueCallbacks: Map<string, (value: Result<string, Error>) => void> = new Map();
 	private intervalIds: Timer[] = [];
 	private nonceId = 0;
@@ -83,7 +91,14 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	queueMessages(messages: TransactionMessage[]) {
 		for (const message of messages) {
-			this.transactionQueue.push(message);
+			if (message.priority === TransactionPriority.HIGH) {
+				// High priority transactions should be at the front of the queue
+				this.highPriorityTransactionQueue.push(message);
+				continue;
+			}
+
+			// Low priority transactions should be at the back of the queue
+			this.lowPriorityTransactionQueue.push(message);
 		}
 	}
 
@@ -95,13 +110,14 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return {
 			successCount: this.txSuccessCount,
 			failureCount: this.txFailureCount,
-			pendingCount: this.transactionQueue.length,
+			pendingCount: this.lowPriorityTransactionQueue.length + this.highPriorityTransactionQueue.length,
 			retryCount: this.txRetryCount,
 		};
 	}
 
 	async queueCosmosMessage(
 		message: EncodeObject,
+		priority: TransactionPriority,
 		gasOptions?: GasOptions,
 		accountIndex = 0,
 	): Promise<Result<string, Error>> {
@@ -114,7 +130,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 					message,
 					gasOptions,
 					type: "cosmos",
-					signerIndex: accountIndex,
+					priority,
+					accountIndex,
 				},
 			]);
 
@@ -124,19 +141,39 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	async queueSmartContractMessage(
 		executeMsg: ExecuteMsg,
+		priority: TransactionPriority,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
+		forcedAccountIndex?: number,
 		traceId?: string,
 	): Promise<Result<string, Error>> {
 		return new Promise(async (resolve) => {
 			this.nonceId += 1;
 
-			const signerIndex = this.nonceId % this.signers.length;
+			let accountIndex = this.nonceId % this.signers.length;
+
+			// let accountIndex = match(priority)
+			// 	// Use any signer for low priority transactions, except for the last one
+			// 	.with(TransactionPriority.LOW, () => this.nonceId % (this.signers.length - 1))
+			// 	// Use the last signer for high priority transactions
+			// 	// The last signer will then only do reveals
+			// 	.with(TransactionPriority.HIGH, () => this.signers.length - 1)
+			// 	.exhaustive();
+
+			// Some cases like staking, unstaking require a specific account index
+			// this is because most of the time index 0 has all the funds
+			if (forcedAccountIndex !== undefined) {
+				accountIndex = forcedAccountIndex;
+			}
+
+			logger.trace(`Using account index ${accountIndex} for transaction (forced: ${forcedAccountIndex})`, {
+				id: traceId,
+			});
 
 			const message = {
 				typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
 				value: {
-					sender: this.getSignerAddress(signerIndex),
+					sender: this.getSignerAddress(accountIndex),
 					contract: await this.getCoreContractAddress(),
 					funds: attachedAttoSeda ? [{ denom: "aseda", amount: attachedAttoSeda.toString() }] : [],
 					msg: Buffer.from(JSON.stringify(executeMsg)),
@@ -149,7 +186,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 					message,
 					gasOptions,
 					type: "contract",
-					signerIndex,
+					accountIndex,
+					priority,
 					traceId,
 				},
 			]);
@@ -201,10 +239,19 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 
 	private getNextTransaction(accountIndex: number): Maybe<TransactionMessage> {
-		const txMessageIndex = this.transactionQueue.findIndex((tx) => tx.signerIndex === accountIndex);
-		if (txMessageIndex === -1) return Maybe.nothing();
+		const txMessageIndex = this.highPriorityTransactionQueue.findIndex((tx) => tx.accountIndex === accountIndex);
 
-		const txMessage = this.transactionQueue.splice(txMessageIndex, 1)[0];
+		if (txMessageIndex === -1) {
+			const txMessageIndex = this.lowPriorityTransactionQueue.findIndex((tx) => tx.accountIndex === accountIndex);
+			// When there are not low priority transactions, return nothing
+			// NOTE: We could take just a random high priority transaction instead and rewrite the account index
+			if (txMessageIndex === -1) return Maybe.nothing();
+
+			const txMessage = this.lowPriorityTransactionQueue.splice(txMessageIndex, 1)[0];
+			return Maybe.just(txMessage);
+		}
+
+		const txMessage = this.highPriorityTransactionQueue.splice(txMessageIndex, 1)[0];
 		return Maybe.just(txMessage);
 	}
 
@@ -218,19 +265,21 @@ export class SedaChain extends EventEmitter<EventMap> {
 		const txMessage = this.getNextTransaction(accountIndex);
 		if (txMessage.isNothing) return;
 
-		logger.trace("Processing transaction", {
+		logger.trace(`Processing transaction on address ${this.getSignerAddress(txMessage.value.accountIndex)} and account index ${txMessage.value.accountIndex}`, {
 			id: txMessage.value.traceId,
 		});
 
 		const cosmosMessage = txMessage.value.message;
 		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
+
 		const result = await signAndSendTxSync(
 			this.config.sedaChain,
-			this.signerClients[txMessage.value.signerIndex],
-			this.getSignerAddress(txMessage.value.signerIndex),
+			this.signerClients[txMessage.value.accountIndex],
+			this.getSignerAddress(txMessage.value.accountIndex),
 			[cosmosMessage],
 			gasOption,
 			this.config.sedaChain.memo,
+			txMessage.value.traceId,
 		);
 
 		if (result.isErr) {
@@ -240,7 +289,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 				});
 
 				this.txRetryCount++;
-				this.transactionQueue.push(txMessage.value);
+
+				if (txMessage.value.priority === TransactionPriority.HIGH) {
+					this.highPriorityTransactionQueue.push(txMessage.value);
+				} else {
+					this.lowPriorityTransactionQueue.push(txMessage.value);
+				}
 				return;
 			}
 
@@ -303,9 +357,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			signerClients.push(signingClient.value.client);
 		}
 
-		// const signer = await Signer.fromConfig(config);
 		const protoClient = await createProtoQueryClient(config.sedaChain.rpc);
-		// const signingClient = await createSigningClient(signer, cacheSequenceNumber);
 		const wasmStorageClient = await createWasmQueryClient(config.sedaChain.rpc);
 
 		return Result.ok(new SedaChain(signers, signerClients, protoClient, wasmStorageClient, config));
@@ -313,18 +365,20 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	async waitForSmartContractTransaction(
 		executeMsg: ExecuteMsg,
+		priority: TransactionPriority,
 		attachedAttoSeda?: bigint,
 		gasOptions?: GasOptions,
+		forcedAccountIndex?: number,
 		traceId?: string,
 	): Promise<
 		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
 	> {
 		return new Promise(async (resolve) => {
-			logger.trace("Queueing smart contract transaction", {
+			logger.trace(`Queueing smart contract transaction account index ${forcedAccountIndex ?? "default"}`, {
 				id: traceId,
 			});
 
-			const transactionHash = await this.queueSmartContractMessage(executeMsg, attachedAttoSeda, gasOptions);
+			const transactionHash = await this.queueSmartContractMessage(executeMsg, priority, attachedAttoSeda, gasOptions, forcedAccountIndex, traceId);
 
 			if (transactionHash.isErr) {
 				logger.trace(`Transaction could not be queued for ${traceId}: ${transactionHash.error}`, {

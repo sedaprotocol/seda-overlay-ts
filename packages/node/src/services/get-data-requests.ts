@@ -1,4 +1,4 @@
-import type { GetDataRequestResponse, GetDataRequestsByStatusResponse } from "@sedaprotocol/core-contract-schema";
+import type { GetDataRequestResponse, GetDataRequestsByStatusResponse, QueryMsg } from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe, Result } from "true-myth";
@@ -20,16 +20,18 @@ export async function getDataRequests(
 	sedaChain: SedaChain,
 	limit: number,
 ): Promise<Result<DataRequestsResponse, Error>> {
-	const result = await sedaChain.queryContractSmart<GetDataRequestsByStatusResponse>({
+	const message: QueryMsg = {
 		get_data_requests_by_status: {
 			status: "committing",
 			limit,
-			last_seen_index: lastSeenIndex,
+			last_seen_index: lastSeenIndex ?? null,
 		},
-	});
+	};
+
+	const result = await sedaChain.queryContractSmart<GetDataRequestsByStatusResponse>(message);
 
 	if (result.isErr) {
-		return Result.err(result.error);
+		return Result.err(new Error(`Failed to fetch data requests: ${JSON.stringify(message)} ${result.error.message}`));
 	}
 
 	lastSeenIndex = result.value.last_seen_index;
