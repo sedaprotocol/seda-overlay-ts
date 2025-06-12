@@ -24,7 +24,7 @@ export async function getDataRequests(
 		get_data_requests_by_status: {
 			status: "committing",
 			limit,
-			last_seen_index: lastSeenIndex,
+			last_seen_index: lastSeenIndex ?? null,
 		},
 	});
 

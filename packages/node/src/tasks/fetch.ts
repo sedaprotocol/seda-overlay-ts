@@ -8,7 +8,7 @@ import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";
 import { getDataRequests } from "../services/get-data-requests";
 
-const LIMIT = 10;
+const LIMIT = 50;
 
 type EventMap = {
 	"data-request": [DataRequest];

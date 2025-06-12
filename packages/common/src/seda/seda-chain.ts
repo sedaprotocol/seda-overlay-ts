@@ -222,6 +222,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 			id: txMessage.value.traceId,
 		});
 
+		console.log('[DEBUG]: potato::: ', this.getSignerAddress(txMessage.value.signerIndex));
+
 		const cosmosMessage = txMessage.value.message;
 		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
 		const result = await signAndSendTxSync(
