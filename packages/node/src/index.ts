@@ -47,7 +47,10 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 
 	logger.info(`Talking to RPC: ${appConfig.sedaChain.rpc}`);
 	logger.info(`Using chain ID: ${appConfig.sedaChain.chainId}`);
-	logger.info(`Using SEDA address: ${sedaChain.value.getSignerAddress()}`);
+
+	for (const [accountIndex] of Array(appConfig.sedaChain.accountAmounts).entries()) {
+		logger.info(`Using SEDA address ${accountIndex}: ${sedaChain.value.getSignerAddress(accountIndex)}`);
+	}
 
 	sedaChain.value.start();
 
