@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createUnstakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
+import { formatTokenUnits, TransactionPriority, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
@@ -67,8 +67,11 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 					public_key: identityId.value,
 				},
 			},
+			TransactionPriority.LOW,
 			undefined,
 			{ gas: "auto" },
+			0,
+			"unstake",
 		);
 
 		if (response.isErr) {

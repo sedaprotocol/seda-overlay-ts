@@ -7,6 +7,7 @@ import { Maybe, Result } from "true-myth";
 import { IncorrectAccountSquence } from "./errors";
 import type { GasOptions } from "./gas-options";
 import type { SedaSigningCosmWasmClient } from "./signing-client";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 
 export async function signAndSendTxSync(
 	config: AppConfig["sedaChain"],
@@ -15,6 +16,7 @@ export async function signAndSendTxSync(
 	messages: EncodeObject[],
 	gasOptions: GasOptions = {},
 	memo = "Sent from SEDA Overlay 🥟",
+	traceId?: string,
 ): Promise<Result<string, IncorrectAccountSquence | Error>> {
 	const gasInput = gasOptions.gas ?? config.gas;
 
@@ -22,6 +24,10 @@ export async function signAndSendTxSync(
 	if (gasInput === "auto") {
 		const simulatedGas = await tryAsync(async () => signingClient.simulate(address, messages, memo));
 		if (simulatedGas.isErr) {
+			logger.trace("Simulated gas failed for transaction", {
+				id: traceId,
+			});
+
 			if (IncorrectAccountSquence.isError(simulatedGas.error)) {
 				// Reset sequence number when we get a mismatch
 				signingClient.accountInfo = Maybe.nothing();
@@ -51,6 +57,10 @@ export async function signAndSendTxSync(
 		gas: gas.toString(),
 		amount: [{ denom: "aseda", amount: feeAmount.toString() }],
 	};
+
+	logger.trace(`Using gas ${gas} with fee ${feeAmount} aseda`, {
+		id: traceId,
+	});
 
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {

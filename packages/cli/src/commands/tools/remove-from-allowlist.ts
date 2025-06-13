@@ -1,6 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
+import { TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 
 export const removeFromAllowlist = populateWithCommonOptions(new Command("remove-from-allowlist"))
 	.description("removes an identity from the allowlist")
@@ -18,7 +19,7 @@ export const removeFromAllowlist = populateWithCommonOptions(new Command("remove
 			remove_from_allowlist: {
 				public_key: identityId,
 			},
-		});
+		}, TransactionPriority.LOW, undefined, undefined, 0, "remove-from-allowlist");
 
 		if (response.isErr) {
 			logger.error(`Removing failed: ${response.error}`);

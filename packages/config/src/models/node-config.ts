@@ -3,6 +3,7 @@ import {
 	DEFAULT_BLOCK_LOCALHOST,
 	DEFAULT_DEBUG,
 	DEFAULT_FORCE_SYNC_VM,
+	DEFAULT_LOG_LEVEL,
 	DEFAULT_LOG_ROTATION_ENABLED,
 	DEFAULT_LOG_ROTATION_LEVEL,
 	DEFAULT_LOG_ROTATION_MAX_FILES,
@@ -14,7 +15,7 @@ import {
 	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
 	DEFAULT_TOTAL_HTTP_TIME_LIMIT,
-	DEFAULT_LOG_LEVEL,
+	DEFAULT_FETCH_LIMIT,
 } from "../constants";
 
 export const NodeConfigSchema = v.object({
@@ -34,6 +35,7 @@ export const NodeConfigSchema = v.object({
 	logRotationMaxSize: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_SIZE),
 	requestTimeout: v.optional(v.number(), DEFAULT_REQUEST_TIMEOUT),
 	totalHttpTimeLimit: v.optional(v.number(), DEFAULT_TOTAL_HTTP_TIME_LIMIT),
+	drFetchLimit: v.optional(v.number(), DEFAULT_FETCH_LIMIT),
 });
 
 export type NodeConfig = v.InferOutput<typeof NodeConfigSchema>;

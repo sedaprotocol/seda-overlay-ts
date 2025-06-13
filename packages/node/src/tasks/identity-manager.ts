@@ -1,4 +1,4 @@
-import { debouncedInterval, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { debouncedInterval, formatTokenUnits, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -123,7 +123,7 @@ export class IdentityManagerTask {
 					},
 				};
 
-				await this.sedaChain.queueCosmosMessage(sendMsg, undefined, 0);
+				await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
 
 				logger.info(
 					`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,

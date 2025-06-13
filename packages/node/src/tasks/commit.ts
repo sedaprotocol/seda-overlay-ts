@@ -4,7 +4,7 @@ import {
 	createRevealBodyHash,
 	createRevealMessageHash,
 } from "@sedaprotocol/core-contract-schema/src/commit";
-import { RevealStarted, type SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { RevealStarted, TransactionPriority, type SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -70,6 +70,8 @@ export async function commitDr(
 				public_key: identityId,
 			},
 		},
+		TransactionPriority.LOW,
+		undefined,
 		undefined,
 		undefined,
 		traceId,
