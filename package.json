@@ -1,7 +1,7 @@
 {
 	"name": "overlay-node-ts",
 	"module": "index.ts",
-	"version": "1.0.0-rc.17-multiple-accounts-with-logs-and-100-limit-fetch-50-with-high-priority-txs-and-fetch-logs-v2",
+	"version": "1.0.0-rc.17-multiple-accounts-with-logs-and-100-limit-fetch-50-with-high-priority-txs-and-fetch-logs-v4-caching",
 	"type": "module",
 	"license": "AGPL-3.0",
 	"workspaces": [

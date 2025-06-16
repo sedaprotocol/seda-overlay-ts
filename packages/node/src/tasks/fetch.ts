@@ -39,11 +39,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 		span.setAttribute("drFetchLimit", this.config.node.drFetchLimit);
 
 		logger.info("🔎 Looking for Data Requests...");
-		const startFetchingTime = performance.now();
 		const result = await getDataRequests(this.sedaChain, this.config.node.drFetchLimit);
-		const endFetchingTime = performance.now();
-
-		logger.trace(`Fetching time: ${endFetchingTime - startFetchingTime}ms`);
 
 		if (result.isErr) {
 			span.recordException(result.error);
@@ -83,8 +79,8 @@ export class FetchTask extends EventEmitter<EventMap> {
 			this.pool.insertDataRequest(dataRequest);
 			newDataRequests.push(dataRequest);
 		}
-
 		span.setAttribute("hasMore", result.value.hasMore);
+		span.setAttribute("lastSeenIndex", result.value.lastSeenIndex ? JSON.stringify(result.value.lastSeenIndex) : "0");
 
 		if (result.value.hasMore) {
 			await this.fetch(span);
