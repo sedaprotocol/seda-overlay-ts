@@ -5,12 +5,14 @@ import { Maybe, Result } from "true-myth";
 import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 import { Cache } from "../services/cache";
+import { DebouncedPromise } from "./debounce-promise";
 
 interface DataRequestsResponse {
 	dataRequests: DataRequest[];
 	total: number;
 	isPaused: boolean;
 	hasMore: boolean;
+	lastSeenIndex: LastSeenIndex;
 }
 
 type LastSeenIndex = GetDataRequestsByStatusResponse["last_seen_index"];
@@ -35,14 +37,19 @@ export async function getDataRequests(
 	}
 
 	lastSeenIndex = result.value.last_seen_index;
-
+	console.log("lastSeenIndex", lastSeenIndex);
 	const dataRequests = result.value.data_requests.map((request) => transformDataRequestFromContract(request));
+
+	for (const dr of dataRequests) {
+		dataRequestCache.set(dr.id, dr);
+	}
 
 	return Result.ok({
 		dataRequests,
 		total: result.value.total,
 		isPaused: result.value.is_paused,
 		hasMore: Maybe.of(lastSeenIndex).isJust,
+		lastSeenIndex,
 	});
 }
 
@@ -50,46 +57,48 @@ export async function getDataRequests(
 // Create a cache instance for data requests
 const dataRequestCache = new Cache<DataRequest>(3_000);
 
+// Debounce promises for data requests, making sure only one request goes through for each drId
+const dataRequestDebouncedPromise = new DebouncedPromise<Result<Maybe<DataRequest>, Error>>();
+
 export async function getDataRequest(drId: string, sedaChain: SedaChain): Promise<Result<Maybe<DataRequest>, Error>> {
-	const cachedValue = dataRequestCache.get(drId);
+	return dataRequestDebouncedPromise.execute(drId, async () => {
+		const cachedValue = dataRequestCache.get(drId);
+		
+		if (cachedValue.isJust) {
+			logger.trace("Data request data fetched from cache", {
+				id: drId,
+			});
 
-	logger.trace("Getting data request", {
-		id: drId,
-	});
+			return Result.ok(cachedValue);
+		}
 
-	if (cachedValue.isJust) {
-		logger.trace("Data request data fetched from cache", {
+		logger.trace("Data request data not found in cache, fetching from chain", {
 			id: drId,
 		});
 
-		return Result.ok(cachedValue);
-	}
+		const result = await sedaChain.queryContractSmart<GetDataRequestResponse>({
+			get_data_request: {
+				dr_id: drId,
+			},
+		});
 
-	logger.trace("Data request data not found in cache, fetching from chain", {
-		id: drId,
-	});
+		logger.trace("Data request data fetched from chain", {
+			id: drId,
+		});
 
-	const result = await sedaChain.queryContractSmart<GetDataRequestResponse>({
-		get_data_request: {
-			dr_id: drId,
-		},
-	});
+		if (result.isErr) {
+			if (result.error.message.includes("not found")) {
+				return Result.ok(Maybe.nothing());
+			}
+			return Result.err(result.error);
+		}
 
-	logger.trace("Data request data fetched from chain", {
-		id: drId,
-	});
-
-	if (result.isErr) {
-		if (result.error.message.includes("not found")) {
+		if (!result.value) {
 			return Result.ok(Maybe.nothing());
 		}
 
-		return Result.err(result.error);
-	}
-
-	const dr = Maybe.of(result.value).map((v) => transformDataRequestFromContract(v));
-	if (dr.isNothing) return Result.ok(Maybe.nothing());
-
-	dataRequestCache.set(drId, dr.value);
-	return Result.ok(dr);
+		const dr = transformDataRequestFromContract(result.value);
+		dataRequestCache.set(drId, dr);
+		return Result.ok(Maybe.of(dr));
+	});
 }
