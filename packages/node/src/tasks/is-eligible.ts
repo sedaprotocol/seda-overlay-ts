@@ -12,6 +12,7 @@ import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } fr
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
+import { trace, type Tracer, context, type Span } from "@opentelemetry/api";
 
 type EventMap = {
 	eligible: [DataRequestId, string];
@@ -23,6 +24,7 @@ type EventMap = {
 export class EligibilityTask extends EventEmitter<EventMap> {
 	private intervalId: Timer;
 	private isProcessing = false;
+	private eligibilityTracer: Tracer;
 
 	constructor(
 		private pool: DataRequestPool,
@@ -31,6 +33,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		private sedaChain: SedaChain,
 	) {
 		super();
+		this.eligibilityTracer = trace.getTracer("eligibility-task");
 
 		this.intervalId = debouncedInterval(async () => {
 			await this.process();
@@ -38,26 +41,41 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 	}
 
 	stop() {
+		const span = this.eligibilityTracer.startSpan("eligibility-task-stop");
 		clearInterval(this.intervalId);
+		span.end();
 	}
 
 	private async checkIdentityEligibilityForDataRequest(
 		dataRequest: DataRequest,
 		identityId: string,
 		coreContractAddress: string,
+		parentSpan: Span,
 	): Promise<{ identityId: string; eligible: boolean }> {
 		const traceId = `${dataRequest.id}_${identityId}`;
+		const ctx = trace.setSpan(context.active(), parentSpan);
+		const span = this.eligibilityTracer.startSpan("check-identity-eligibility", undefined, ctx);
+
+		span.setAttribute("dr_id", dataRequest.id);
+		span.setAttribute("identity_id", identityId);
+		span.setAttribute("core_contract_address", coreContractAddress);
+
 		logger.trace("Creating hash for eligibility check", {
 			id: traceId,
 		});
 
 		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
+		const signSpan = this.eligibilityTracer.startSpan("sign-eligibility-message", undefined, trace.setSpan(context.active(), span));
 		const messageSignature = this.identities.sign(identityId, messageHash);
+		signSpan.end();
 
 		if (messageSignature.isErr) {
 			logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
 				id: traceId,
 			});
+			span.recordException(messageSignature.error);
+			span.setAttribute("error", "signature_failed");
+			span.end();
 
 			return {
 				eligible: false,
@@ -69,16 +87,21 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			id: traceId,
 		});
 
+		const querySpan = this.eligibilityTracer.startSpan("query-contract-eligibility", undefined, trace.setSpan(context.active(), span));
 		const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
 			is_executor_eligible: {
 				data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
 			},
 		});
+		querySpan.end();
 
 		if (response.isErr) {
 			logger.error(`Could not fetch eligibility status for data request: ${response.error}`, {
 				id: traceId,
 			});
+			span.recordException(response.error);
+			span.setAttribute("error", "query_failed");
+			span.end();
 
 			return {
 				eligible: false,
@@ -91,11 +114,18 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		});
 
 		// Check if the data request is still in Commit Stage on chain
+		// TODO: We can optimize this by only fetching if it's a bit stale...
+		const drCheckSpan = this.eligibilityTracer.startSpan("check-dr-status", undefined, trace.setSpan(context.active(), span));
 		const drFromChain = await getDataRequest(dataRequest.id, this.sedaChain);
+		drCheckSpan.end();
+
 		if (drFromChain.isErr) {
 			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`, {
 				id: traceId,
 			});
+			span.recordException(drFromChain.error);
+			span.setAttribute("error", "dr_fetch_failed");
+			span.end();
 
 			return {
 				eligible: false,
@@ -108,6 +138,8 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				logger.info("🏁 Data Request no longer exists on chain - likely resolved", {
 					id: traceId,
 				});
+				span.setAttribute("status", "resolved");
+				span.end();
 
 				return {
 					eligible: false,
@@ -123,6 +155,9 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				logger.debug("💨 Data Request already in reveal stage - skipping eligibility check", {
 					id: traceId,
 				});
+				span.setAttribute("status", "in_reveal_stage");
+				span.end();
+
 				return {
 					eligible: false,
 					identityId,
@@ -130,14 +165,21 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			}
 		}
 
+		span.setAttribute("eligible", response.value);
+		span.end();
+
 		return {
 			eligible: response.value,
 			identityId,
 		};
 	}
 
-	async checkEligibility(dataRequest: DataRequest) {
+	async checkEligibility(dataRequest: DataRequest, parentSpan: Span) {
 		const traceId = `${dataRequest.id}`;
+		const ctx = trace.setSpan(context.active(), parentSpan);
+		const span = this.eligibilityTracer.startSpan("check-eligibility", undefined, ctx);
+
+		span.setAttribute("dr_id", dataRequest.id);
 
 		const coreContractAddress = await this.sedaChain.getCoreContractAddress();
 		// We check in parallel to speed things up
@@ -148,7 +190,9 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.debug("Data Request is stale, refreshing from chain", {
 				id: traceId,
 			});
+			const refreshSpan = this.eligibilityTracer.startSpan("refresh-stale-dr", undefined, trace.setSpan(context.active(), span));
 			const result = await getDataRequest(dataRequest.id, this.sedaChain);
+			refreshSpan.end();
 
 			const isResolved = result.match({
 				Ok: (refreshedDr) => {
@@ -157,7 +201,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 						logger.info("✅ Data Request has been resolved on chain", {
 							id: traceId,
 						});
-
+						span.setAttribute("status", "resolved");
 						return true;
 					}
 
@@ -167,12 +211,16 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Could not fetch information about dr: ${error}`, {
 						id: traceId,
 					});
-
+					span.recordException(error);
+					span.setAttribute("error", "refresh_failed");
 					return false;
 				},
 			});
 
-			if (isResolved) return;
+			if (isResolved) {
+				span.end();
+				return;
+			}
 		}
 
 		// When the data request is in the reveal stage we can't process it
@@ -184,14 +232,19 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					id: traceId,
 				});
 				this.pool.deleteDataRequest(dataRequest.id);
+				span.setAttribute("status", "in_reveal_stage");
+				span.end();
 				return;
 			}
+			span.end();
 			return;
 		}
 
 		logger.trace(`Checking eligibility for ${this.config.sedaChain.identityIds.length} identity(ies)`, {
 			id: traceId,
 		});
+
+		span.setAttribute("total_identities", this.config.sedaChain.identityIds.length);
 
 		for (const identityInfo of this.identities.all()) {
 			// We already create an instance for this, no need to check eligibility
@@ -205,10 +258,10 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					id: traceId,
 				});
 				continue;
-			};
+			}
 
 			eligibilityChecks.push(
-				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress).then(
+				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress, span).then(
 					(response) => {
 						if (response.eligible) {
 							this.pool.insertIdentityDataRequest(
@@ -225,19 +278,24 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		}
 
 		await Promise.all(eligibilityChecks);
+		span.end();
 	}
 
 	async process() {
 		if (this.isProcessing) return;
 		this.isProcessing = true;
 
+		const span = this.eligibilityTracer.startSpan("process-eligibility");
+		span.setAttribute("pool_size", this.pool.size);
+
 		const promises = [];
 
 		for (const dataRequest of this.pool.allDataRequests()) {
-			promises.push(this.checkEligibility(dataRequest));
+			promises.push(this.checkEligibility(dataRequest, span));
 		}
 
 		await Promise.all(promises);
 		this.isProcessing = false;
+		span.end();
 	}
 }

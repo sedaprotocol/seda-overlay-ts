@@ -1,3 +1,4 @@
+import "./telemetry";
 export { isBrowser } from "./services/is-browser";
 export * from "./services/try-async";
 export * from "./services/timer";
