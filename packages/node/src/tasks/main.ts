@@ -17,6 +17,7 @@ import {
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
+import { trace, type Tracer } from "@opentelemetry/api";
 
 // Embed worker code so we can ouput a single binary
 const executeWorkerCode = getEmbeddedVmWorkerCode();
@@ -66,6 +67,7 @@ export class MainTask {
 	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private syncExecuteWorker: Maybe<WorkerPool> = Maybe.nothing();
+	private mainTracer: Tracer;
 
 	// These are the actual data requests we are currently processing and need to be completed before we move on
 	public activeDataRequestTasks = 0;
@@ -82,8 +84,8 @@ export class MainTask {
 		private config: AppConfig,
 		private sedaChain: SedaChain,
 	) {
+		this.mainTracer = trace.getTracer("main-task");
 		this.identityPool = new IdentityPool(config);
-
 		this.fetchTask = new FetchTask(this.pool, config, sedaChain);
 		this.identityManagerTask = new IdentityManagerTask(this.identityPool, config, sedaChain);
 		this.eligibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
@@ -129,10 +131,11 @@ export class MainTask {
 		const dataRequest = Maybe.of(this.dataRequestsToProcess.shift());
 		if (dataRequest.isNothing) return;
 
+
+
 		dataRequest.value.on("done", () => {
 			this.activeDataRequestTasks -= 1;
 			this.completedDataRequests += 1;
-
 			this.processNextDr();
 		});
 
@@ -141,6 +144,10 @@ export class MainTask {
 	}
 
 	async start() {
+		const span = this.mainTracer.startSpan("main-task-start");
+		span.setAttribute("max_concurrent_requests", this.config.node.maxConcurrentRequests);
+		span.setAttribute("process_dr_interval", this.config.node.processDrInterval);
+
 		await this.identityManagerTask.start();
 		this.fetchTask.start();
 
@@ -149,6 +156,10 @@ export class MainTask {
 		});
 
 		this.eligibilityTask.on("eligible", async (drId, eligibilityHeight, identityId) => {
+			const eligibleSpan = this.mainTracer.startSpan("data-request-eligible");
+			eligibleSpan.setAttribute("dr_id", drId);
+			eligibleSpan.setAttribute("identity_id", identityId);
+
 			const drTask = new DataRequestTask(
 				this.pool,
 				this.identityPool,
@@ -162,12 +173,19 @@ export class MainTask {
 				this.syncExecuteWorker,
 			);
 			this.dataRequestsToProcess.push(drTask);
+			eligibleSpan.end();
 			this.processNextDr();
 		});
+
+		span.end();
 	}
 
 	stop() {
+		const span = this.mainTracer.startSpan("main-task-stop");
+		span.setAttribute("active_tasks", this.activeDataRequestTasks);
+		span.setAttribute("completed_requests", this.completedDataRequests);
 		this.fetchTask.stop();
+		span.end();
 	}
 
 	getTransactionStats() {

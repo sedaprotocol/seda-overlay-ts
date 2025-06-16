@@ -2,6 +2,7 @@ import {
 	AlreadyCommitted,
 	AlreadyRevealed,
 	DataRequestExpired,
+	DataRequestNotFound,
 	JSONStringify,
 	RevealMismatch,
 	RevealStarted,
@@ -23,6 +24,7 @@ import { getDataRequest } from "./services/get-data-requests";
 import { commitDr } from "./tasks/commit";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
+import { trace, type Tracer, context, type Span } from "@opentelemetry/api";
 
 type EventMap = {
 	done: [];
@@ -37,6 +39,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private executeDrIntervalId: Maybe<Timer> = Maybe.nothing();
 	private isProcessing = false;
 	private commitHash: Buffer = Buffer.alloc(0);
+	private drTracer: Tracer;
+	private rootSpan: Span;
+	private rootContext: ReturnType<typeof context.active>;
 
 	constructor(
 		private pool: DataRequestPool,
@@ -53,12 +58,19 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		super();
 
 		this.name = `${drId}_${identityId}`;
+		this.drTracer = trace.getTracer("data-request-task");
+		this.rootSpan = this.drTracer.startSpan("data-request-lifecycle");
+		this.rootContext = trace.setSpan(context.active(), this.rootSpan);
+		this.rootSpan.setAttribute("dr_id", this.drId);
+		this.rootSpan.setAttribute("identity_id", this.identityId);
+		this.rootSpan.setAttribute("start_time", new Date().toISOString());
 	}
 
 	private transitionStatus(toStatus: IdentityDataRequestStatus) {
 		this.retries = 0;
 		this.status = toStatus;
 		this.pool.insertIdentityDataRequest(this.drId, this.identityId, this.eligibilityHeight, Maybe.nothing(), toStatus);
+		this.rootSpan.setAttribute("current_status", toStatus);
 	}
 
 	private stop() {
@@ -75,10 +87,19 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		// We only delete the identity, since we cannot be sure that the data request is still being used somewhere else
 		this.pool.deleteIdentityDataRequest(this.drId, this.identityId);
 
+		this.rootSpan.setAttribute("end_time", new Date().toISOString());
+		this.rootSpan.setAttribute("final_status", this.status);
+		this.rootSpan.setAttribute("total_retries", this.retries);
+		this.rootSpan.end();
+
 		this.emit("done");
 	}
 
 	public start() {
+		const span = this.drTracer.startSpan("start-data-request", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+
 		logger.trace("Starting data request task", {
 			id: this.name,
 		});
@@ -96,14 +117,23 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				await this.process();
 			}, this.appConfig.intervals.drTask),
 		);
+
+		span.end();
 	}
 
 	async process(): Promise<void> {
+		const span = this.drTracer.startSpan("process-data-request", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+		span.setAttribute("status", this.status);
+		span.setAttribute("retries", this.retries);
+
 		try {
 			if (this.isProcessing) {
 				logger.debug(`Already processing, skipping while on status: ${this.status}`, {
 					id: this.name,
 				});
+				span.end();
 				return;
 			}
 			this.isProcessing = true;
@@ -116,7 +146,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.info("✅ Data Request has been resolved on chain", {
 					id: this.name,
 				});
-
+				span.setAttribute("final_status", "resolved");
+				span.end();
 				this.stop();
 				return;
 			}
@@ -127,6 +158,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 					id: this.name,
 				});
 				this.status = IdentityDataRequestStatus.Failed;
+				span.setAttribute("final_status", "failed");
+				span.setAttribute("failure_reason", "max_retries_exceeded");
+				span.end();
 				this.stop();
 				return;
 			}
@@ -140,12 +174,17 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			} else if (this.status === IdentityDataRequestStatus.ReadyToBeRevealed) {
 				await this.handleReveal(dataRequest.value);
 			} else if (this.status === IdentityDataRequestStatus.Revealed) {
+				span.setAttribute("final_status", "revealed");
+				span.end();
 				this.stop();
 				return;
 			} else {
 				logger.error(`Unimplemented status ${this.status}, aborting data-request`, {
 					id: this.name,
 				});
+				span.setAttribute("final_status", "error");
+				span.setAttribute("error_reason", "unimplemented_status");
+				span.end();
 				this.stop();
 				return;
 			}
@@ -155,12 +194,21 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while processing data request: ${error}`, {
 				id: this.name,
 			});
+			span.recordException(error as Error);
+			span.setAttribute("final_status", "error");
+			span.setAttribute("error_reason", "uncaught_exception");
 		} finally {
 			this.isProcessing = false;
+			span.end();
 		}
 	}
 
 	async handleRefreshDataRequestData(drId: string) {
+		const span = this.drTracer.startSpan("refresh-data-request", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+		span.setAttribute("current_status", this.status);
+
 		logger.debug(`🔄 Fetching latest info (status: ${this.status})...`, {
 			id: this.name,
 		});
@@ -171,9 +219,15 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while fetching data request: ${result.error}`, {
 				id: this.drId,
 			});
+			span.recordException(result.error);
+			span.setAttribute("error", "fetch_failed");
 
 			this.retries += 1;
+			const sleepSpan = this.drTracer.startSpan("sleep-between-retries", undefined, trace.setSpan(context.active(), span));
+			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+			sleepSpan.end();
+			span.end();
 			return;
 		}
 
@@ -181,15 +235,22 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.debug("Data Request not found on chain, deleting from pool - likely resolved", {
 				id: this.name,
 			});
+			span.setAttribute("status", "resolved");
 			this.pool.deleteDataRequest(drId);
+			span.end();
 			this.stop();
 			return;
 		}
 
 		this.pool.insertDataRequest(result.value.value);
+		span.end();
 	}
 
 	async handleExecution(dataRequest: DataRequest) {
+		const span = this.drTracer.startSpan("execute-data-request", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+
 		logger.info("💫 Executing..", {
 			id: this.name,
 		});
@@ -201,6 +262,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error("Invariant found, data request task uses a data request that does not exist", {
 				id: this.name,
 			});
+			span.setAttribute("error", "data_request_not_found");
+			span.end();
 			this.stop();
 			return;
 		}
@@ -209,6 +272,8 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error("Invariant found, data request task uses an identity that does not exist", {
 				id: this.name,
 			});
+			span.setAttribute("error", "identity_not_found");
+			span.end();
 			this.stop();
 			return;
 		}
@@ -229,7 +294,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while executing: ${vmResult.error}`, {
 				id: this.name,
 			});
-
+			span.recordException(vmResult.error);
+			span.setAttribute("error", "execution_failed");
+			span.end();
 			return;
 		}
 
@@ -255,6 +322,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(errMsg, {
 				id: this.name,
 			});
+			span.setAttribute("error", "reveal_too_large");
+			span.setAttribute("reveal_size", revealSize);
+			span.setAttribute("max_size", maxRevealSize);
 		}
 
 		this.executionResult = Maybe.just<ExecutionResult>({
@@ -270,19 +340,33 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			},
 		});
 
+		span.setAttribute("gas_used", vmResult.value.gasUsed.toString());
+		span.setAttribute("exit_code", exitCode);
+		span.setAttribute("reveal_size", reveal.byteLength);
+		span.setAttribute("proxy_keys_used", vmResult.value.usedProxyPublicKeys.length);
+		span.setAttribute("stderr", stderr);
+		span.setAttribute("stdout", vmResult.value.stdout);
+
 		this.transitionStatus(IdentityDataRequestStatus.Executed);
 		logger.info("💫 Executed Data Request", {
 			id: this.name,
 		});
+		span.end();
 	}
 
 	async handleCommit(dataRequest: DataRequest) {
+		const span = this.drTracer.startSpan("commit-data-request", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+
 		logger.info("📩 Committing...", {
 			id: this.name,
 		});
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
+			span.setAttribute("error", "no_execution_result");
+			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
 			return;
 		}
@@ -301,7 +385,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.warn("RPC returned AlreadyCommitted. Moving to next stage with possibility of failing..", {
 					id: this.name,
 				});
-
+				span.setAttribute("status", "already_committed");
+				span.recordException(result.error);
+				span.end();
 				this.transitionStatus(IdentityDataRequestStatus.Committed);
 				return;
 			}
@@ -310,6 +396,19 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.warn("Data request was expired", {
 					id: this.name,
 				});
+				span.setAttribute("error", "data_request_expired");
+				span.recordException(result.error);
+				span.end();
+				this.stop();
+				return;
+			}
+
+			if (result.error instanceof DataRequestNotFound) {
+				logger.warn("Data request was not found while committing", {
+					id: this.name,
+				});
+				span.setAttribute("error", "data_request_not_found");
+				span.end();
 				this.stop();
 				return;
 			}
@@ -318,6 +417,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.warn("Reveal stage has started, cannot commit", {
 					id: this.name,
 				});
+				span.setAttribute("error", "reveal_started");
+				span.recordException(result.error);
+				span.end();
 				this.stop();
 				return;
 			}
@@ -325,45 +427,70 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Failed to commit: ${result.error}`, {
 				id: this.name,
 			});
-
+			span.recordException(result.error);
+			span.setAttribute("error", "commit_failed");
+			const sleepSpan = this.drTracer.startSpan("sleep-between-retries", undefined, trace.setSpan(context.active(), span));
+			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+			sleepSpan.end();
 			this.retries += 1;
+			span.end();
 			return;
 		}
 
 		this.transitionStatus(IdentityDataRequestStatus.Committed);
 		this.commitHash = result.value;
+		span.setAttribute("commit_hash", result.value.toString("hex"));
 		logger.info("📩 Committed", {
 			id: this.name,
 		});
+		span.end();
 	}
 
 	async handleCheckReadyToBeRevealed(drId: string) {
+		const span = this.drTracer.startSpan("check-ready-for-reveal", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+
 		await this.handleRefreshDataRequestData(drId);
 
 		const dataRequest = this.pool.getDataRequest(drId);
 
 		// Rest will be handled by the process() function
 		if (dataRequest.isNothing) {
+			span.setAttribute("status", "data_request_not_found");
+			span.end();
 			return;
 		}
 
 		if (!isDrInRevealStage(dataRequest.value)) {
+			span.setAttribute("status", "not_ready_for_reveal");
+			const sleepSpan = this.drTracer.startSpan("sleep-waiting-for-reveal", undefined, trace.setSpan(context.active(), span));
+			sleepSpan.setAttribute("sleep_time", this.appConfig.intervals.statusCheck);
 			await sleep(this.appConfig.intervals.statusCheck);
+			sleepSpan.end();
+			span.end();
 			return;
 		}
 
+		span.setAttribute("status", "ready_for_reveal");
 		this.transitionStatus(IdentityDataRequestStatus.ReadyToBeRevealed);
+		span.end();
 	}
 
-	// TODO: check if we remove the dataRequest parameter
 	async handleReveal(_dataRequest: DataRequest) {
+		const span = this.drTracer.startSpan("reveal-data-request", undefined, this.rootContext);
+		span.setAttribute("dr_id", this.drId);
+		span.setAttribute("identity_id", this.identityId);
+
 		logger.info("📨 Revealing...", {
 			id: this.name,
 		});
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to reveal, switching status back to initial");
+			span.setAttribute("error", "no_execution_result");
+			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
 			return;
 		}
@@ -380,10 +507,12 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		if (result.isErr) {
 			if (result.error.error instanceof AlreadyRevealed) {
 				this.transitionStatus(IdentityDataRequestStatus.Revealed);
+				span.setAttribute("status", "already_revealed");
 
 				logger.warn("Chain responded with AlreadyRevealed, updating inner state to reflect", {
 					id: this.name,
 				});
+				span.end();
 				return;
 			}
 
@@ -391,24 +520,50 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error(
 					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
 				);
+				span.setAttribute("error", "reveal_mismatch");
+				span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
+				span.setAttribute("chain_commit_hash", result.error.commitmentHash.toString("hex"));
+				span.end();
+				this.stop();
+				return;
+			}
+
+			if (result.error.error instanceof DataRequestNotFound) {
+				logger.warn("Data request was not found while resolving reveal", {
+					id: this.name,
+				});
+				span.setAttribute("error", "data_request_not_found");
+				span.end();
+				this.stop();
+				return;
 			}
 
 			if (result.error instanceof DataRequestExpired) {
 				logger.warn("Data request was expired", {
 					id: this.name,
 				});
+				span.setAttribute("error", "data_request_expired");
+				span.end();
 				this.stop();
 				return;
 			}
 
+			span.recordException(result.error.error);
+			span.setAttribute("error", "reveal_failed");
+			const sleepSpan = this.drTracer.startSpan("sleep-between-retries", undefined, trace.setSpan(context.active(), span));
+			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+			sleepSpan.end();
 			this.retries += 1;
+			span.end();
 			return;
 		}
 
 		this.transitionStatus(IdentityDataRequestStatus.Revealed);
+		span.setAttribute("status", "revealed");
 		logger.info("📨 Revealed", {
 			id: this.name,
 		});
+		span.end();
 	}
 }
