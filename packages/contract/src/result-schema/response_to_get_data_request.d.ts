@@ -5,7 +5,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type Nullable_DataRequest = DataRequest | null;
+export type Nullable_DataRequestResponse = DataRequestResponse | null;
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
  *
@@ -30,7 +30,7 @@ export type Uint128 = string;
 /**
  * Represents a data request at creation time
  */
-export interface DataRequest {
+export interface DataRequestResponse {
   /**
    * Commitments submitted by executors
    */

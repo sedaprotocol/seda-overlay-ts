@@ -1,6 +1,6 @@
 {
 	"contract_name": "seda-contract",
-	"contract_version": "1.0.1",
+	"contract_version": "1.0.11",
 	"idl_version": "1.0.0",
 	"instantiate": {
 		"$schema": "http://json-schema.org/draft-07/schema#",
@@ -10,6 +10,16 @@
 		"properties": {
 			"chain_id": {
 				"type": "string"
+			},
+			"dr_config": {
+				"anyOf": [
+					{
+						"$ref": "#/definitions/DrConfig"
+					},
+					{
+						"type": "null"
+					}
+				]
 			},
 			"owner": {
 				"type": "string"
@@ -24,22 +34,91 @@
 					}
 				]
 			},
-			"timeout_config": {
-				"anyOf": [
-					{
-						"$ref": "#/definitions/TimeoutConfig"
-					},
-					{
-						"type": "null"
-					}
-				]
-			},
 			"token": {
 				"type": "string"
 			}
 		},
 		"additionalProperties": false,
 		"definitions": {
+			"DrConfig": {
+				"description": "Governance-controlled timeout configuration parameters",
+				"type": "object",
+				"required": [
+					"backup_delay_in_blocks",
+					"commit_timeout_in_blocks",
+					"consensus_filter_limit_in_bytes",
+					"dr_reveal_size_limit_in_bytes",
+					"exec_input_limit_in_bytes",
+					"memo_limit_in_bytes",
+					"payback_address_limit_in_bytes",
+					"reveal_timeout_in_blocks",
+					"seda_payload_limit_in_bytes",
+					"tally_input_limit_in_bytes"
+				],
+				"properties": {
+					"backup_delay_in_blocks": {
+						"description": "This is the delay before the backup executors are allowed to start executing the data request.",
+						"type": "integer",
+						"format": "uint8",
+						"minimum": 1.0
+					},
+					"commit_timeout_in_blocks": {
+						"description": "Number of blocks after which a data request is timed out while waiting for commits.",
+						"type": "integer",
+						"format": "uint8",
+						"minimum": 1.0
+					},
+					"consensus_filter_limit_in_bytes": {
+						"description": "The maximum size of the consensus filter.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"dr_reveal_size_limit_in_bytes": {
+						"description": "The maximum size of all the reveals in a data request.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"exec_input_limit_in_bytes": {
+						"description": "The maximum size of the input for the execution program.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"memo_limit_in_bytes": {
+						"description": "The maximum size of the memo.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"payback_address_limit_in_bytes": {
+						"description": "The maximum size of the payback address.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"reveal_timeout_in_blocks": {
+						"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
+						"type": "integer",
+						"format": "uint8",
+						"minimum": 1.0
+					},
+					"seda_payload_limit_in_bytes": {
+						"description": "The maximum size of the SEDA payload.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"tally_input_limit_in_bytes": {
+						"description": "The maximum size of the input for the tally program.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					}
+				},
+				"additionalProperties": false
+			},
 			"StakingConfig": {
 				"description": "Governance-controlled staking configuration parameters",
 				"type": "object",
@@ -56,26 +135,6 @@
 								"$ref": "#/definitions/Uint128"
 							}
 						]
-					}
-				},
-				"additionalProperties": false
-			},
-			"TimeoutConfig": {
-				"description": "Governance-controlled timeout configuration parameters",
-				"type": "object",
-				"required": ["commit_timeout_in_blocks", "reveal_timeout_in_blocks"],
-				"properties": {
-					"commit_timeout_in_blocks": {
-						"description": "Number of blocks after which a data request is timed out while waiting for commits.",
-						"type": "integer",
-						"format": "uint64",
-						"minimum": 0.0
-					},
-					"reveal_timeout_in_blocks": {
-						"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
-						"type": "integer",
-						"format": "uint64",
-						"minimum": 0.0
 					}
 				},
 				"additionalProperties": false
@@ -104,6 +163,85 @@
 			"Binary": {
 				"description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
 				"type": "string"
+			},
+			"DrConfig": {
+				"description": "Governance-controlled timeout configuration parameters",
+				"type": "object",
+				"required": [
+					"backup_delay_in_blocks",
+					"commit_timeout_in_blocks",
+					"consensus_filter_limit_in_bytes",
+					"dr_reveal_size_limit_in_bytes",
+					"exec_input_limit_in_bytes",
+					"memo_limit_in_bytes",
+					"payback_address_limit_in_bytes",
+					"reveal_timeout_in_blocks",
+					"seda_payload_limit_in_bytes",
+					"tally_input_limit_in_bytes"
+				],
+				"properties": {
+					"backup_delay_in_blocks": {
+						"description": "This is the delay before the backup executors are allowed to start executing the data request.",
+						"type": "integer",
+						"format": "uint8",
+						"minimum": 1.0
+					},
+					"commit_timeout_in_blocks": {
+						"description": "Number of blocks after which a data request is timed out while waiting for commits.",
+						"type": "integer",
+						"format": "uint8",
+						"minimum": 1.0
+					},
+					"consensus_filter_limit_in_bytes": {
+						"description": "The maximum size of the consensus filter.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"dr_reveal_size_limit_in_bytes": {
+						"description": "The maximum size of all the reveals in a data request.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"exec_input_limit_in_bytes": {
+						"description": "The maximum size of the input for the execution program.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"memo_limit_in_bytes": {
+						"description": "The maximum size of the memo.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"payback_address_limit_in_bytes": {
+						"description": "The maximum size of the payback address.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"reveal_timeout_in_blocks": {
+						"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
+						"type": "integer",
+						"format": "uint8",
+						"minimum": 1.0
+					},
+					"seda_payload_limit_in_bytes": {
+						"description": "The maximum size of the SEDA payload.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					},
+					"tally_input_limit_in_bytes": {
+						"description": "The maximum size of the input for the tally program.",
+						"type": "integer",
+						"format": "uint16",
+						"minimum": 1.0
+					}
+				},
+				"additionalProperties": false
 			},
 			"Execute": {
 				"type": "object",
@@ -299,10 +437,10 @@
 					},
 					{
 						"type": "object",
-						"required": ["set_timeout_config"],
+						"required": ["set_dr_config"],
 						"properties": {
-							"set_timeout_config": {
-								"$ref": "#/definitions/TimeoutConfig"
+							"set_dr_config": {
+								"$ref": "#/definitions/DrConfig"
 							}
 						},
 						"additionalProperties": false
@@ -533,26 +671,6 @@
 				},
 				"additionalProperties": false
 			},
-			"TimeoutConfig": {
-				"description": "Governance-controlled timeout configuration parameters",
-				"type": "object",
-				"required": ["commit_timeout_in_blocks", "reveal_timeout_in_blocks"],
-				"properties": {
-					"commit_timeout_in_blocks": {
-						"description": "Number of blocks after which a data request is timed out while waiting for commits.",
-						"type": "integer",
-						"format": "uint64",
-						"minimum": 0.0
-					},
-					"reveal_timeout_in_blocks": {
-						"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
-						"type": "integer",
-						"format": "uint64",
-						"minimum": 0.0
-					}
-				},
-				"additionalProperties": false
-			},
 			"Uint128": {
 				"description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
 				"type": "string"
@@ -746,19 +864,10 @@
 												"$ref": "#/definitions/Uint128"
 											},
 											{
-												"type": "integer",
-												"format": "uint64",
-												"minimum": 0.0
+												"type": "string"
 											},
 											{
-												"type": "array",
-												"items": {
-													"type": "integer",
-													"format": "uint8",
-													"minimum": 0.0
-												},
-												"maxItems": 32,
-												"minItems": 32
+												"type": "string"
 											}
 										],
 										"maxItems": 3,
@@ -773,6 +882,17 @@
 										"$ref": "#/definitions/DataRequestStatus"
 									}
 								},
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					{
+						"type": "object",
+						"required": ["get_dr_config"],
+						"properties": {
+							"get_dr_config": {
+								"type": "object",
 								"additionalProperties": false
 							}
 						},
@@ -862,6 +982,16 @@
 					},
 					{
 						"type": "object",
+						"required": ["get_executor_eligibility"],
+						"properties": {
+							"get_executor_eligibility": {
+								"$ref": "#/definitions/Query"
+							}
+						},
+						"additionalProperties": false
+					},
+					{
+						"type": "object",
 						"required": ["get_staking_config"],
 						"properties": {
 							"get_staking_config": {
@@ -926,6 +1056,17 @@
 						"required": ["is_paused"],
 						"properties": {
 							"is_paused": {
+								"type": "object",
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					{
+						"type": "object",
+						"required": ["get_allow_list"],
+						"properties": {
+							"get_allow_list": {
 								"type": "object",
 								"additionalProperties": false
 							}
@@ -1106,12 +1247,20 @@
 			"description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
 			"type": "string"
 		},
+		"get_allow_list": {
+			"$schema": "http://json-schema.org/draft-07/schema#",
+			"title": "Array_of_String",
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
 		"get_data_request": {
 			"$schema": "http://json-schema.org/draft-07/schema#",
-			"title": "Nullable_DataRequest",
+			"title": "Nullable_DataRequestResponse",
 			"anyOf": [
 				{
-					"$ref": "#/definitions/DataRequest"
+					"$ref": "#/definitions/DataRequestResponse"
 				},
 				{
 					"type": "null"
@@ -1122,7 +1271,7 @@
 					"description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
 					"type": "string"
 				},
-				"DataRequest": {
+				"DataRequestResponse": {
 					"description": "Represents a data request at creation time",
 					"type": "object",
 					"required": [
@@ -1416,7 +1565,7 @@
 				"data_requests": {
 					"type": "array",
 					"items": {
-						"$ref": "#/definitions/DataRequest"
+						"$ref": "#/definitions/DataRequestResponse"
 					}
 				},
 				"is_paused": {
@@ -1429,19 +1578,10 @@
 							"$ref": "#/definitions/Uint128"
 						},
 						{
-							"type": "integer",
-							"format": "uint64",
-							"minimum": 0.0
+							"type": "string"
 						},
 						{
-							"type": "array",
-							"items": {
-								"type": "integer",
-								"format": "uint8",
-								"minimum": 0.0
-							},
-							"maxItems": 32,
-							"minItems": 32
+							"type": "string"
 						}
 					],
 					"maxItems": 3,
@@ -1459,7 +1599,7 @@
 					"description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
 					"type": "string"
 				},
-				"DataRequest": {
+				"DataRequestResponse": {
 					"description": "Represents a data request at creation time",
 					"type": "object",
 					"required": [
@@ -1630,6 +1770,137 @@
 				"Uint128": {
 					"description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
 					"type": "string"
+				}
+			}
+		},
+		"get_dr_config": {
+			"$schema": "http://json-schema.org/draft-07/schema#",
+			"title": "DrConfig",
+			"description": "Governance-controlled timeout configuration parameters",
+			"type": "object",
+			"required": [
+				"backup_delay_in_blocks",
+				"commit_timeout_in_blocks",
+				"consensus_filter_limit_in_bytes",
+				"dr_reveal_size_limit_in_bytes",
+				"exec_input_limit_in_bytes",
+				"memo_limit_in_bytes",
+				"payback_address_limit_in_bytes",
+				"reveal_timeout_in_blocks",
+				"seda_payload_limit_in_bytes",
+				"tally_input_limit_in_bytes"
+			],
+			"properties": {
+				"backup_delay_in_blocks": {
+					"description": "This is the delay before the backup executors are allowed to start executing the data request.",
+					"type": "integer",
+					"format": "uint8",
+					"minimum": 1.0
+				},
+				"commit_timeout_in_blocks": {
+					"description": "Number of blocks after which a data request is timed out while waiting for commits.",
+					"type": "integer",
+					"format": "uint8",
+					"minimum": 1.0
+				},
+				"consensus_filter_limit_in_bytes": {
+					"description": "The maximum size of the consensus filter.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				},
+				"dr_reveal_size_limit_in_bytes": {
+					"description": "The maximum size of all the reveals in a data request.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				},
+				"exec_input_limit_in_bytes": {
+					"description": "The maximum size of the input for the execution program.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				},
+				"memo_limit_in_bytes": {
+					"description": "The maximum size of the memo.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				},
+				"payback_address_limit_in_bytes": {
+					"description": "The maximum size of the payback address.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				},
+				"reveal_timeout_in_blocks": {
+					"description": "Number of blocks after which a data request is timed out while waiting for reveals.",
+					"type": "integer",
+					"format": "uint8",
+					"minimum": 1.0
+				},
+				"seda_payload_limit_in_bytes": {
+					"description": "The maximum size of the SEDA payload.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				},
+				"tally_input_limit_in_bytes": {
+					"description": "The maximum size of the input for the tally program.",
+					"type": "integer",
+					"format": "uint16",
+					"minimum": 1.0
+				}
+			},
+			"additionalProperties": false
+		},
+		"get_executor_eligibility": {
+			"$schema": "http://json-schema.org/draft-07/schema#",
+			"title": "GetExecutorEligibilityResponse",
+			"description": "Response for the `GetExecutorEligibility` query",
+			"type": "object",
+			"required": ["block_height", "status"],
+			"properties": {
+				"block_height": {
+					"type": "integer",
+					"format": "uint64",
+					"minimum": 0.0
+				},
+				"status": {
+					"$ref": "#/definitions/ExecutorEligibilityStatus"
+				}
+			},
+			"additionalProperties": false,
+			"definitions": {
+				"ExecutorEligibilityStatus": {
+					"description": "Status codes for executor eligibility",
+					"oneOf": [
+						{
+							"description": "Executor is eligible for the data request",
+							"type": "string",
+							"enum": ["eligible"]
+						},
+						{
+							"description": "Executor is not eligible for the data request",
+							"type": "string",
+							"enum": ["not_eligible"]
+						},
+						{
+							"description": "Data request not found",
+							"type": "string",
+							"enum": ["data_request_not_found"]
+						},
+						{
+							"description": "Executor is not a staker",
+							"type": "string",
+							"enum": ["not_staker"]
+						},
+						{
+							"description": "Invalid signature",
+							"type": "string",
+							"enum": ["invalid_signature"]
+						}
+					]
 				}
 			}
 		},

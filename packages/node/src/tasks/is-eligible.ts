@@ -1,9 +1,4 @@
 import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
-import {
-	type IsExecutorEligibleResponse,
-	createEligibilityHash,
-	createEligibilityMessageData,
-} from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, debouncedInterval } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -13,6 +8,7 @@ import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } fr
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
+import { isIdentityEligibleForDataRequest } from "../services/is-identity-eligible";
 
 type EventMap = {
 	eligible: [DataRequestId, string];
@@ -60,32 +56,32 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		span.setAttribute("identity_id", identityId);
 		span.setAttribute("core_contract_address", coreContractAddress);
 
-		logger.trace("Creating hash for eligibility check", {
-			id: traceId,
-		});
+		// logger.trace("Creating hash for eligibility check", {
+		// 	id: traceId,
+		// });
 
-		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
-		const signSpan = this.eligibilityTracer.startSpan(
-			"sign-eligibility-message",
-			undefined,
-			trace.setSpan(context.active(), span),
-		);
-		const messageSignature = this.identities.sign(identityId, messageHash);
-		signSpan.end();
+		// const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
+		// const signSpan = this.eligibilityTracer.startSpan(
+		// 	"sign-eligibility-message",
+		// 	undefined,
+		// 	trace.setSpan(context.active(), span),
+		// );
+		// const messageSignature = this.identities.sign(identityId, messageHash);
+		// signSpan.end();
 
-		if (messageSignature.isErr) {
-			logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
-				id: traceId,
-			});
-			span.recordException(messageSignature.error);
-			span.setAttribute("error", "signature_failed");
-			span.end();
+		// if (messageSignature.isErr) {
+		// 	logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
+		// 		id: traceId,
+		// 	});
+		// 	span.recordException(messageSignature.error);
+		// 	span.setAttribute("error", "signature_failed");
+		// 	span.end();
 
-			return {
-				eligible: false,
-				identityId,
-			};
-		}
+		// 	return {
+		// 		eligible: false,
+		// 		identityId,
+		// 	};
+		// }
 
 		logger.trace("Checking identity eligibility for data request", {
 			id: traceId,
@@ -96,11 +92,14 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			undefined,
 			trace.setSpan(context.active(), span),
 		);
-		const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
-			is_executor_eligible: {
-				data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
-			},
-		});
+		const response = await isIdentityEligibleForDataRequest(
+			this.sedaChain,
+			identityId,
+			dataRequest,
+			span,
+			this.eligibilityTracer,
+			context.active(),
+		);
 		querySpan.end();
 
 		if (response.isErr) {

@@ -27,58 +27,19 @@ export type Binary = string;
 export type Uint128 = string;
 
 export interface GetDataRequestsByStatusResponse {
-  data_requests: DataRequest[];
+  data_requests: DataRequestResponse[];
   is_paused: boolean;
   /**
    * @minItems 3
    * @maxItems 3
    */
-  last_seen_index?:
-    | [
-        Uint128,
-        number,
-        [
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number
-        ]
-      ]
-    | null;
+  last_seen_index?: [Uint128, string, string] | null;
   total: number;
 }
 /**
  * Represents a data request at creation time
  */
-export interface DataRequest {
+export interface DataRequestResponse {
   /**
    * Commitments submitted by executors
    */

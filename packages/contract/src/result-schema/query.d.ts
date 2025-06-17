@@ -54,49 +54,13 @@ export type QueryMsg1 =
          * @minItems 3
          * @maxItems 3
          */
-        last_seen_index?:
-          | [
-              Uint128,
-              number,
-              [
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number
-              ]
-            ]
-          | null;
+        last_seen_index?: [Uint128, string, string] | null;
         limit: number;
         status: DataRequestStatus;
       };
+    }
+  | {
+      get_dr_config: {};
     };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -138,6 +102,9 @@ export type QueryMsg2 =
       is_executor_eligible: Query;
     }
   | {
+      get_executor_eligibility: Query;
+    }
+  | {
       get_staking_config: {};
     }
   | {
@@ -161,6 +128,9 @@ export type QueryMsg3 =
     }
   | {
       is_paused: {};
+    }
+  | {
+      get_allow_list: {};
     };
 
 export interface Query {

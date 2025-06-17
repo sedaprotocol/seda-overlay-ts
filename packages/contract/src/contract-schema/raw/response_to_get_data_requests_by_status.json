@@ -7,7 +7,7 @@
 		"data_requests": {
 			"type": "array",
 			"items": {
-				"$ref": "#/definitions/DataRequest"
+				"$ref": "#/definitions/DataRequestResponse"
 			}
 		},
 		"is_paused": {
@@ -20,19 +20,10 @@
 					"$ref": "#/definitions/Uint128"
 				},
 				{
-					"type": "integer",
-					"format": "uint64",
-					"minimum": 0.0
+					"type": "string"
 				},
 				{
-					"type": "array",
-					"items": {
-						"type": "integer",
-						"format": "uint8",
-						"minimum": 0.0
-					},
-					"maxItems": 32,
-					"minItems": 32
+					"type": "string"
 				}
 			],
 			"maxItems": 3,
@@ -50,7 +41,7 @@
 			"description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
 			"type": "string"
 		},
-		"DataRequest": {
+		"DataRequestResponse": {
 			"description": "Represents a data request at creation time",
 			"type": "object",
 			"required": [

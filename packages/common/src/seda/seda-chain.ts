@@ -1,6 +1,6 @@
 import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
-import type { ProtobufRpcClient } from "@cosmjs/stargate";
+import type { Block, ProtobufRpcClient } from "@cosmjs/stargate";
 import type { sedachain } from "@seda-protocol/proto-messages";
 import { tryAsync } from "@seda-protocol/utils";
 import type { ExecuteMsg, QueryMsg } from "@sedaprotocol/core-contract-schema";
@@ -106,6 +106,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return getTransaction(this.signerClients[accountIndex], txHash);
 	}
 
+	async getBlock(height?: number, accountIndex = 0): Promise<Result<Block, Error>> {
+		return tryAsync<Block>(() => this.signerClients[accountIndex].getBlock(height));
+	}
+
 	getTransactionStats() {
 		return {
 			successCount: this.txSuccessCount,
@@ -207,7 +211,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 	 */
 	async queryContractSmartBigInt<T = unknown>(queryMsg: QueryMsg, accountIndex = 0): Promise<Result<T, Error>> {
 		const coreContractAddress = await this.getCoreContractAddress(accountIndex);
-
 		return tryAsync<T>(() => this.signerClients[accountIndex].queryContractSmartBigInt(coreContractAddress, queryMsg));
 	}
 

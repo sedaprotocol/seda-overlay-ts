@@ -4,7 +4,7 @@ import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trac
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
 
 const exporter = new OTLPTraceExporter({
-    url: process.env.OTLP_ENDPOINT,
+	url: process.env.OTLP_ENDPOINT,
 });
 
 const provider = new NodeTracerProvider({

@@ -17,7 +17,7 @@ export type ExecuteMsg1 =
       reveal_data_result: Execute3;
     }
   | {
-      set_timeout_config: TimeoutConfig;
+      set_dr_config: DrConfig;
     };
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
@@ -120,15 +120,47 @@ export interface RevealBody {
 /**
  * Governance-controlled timeout configuration parameters
  */
-export interface TimeoutConfig {
+export interface DrConfig {
+  /**
+   * This is the delay before the backup executors are allowed to start executing the data request.
+   */
+  backup_delay_in_blocks: number;
   /**
    * Number of blocks after which a data request is timed out while waiting for commits.
    */
   commit_timeout_in_blocks: number;
   /**
+   * The maximum size of the consensus filter.
+   */
+  consensus_filter_limit_in_bytes: number;
+  /**
+   * The maximum size of all the reveals in a data request.
+   */
+  dr_reveal_size_limit_in_bytes: number;
+  /**
+   * The maximum size of the input for the execution program.
+   */
+  exec_input_limit_in_bytes: number;
+  /**
+   * The maximum size of the memo.
+   */
+  memo_limit_in_bytes: number;
+  /**
+   * The maximum size of the payback address.
+   */
+  payback_address_limit_in_bytes: number;
+  /**
    * Number of blocks after which a data request is timed out while waiting for reveals.
    */
   reveal_timeout_in_blocks: number;
+  /**
+   * The maximum size of the SEDA payload.
+   */
+  seda_payload_limit_in_bytes: number;
+  /**
+   * The maximum size of the input for the tally program.
+   */
+  tally_input_limit_in_bytes: number;
 }
 export interface Execute4 {
   memo?: Binary | null;

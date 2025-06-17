@@ -1,11 +1,7 @@
+import type { StakingConfig as StakingConfigFromContract } from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Result } from "true-myth";
 import { Cache } from "./cache";
-
-interface StakingConfigFromContract {
-	minimum_stake: string;
-	allowlist_enabled: boolean;
-}
 
 export interface StakingConfig {
 	minimumStake: bigint;
