@@ -8,6 +8,7 @@ import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";
 import { getDataRequests } from "../services/get-data-requests";
 import { context, trace, type Span, type Tracer } from "@opentelemetry/api";
+import { JSONStringify } from "json-with-bigint";
 
 type EventMap = {
 	"data-request": [DataRequest];
@@ -80,7 +81,6 @@ export class FetchTask extends EventEmitter<EventMap> {
 			newDataRequests.push(dataRequest);
 		}
 		span.setAttribute("hasMore", result.value.hasMore);
-		span.setAttribute("lastSeenIndex", result.value.lastSeenIndex ? JSON.stringify(result.value.lastSeenIndex) : "0");
 
 		if (result.value.hasMore) {
 			await this.fetch(span);
