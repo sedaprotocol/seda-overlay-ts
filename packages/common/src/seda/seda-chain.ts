@@ -156,14 +156,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 			let accountIndex = this.nonceId % this.signers.length;
 
-			// let accountIndex = match(priority)
-			// 	// Use any signer for low priority transactions, except for the last one
-			// 	.with(TransactionPriority.LOW, () => this.nonceId % (this.signers.length - 1))
-			// 	// Use the last signer for high priority transactions
-			// 	// The last signer will then only do reveals
-			// 	.with(TransactionPriority.HIGH, () => this.signers.length - 1)
-			// 	.exhaustive();
-
 			// Some cases like staking, unstaking require a specific account index
 			// this is because most of the time index 0 has all the funds
 			if (forcedAccountIndex !== undefined) {

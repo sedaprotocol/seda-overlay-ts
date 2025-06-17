@@ -34,13 +34,7 @@ export async function signAndSendTxSync(
 	let gas: bigint;
 
 	if (gasInput === "auto") {
-		const simulationSpan = tracer.startSpan(
-			"simulateGas",
-			{
-				attributes: {},
-			},
-			ctx,
-		);
+		const simulationSpan = tracer.startSpan("simulateGas", undefined, ctx);
 		const simulatedGas = await tryAsync(async () => signingClient.simulate(address, messages, memo));
 		if (simulatedGas.isErr) {
 			logger.trace("Simulated gas failed for transaction", {
