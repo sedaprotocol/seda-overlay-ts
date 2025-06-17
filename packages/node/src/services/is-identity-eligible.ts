@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
 import { type Context, type Span, type Tracer, trace } from "@opentelemetry/api";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { keccak256, type SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
@@ -10,10 +9,7 @@ import { type Staker, getStakers } from "./get-staker";
 import { getStakingConfig } from "./get-staking-config";
 
 function computeSelectionHash(publicKey: Buffer, drId: string): Buffer {
-	const hasher = createHash("sha3-256");
-	hasher.update(publicKey);
-	hasher.update(Buffer.from(drId));
-	return hasher.digest();
+	return keccak256(Buffer.concat([publicKey, Buffer.from(drId, "hex")]));
 }
 
 function calculateDrEligibility(

@@ -37,7 +37,7 @@ export async function getStaker(sedaChain: SedaChain, publicKey: string): Promis
 	return Result.ok(Maybe.just(transformStakerFromContract(result.value, publicKey)));
 }
 
-const STAKERS_CACHE_TTL = 1000 * 60 * 60 * 1; // 1 hour
+const STAKERS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 const stakersCache = new Cache<Staker[]>(STAKERS_CACHE_TTL);
 const DEFAULT_LIMIT = 100;
 
@@ -49,8 +49,6 @@ export async function getStakers(sedaChain: SedaChain): Promise<Result<Staker[],
 				offset: 0,
 			},
 		});
-
-		console.log("result", result);
 
 		if (result.isErr) {
 			return Result.err(result.error);
