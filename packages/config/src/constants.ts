@@ -34,6 +34,7 @@ export const DEFAULT_ACCOUNT_AMOUNTS = 10;
 export const DEFAULT_MIN_SEDA_PER_ACCOUNT = 1_000_000_000_000_000_000n; // 1 SEDA
 export const DEFAULT_LOG_LEVEL = "silly";
 export const DEFAULT_FETCH_LIMIT = 20;
+export const DEFAULT_OFFLINE_ELIGIBILITY = false;
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

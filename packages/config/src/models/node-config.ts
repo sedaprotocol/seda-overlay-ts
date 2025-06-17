@@ -12,6 +12,7 @@ import {
 	DEFAULT_MAX_CONCURRENT_REQUESTS,
 	DEFAULT_MAX_GAS_LIMIT,
 	DEFAULT_MAX_VM_LOGS_SIZE_BYTES,
+	DEFAULT_OFFLINE_ELIGIBILITY,
 	DEFAULT_PROCESS_DR_INTERVAL,
 	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
@@ -36,6 +37,7 @@ export const NodeConfigSchema = v.object({
 	requestTimeout: v.optional(v.number(), DEFAULT_REQUEST_TIMEOUT),
 	totalHttpTimeLimit: v.optional(v.number(), DEFAULT_TOTAL_HTTP_TIME_LIMIT),
 	drFetchLimit: v.optional(v.number(), DEFAULT_FETCH_LIMIT),
+	offlineEligibility: v.optional(v.boolean(), DEFAULT_OFFLINE_ELIGIBILITY),
 });
 
 export type NodeConfig = v.InferOutput<typeof NodeConfigSchema>;
