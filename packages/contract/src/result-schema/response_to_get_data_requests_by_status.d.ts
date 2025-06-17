@@ -33,46 +33,7 @@ export interface GetDataRequestsByStatusResponse {
    * @minItems 3
    * @maxItems 3
    */
-  last_seen_index?:
-    | [
-        Uint128,
-        number,
-        [
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number,
-          number
-        ]
-      ]
-    | null;
+  last_seen_index?: [Uint128, string, string] | null;
   total: number;
 }
 /**

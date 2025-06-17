@@ -54,46 +54,7 @@ export type QueryMsg1 =
          * @minItems 3
          * @maxItems 3
          */
-        last_seen_index?:
-          | [
-              Uint128,
-              number,
-              [
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number,
-                number
-              ]
-            ]
-          | null;
+        last_seen_index?: [Uint128, string, string] | null;
         limit: number;
         status: DataRequestStatus;
       };

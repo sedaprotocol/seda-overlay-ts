@@ -53,5 +53,5 @@ export function isDrStale(request: DataRequest): boolean {
 	const timeSinceLastUpdate = now.getTime() - request.lastUpdated.getTime();
 
 	// If no update in 15 seconds, consider stale
-	return timeSinceLastUpdate > 5 * 60 * 1000;
+	return timeSinceLastUpdate > 15_000;
 }

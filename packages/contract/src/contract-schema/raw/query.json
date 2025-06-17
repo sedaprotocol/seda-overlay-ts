@@ -185,19 +185,10 @@
 											"$ref": "#/definitions/Uint128"
 										},
 										{
-											"type": "integer",
-											"format": "uint64",
-											"minimum": 0.0
+											"type": "string"
 										},
 										{
-											"type": "array",
-											"items": {
-												"type": "integer",
-												"format": "uint8",
-												"minimum": 0.0
-											},
-											"maxItems": 32,
-											"minItems": 32
+											"type": "string"
 										}
 									],
 									"maxItems": 3,

@@ -13,6 +13,7 @@ import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } fr
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
+import { isIdentityEligibleForDataRequest } from "../services/is-identity-eligible";
 
 type EventMap = {
 	eligible: [drId: DataRequestId, eligibilityHeight: bigint, identityId: string];
@@ -71,44 +72,50 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		span.setAttribute("identity_id", identityId);
 		span.setAttribute("core_contract_address", coreContractAddress);
 
-		logger.trace("Creating hash for eligibility check", {
-			id: traceId,
-		});
+		// logger.trace("Creating hash for eligibility check", {
+		// 	id: traceId,
+		// });
 
-		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
-		const signSpan = this.eligibilityTracer.startSpan(
-			"sign-eligibility-message",
-			undefined,
-			trace.setSpan(context.active(), span),
-		);
-		const messageSignature = this.identities.sign(identityId, messageHash);
-		signSpan.end();
+		// const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
+		// const signSpan = this.eligibilityTracer.startSpan(
+		// 	"sign-eligibility-message",
+		// 	undefined,
+		// 	trace.setSpan(context.active(), span),
+		// );
+		// const messageSignature = this.identities.sign(identityId, messageHash);
+		// signSpan.end();
 
-		if (messageSignature.isErr) {
-			logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
-				id: traceId,
-			});
-			span.recordException(messageSignature.error);
-			span.setAttribute("error", "signature_failed");
-			span.end();
+		// if (messageSignature.isErr) {
+		// 	logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
+		// 		id: traceId,
+		// 	});
+		// 	span.recordException(messageSignature.error);
+		// 	span.setAttribute("error", "signature_failed");
+		// 	span.end();
 
-			return {
-				eligible: false,
-				identityId,
-			};
-		}
+		// 	return {
+		// 		eligible: false,
+		// 		identityId,
+		// 	};
+		// }
 
 		logger.trace("Checking identity eligibility for data request", {
 			id: traceId,
 		});
-		
-		
-		const querySpan = this.eligibilityTracer.startSpan("query-contract-eligibility", undefined, trace.setSpan(context.active(), span));
-		const response = await this.sedaChain.queryContractSmart<GetExecutorEligibilityResponse>({
-			is_executor_eligible: {
-				data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
-			},
-		});
+
+		const querySpan = this.eligibilityTracer.startSpan(
+			"query-contract-eligibility",
+			undefined,
+			trace.setSpan(context.active(), span),
+		);
+		const response = await isIdentityEligibleForDataRequest(
+			this.sedaChain,
+			identityId,
+			dataRequest,
+			span,
+			this.eligibilityTracer,
+			context.active(),
+		);
 		querySpan.end();
 
 		if (response.isErr) {

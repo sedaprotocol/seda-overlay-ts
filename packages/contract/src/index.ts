@@ -20,3 +20,5 @@ export {
 } from "./identity";
 export type { StakingConfig } from "./result-schema/response_to_get_staking_config";
 export type { GetExecutorsResponse } from "./result-schema/response_to_get_executors";
+export type { Staker } from "./result-schema/response_to_get_staker";
+export type { DrConfig } from "./result-schema/response_to_get_dr_config";

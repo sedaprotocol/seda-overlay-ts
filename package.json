@@ -1,7 +1,7 @@
 {
 	"name": "overlay-node-ts",
 	"module": "index.ts",
-	"version": "1.0.0-rc.17-multiple-accounts-with-logs-and-100-limit-fetch-50-with-high-priority-txs-and-fetch-logs-v4-caching",
+	"version": "1.0.0-rc.17-multiple-accounts-with-logs-and-100-limit-fetch-50-with-high-priority-txs-and-fetch-logs-v5-pagination-and-offline-eligibility-keccak256",
 	"type": "module",
 	"license": "AGPL-3.0",
 	"workspaces": [
@@ -38,6 +38,7 @@
 		"true-myth": "^8.4.0",
 		"node-fetch": "^3.3.2",
 		"ts-pattern": "^5.7.1",
+		"type-fest": "^4.41.0",
 		"@opentelemetry/api": "^1.9.0",
 		"@opentelemetry/exporter-metrics-otlp-grpc": "0.202.0",
 		"@opentelemetry/exporter-metrics-otlp-http": "0.202.0",
