@@ -1,5 +1,5 @@
 import { type Context, type Span, type Tracer, trace } from "@opentelemetry/api";
-import { keccak256, type SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { type SedaChain, keccak256 } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
@@ -131,7 +131,7 @@ export async function isIdentityEligibleForDataRequest(
 	}
 
 	const blocksPassed = currentBlockHeight.value - dataRequest.height;
-	const identityPublicKey = Buffer.from(identityId, 'hex');
+	const identityPublicKey = Buffer.from(identityId, "hex");
 
 	const isEligible = calculateDrEligibility(
 		stakers.value,

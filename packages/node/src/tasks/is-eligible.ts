@@ -8,7 +8,8 @@ import { type SedaChain, debouncedInterval } from "@sedaprotocol/overlay-ts-comm
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
-import { Maybe } from "true-myth";
+import { Maybe, Result } from "true-myth";
+import { match } from "ts-pattern";
 import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } from "../models/data-request";
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
@@ -72,50 +73,51 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		span.setAttribute("identity_id", identityId);
 		span.setAttribute("core_contract_address", coreContractAddress);
 
-		// logger.trace("Creating hash for eligibility check", {
-		// 	id: traceId,
-		// });
-
-		// const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
-		// const signSpan = this.eligibilityTracer.startSpan(
-		// 	"sign-eligibility-message",
-		// 	undefined,
-		// 	trace.setSpan(context.active(), span),
-		// );
-		// const messageSignature = this.identities.sign(identityId, messageHash);
-		// signSpan.end();
-
-		// if (messageSignature.isErr) {
-		// 	logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
-		// 		id: traceId,
-		// 	});
-		// 	span.recordException(messageSignature.error);
-		// 	span.setAttribute("error", "signature_failed");
-		// 	span.end();
-
-		// 	return {
-		// 		eligible: false,
-		// 		identityId,
-		// 	};
-		// }
-
-		logger.trace("Checking identity eligibility for data request", {
-			id: traceId,
-		});
-
 		const querySpan = this.eligibilityTracer.startSpan(
 			"query-contract-eligibility",
 			undefined,
 			trace.setSpan(context.active(), span),
 		);
-		const response = await isIdentityEligibleForDataRequest(
-			this.sedaChain,
-			identityId,
-			dataRequest,
-			span,
-			this.eligibilityTracer,
-			context.active(),
-		);
+
+		logger.trace("Checking identity eligibility for data request", {
+			id: traceId,
+		});
+
+		// So we can enable and disable offline eligibility through the config
+		const response: Result<boolean, Error> = await match(this.config.node.offlineEligibility)
+			.with(true, async () => {
+				const response = await isIdentityEligibleForDataRequest(
+					this.sedaChain,
+					identityId,
+					dataRequest,
+					span,
+					this.eligibilityTracer,
+					context.active(),
+				);
+
+				return response;
+			})
+			.with(false, async () => {
+				const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
+				const messageSignature = this.identities.sign(identityId, messageHash);
+
+				if (messageSignature.isErr) {
+					logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
+						id: traceId,
+					});
+					return Result.err(messageSignature.error);
+				}
+
+				const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
+					is_executor_eligible: {
+						data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
+					},
+				});
+
+				return response;
+			})
+			.exhaustive();
+
 		querySpan.end();
 
 		if (response.isErr) {
