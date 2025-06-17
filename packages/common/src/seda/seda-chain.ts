@@ -196,6 +196,21 @@ export class SedaChain extends EventEmitter<EventMap> {
 		});
 	}
 
+	/**
+	 * Queries a smart contract with a query message and returns the result as a JSON object.
+	 * It uses the big int encoding for numbers that are too big for the JSON standard.
+	 *
+	 * @param queryMsg - The query message to send to the smart contract
+	 * @param accountIndex - The index of the account to use for the query
+	 *
+	 * @returns A Result containing either the result on success or an Error on failure
+	 */
+	async queryContractSmartBigInt<T = unknown>(queryMsg: QueryMsg, accountIndex = 0): Promise<Result<T, Error>> {
+		const coreContractAddress = await this.getCoreContractAddress(accountIndex);
+
+		return tryAsync<T>(() => this.signerClients[accountIndex].queryContractSmartBigInt(coreContractAddress, queryMsg));
+	}
+
 	async queryContractSmart<T = unknown>(queryMsg: QueryMsg, accountIndex = 0): Promise<Result<T, Error>> {
 		const coreContractAddress = await this.getCoreContractAddress(accountIndex);
 

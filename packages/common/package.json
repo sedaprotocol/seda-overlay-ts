@@ -8,7 +8,8 @@
 		"big.js": "^6.2.2",
 		"eventemitter3": "5.0.1",
 		"cookie": "^1.0.2",
-		"@seda-protocol/secp256k1-vrf": "0.1.0"
+		"@seda-protocol/secp256k1-vrf": "0.1.0",
+		"json-with-bigint": "3.4.4"
 	},
 	"devDependencies": {
 		"@types/big.js": "^6.2.2"

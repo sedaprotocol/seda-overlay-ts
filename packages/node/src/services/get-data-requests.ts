@@ -6,6 +6,7 @@ import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 import { Cache } from "../services/cache";
 import { DebouncedPromise } from "./debounce-promise";
+import { JSONStringify } from "json-with-bigint";
 
 interface DataRequestsResponse {
 	dataRequests: DataRequest[];
@@ -30,14 +31,13 @@ export async function getDataRequests(
 		},
 	};
 
-	const result = await sedaChain.queryContractSmart<GetDataRequestsByStatusResponse>(message);
-
+	const result = await sedaChain.queryContractSmartBigInt<GetDataRequestsByStatusResponse>(message);
+	
 	if (result.isErr) {
-		return Result.err(new Error(`Failed to fetch data requests: ${JSON.stringify(message)} ${result.error.message}`));
+		return Result.err(new Error(`Failed to fetch data requests: ${JSONStringify(message)} ${result.error.message}`));
 	}
 
 	lastSeenIndex = result.value.last_seen_index;
-	console.log("lastSeenIndex", lastSeenIndex);
 	const dataRequests = result.value.data_requests.map((request) => transformDataRequestFromContract(request));
 
 	for (const dr of dataRequests) {
