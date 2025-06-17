@@ -1,3 +1,4 @@
+import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
 import {
 	type IsExecutorEligibleResponse,
 	createEligibilityHash,
@@ -12,7 +13,6 @@ import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } fr
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
-import { trace, type Tracer, context, type Span } from "@opentelemetry/api";
 
 type EventMap = {
 	eligible: [DataRequestId, string];
@@ -65,7 +65,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		});
 
 		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
-		const signSpan = this.eligibilityTracer.startSpan("sign-eligibility-message", undefined, trace.setSpan(context.active(), span));
+		const signSpan = this.eligibilityTracer.startSpan(
+			"sign-eligibility-message",
+			undefined,
+			trace.setSpan(context.active(), span),
+		);
 		const messageSignature = this.identities.sign(identityId, messageHash);
 		signSpan.end();
 
@@ -87,7 +91,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			id: traceId,
 		});
 
-		const querySpan = this.eligibilityTracer.startSpan("query-contract-eligibility", undefined, trace.setSpan(context.active(), span));
+		const querySpan = this.eligibilityTracer.startSpan(
+			"query-contract-eligibility",
+			undefined,
+			trace.setSpan(context.active(), span),
+		);
 		const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
 			is_executor_eligible: {
 				data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
@@ -115,7 +123,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 
 		// Check if the data request is still in Commit Stage on chain
 		// TODO: We can optimize this by only fetching if it's a bit stale...
-		const drCheckSpan = this.eligibilityTracer.startSpan("check-dr-status", undefined, trace.setSpan(context.active(), span));
+		const drCheckSpan = this.eligibilityTracer.startSpan(
+			"check-dr-status",
+			undefined,
+			trace.setSpan(context.active(), span),
+		);
 		const drFromChain = await getDataRequest(dataRequest.id, this.sedaChain);
 		drCheckSpan.end();
 
@@ -190,7 +202,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.debug("Data Request is stale, refreshing from chain", {
 				id: traceId,
 			});
-			const refreshSpan = this.eligibilityTracer.startSpan("refresh-stale-dr", undefined, trace.setSpan(context.active(), span));
+			const refreshSpan = this.eligibilityTracer.startSpan(
+				"refresh-stale-dr",
+				undefined,
+				trace.setSpan(context.active(), span),
+			);
 			const result = await getDataRequest(dataRequest.id, this.sedaChain);
 			refreshSpan.end();
 
@@ -261,19 +277,22 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			}
 
 			eligibilityChecks.push(
-				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress, span).then(
-					(response) => {
-						if (response.eligible) {
-							this.pool.insertIdentityDataRequest(
-								dataRequest.id,
-								response.identityId,
-								Maybe.nothing(),
-								IdentityDataRequestStatus.EligibleForExecution,
-							);
-							this.emit("eligible", dataRequest.id, response.identityId);
-						}
-					},
-				),
+				this.checkIdentityEligibilityForDataRequest(
+					dataRequest,
+					identityInfo.identityId,
+					coreContractAddress,
+					span,
+				).then((response) => {
+					if (response.eligible) {
+						this.pool.insertIdentityDataRequest(
+							dataRequest.id,
+							response.identityId,
+							Maybe.nothing(),
+							IdentityDataRequestStatus.EligibleForExecution,
+						);
+						this.emit("eligible", dataRequest.id, response.identityId);
+					}
+				}),
 			);
 		}
 

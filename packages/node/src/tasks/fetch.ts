@@ -1,3 +1,4 @@
+import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
 import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -7,8 +8,6 @@ import { Maybe, Result, type Unit } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";
 import { getDataRequests } from "../services/get-data-requests";
-import { context, trace, type Span, type Tracer } from "@opentelemetry/api";
-import { JSONStringify } from "json-with-bigint";
 
 type EventMap = {
 	"data-request": [DataRequest];
@@ -88,7 +87,9 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 		if (this.pool.size < result.value.total) {
 			span.setAttribute("missingDataRequests", result.value.total - this.pool.size);
-			logger.trace(`Data requests in memory pool: ${this.pool.size} vs on chain: ${result.value.total} (missing ${result.value.total - this.pool.size})`);
+			logger.trace(
+				`Data requests in memory pool: ${this.pool.size} vs on chain: ${result.value.total} (missing ${result.value.total - this.pool.size})`,
+			);
 		}
 
 		// Emit data requests sequentially after they are added to the pool to ensure a single process() call handles them

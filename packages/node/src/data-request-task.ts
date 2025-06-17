@@ -1,3 +1,4 @@
+import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
 import {
 	AlreadyCommitted,
 	AlreadyRevealed,
@@ -24,7 +25,6 @@ import { getDataRequest } from "./services/get-data-requests";
 import { commitDr } from "./tasks/commit";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
-import { trace, type Tracer, context, type Span } from "@opentelemetry/api";
 
 type EventMap = {
 	done: [];
@@ -222,7 +222,11 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			span.setAttribute("error", "fetch_failed");
 
 			this.retries += 1;
-			const sleepSpan = this.drTracer.startSpan("sleep-between-retries", undefined, trace.setSpan(context.active(), span));
+			const sleepSpan = this.drTracer.startSpan(
+				"sleep-between-retries",
+				undefined,
+				trace.setSpan(context.active(), span),
+			);
 			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
 			sleepSpan.end();
@@ -427,7 +431,11 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			});
 			span.recordException(result.error);
 			span.setAttribute("error", "commit_failed");
-			const sleepSpan = this.drTracer.startSpan("sleep-between-retries", undefined, trace.setSpan(context.active(), span));
+			const sleepSpan = this.drTracer.startSpan(
+				"sleep-between-retries",
+				undefined,
+				trace.setSpan(context.active(), span),
+			);
 			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
 			sleepSpan.end();
@@ -463,7 +471,11 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (!isDrInRevealStage(dataRequest.value)) {
 			span.setAttribute("status", "not_ready_for_reveal");
-			const sleepSpan = this.drTracer.startSpan("sleep-waiting-for-reveal", undefined, trace.setSpan(context.active(), span));
+			const sleepSpan = this.drTracer.startSpan(
+				"sleep-waiting-for-reveal",
+				undefined,
+				trace.setSpan(context.active(), span),
+			);
 			sleepSpan.setAttribute("sleep_time", this.appConfig.intervals.statusCheck);
 			await sleep(this.appConfig.intervals.statusCheck);
 			sleepSpan.end();
@@ -548,7 +560,11 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 			span.recordException(result.error.error);
 			span.setAttribute("error", "reveal_failed");
-			const sleepSpan = this.drTracer.startSpan("sleep-between-retries", undefined, trace.setSpan(context.active(), span));
+			const sleepSpan = this.drTracer.startSpan(
+				"sleep-between-retries",
+				undefined,
+				trace.setSpan(context.active(), span),
+			);
 			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
 			sleepSpan.end();

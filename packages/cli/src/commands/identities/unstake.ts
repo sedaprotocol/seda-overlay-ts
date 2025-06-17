@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { createUnstakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits, TransactionPriority, vrfProve } from "@sedaprotocol/overlay-ts-common";
+import { TransactionPriority, formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";

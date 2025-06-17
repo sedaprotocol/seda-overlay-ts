@@ -1,14 +1,14 @@
 import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import type { EncodeObject } from "@cosmjs/proto-signing";
 import type { StdFee } from "@cosmjs/stargate";
+import { context, trace } from "@opentelemetry/api";
 import { tryAsync, trySync } from "@seda-protocol/utils";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe, Result } from "true-myth";
 import { IncorrectAccountSquence } from "./errors";
 import type { GasOptions } from "./gas-options";
 import type { SedaSigningCosmWasmClient } from "./signing-client";
-import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { trace, context } from "@opentelemetry/api";
 
 export async function signAndSendTxSync(
 	config: AppConfig["sedaChain"],
@@ -34,9 +34,13 @@ export async function signAndSendTxSync(
 	let gas: bigint;
 
 	if (gasInput === "auto") {
-		const simulationSpan = tracer.startSpan("simulateGas", {
-			attributes: {},
-		}, ctx);
+		const simulationSpan = tracer.startSpan(
+			"simulateGas",
+			{
+				attributes: {},
+			},
+			ctx,
+		);
 		const simulatedGas = await tryAsync(async () => signingClient.simulate(address, messages, memo));
 		if (simulatedGas.isErr) {
 			logger.trace("Simulated gas failed for transaction", {
@@ -74,9 +78,13 @@ export async function signAndSendTxSync(
 		gas = manualGas.value;
 	}
 
-	const feeCalculationSpan = tracer.startSpan("calculateFee", {
-		attributes: {},
-	}, ctx);
+	const feeCalculationSpan = tracer.startSpan(
+		"calculateFee",
+		{
+			attributes: {},
+		},
+		ctx,
+	);
 	const gasPrice = trySync(() => BigInt(gasOptions.gasPrice ?? config.gasPrice));
 	if (gasPrice.isErr) {
 		feeCalculationSpan.recordException(gasPrice.error);
@@ -103,9 +111,13 @@ export async function signAndSendTxSync(
 		id: traceId,
 	});
 
-	const broadcastSpan = tracer.startSpan("broadcastTransaction", {
-		attributes: {},
-	}, ctx);
+	const broadcastSpan = tracer.startSpan(
+		"broadcastTransaction",
+		{
+			attributes: {},
+		},
+		ctx,
+	);
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {
 		if (IncorrectAccountSquence.isError(txResult.error)) {

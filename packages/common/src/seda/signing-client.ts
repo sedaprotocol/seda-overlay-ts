@@ -1,4 +1,4 @@
-import { SigningCosmWasmClient, type JsonObject } from "@cosmjs/cosmwasm-stargate";
+import { type JsonObject, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { toUtf8 } from "@cosmjs/encoding";
 import {
 	type JsonRpcRequest,
@@ -6,14 +6,14 @@ import {
 	isJsonRpcErrorResponse,
 	parseJsonRpcResponse,
 } from "@cosmjs/json-rpc";
-import { createProtobufRpcClient, type DeliverTxResponse, type SequenceResponse } from "@cosmjs/stargate";
+import { type DeliverTxResponse, type SequenceResponse, createProtobufRpcClient } from "@cosmjs/stargate";
 import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { QueryClientImpl } from "cosmjs-types/cosmwasm/wasm/v1/query";
 import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import makeFetchCookie from "fetch-cookie";
+import { JSONParse, JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
-import { JSONStringify, JSONParse } from "json-with-bigint";
-import { QueryClientImpl } from "cosmjs-types/cosmwasm/wasm/v1/query";
 import type { ISigner } from "./signer";
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] };
@@ -41,16 +41,15 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 			const responseText = Buffer.from(response.data).toString("utf-8");
 
 			return JSONParse(responseText);
-		}
-		catch (error) {
+		} catch (error) {
 			if (error instanceof Error) {
 				if (error.message.startsWith("not found: contract")) {
 					throw new Error(`No contract found at address "${address}"`);
 				}
-				
+
 				throw error;
 			}
-			
+
 			throw error;
 		}
 	}
