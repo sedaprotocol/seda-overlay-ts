@@ -1,3 +1,4 @@
+import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
 import {
 	type GetExecutorEligibilityResponse,
 	createEligibilityHash,
@@ -12,7 +13,6 @@ import { type DataRequest, type DataRequestId, isDrInRevealStage, isDrStale } fr
 import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-request-pool";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
-import { trace, type Tracer, context, type Span } from "@opentelemetry/api";
 
 type EventMap = {
 	eligible: [drId: DataRequestId, eligibilityHeight: bigint, identityId: string];
@@ -76,7 +76,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		});
 
 		const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
-		const signSpan = this.eligibilityTracer.startSpan("sign-eligibility-message", undefined, trace.setSpan(context.active(), span));
+		const signSpan = this.eligibilityTracer.startSpan(
+			"sign-eligibility-message",
+			undefined,
+			trace.setSpan(context.active(), span),
+		);
 		const messageSignature = this.identities.sign(identityId, messageHash);
 		signSpan.end();
 
@@ -205,7 +209,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.debug("Data Request is stale, refreshing from chain", {
 				id: traceId,
 			});
-			const refreshSpan = this.eligibilityTracer.startSpan("refresh-stale-dr", undefined, trace.setSpan(context.active(), span));
+			const refreshSpan = this.eligibilityTracer.startSpan(
+				"refresh-stale-dr",
+				undefined,
+				trace.setSpan(context.active(), span),
+			);
 			const result = await getDataRequest(dataRequest.id, this.sedaChain);
 			refreshSpan.end();
 

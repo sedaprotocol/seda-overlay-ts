@@ -4,7 +4,7 @@ import {
 	createRevealBodyHash,
 	createRevealMessageHash,
 } from "@sedaprotocol/core-contract-schema/src/commit";
-import { RevealStarted, TransactionPriority, type SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { RevealStarted, type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired, DataRequestNotFound } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";

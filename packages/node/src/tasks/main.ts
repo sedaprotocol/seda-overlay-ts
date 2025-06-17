@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import path from "node:path";
+import { type Tracer, trace } from "@opentelemetry/api";
 import { type SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -17,7 +18,6 @@ import {
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
-import { trace, type Tracer } from "@opentelemetry/api";
 
 // Embed worker code so we can ouput a single binary
 const executeWorkerCode = getEmbeddedVmWorkerCode();
@@ -130,8 +130,6 @@ export class MainTask {
 
 		const dataRequest = Maybe.of(this.dataRequestsToProcess.shift());
 		if (dataRequest.isNothing) return;
-
-
 
 		dataRequest.value.on("done", () => {
 			this.activeDataRequestTasks -= 1;

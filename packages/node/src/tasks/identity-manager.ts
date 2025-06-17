@@ -1,4 +1,4 @@
-import { debouncedInterval, formatTokenUnits, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
+import { TransactionPriority, debouncedInterval, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";

@@ -1,12 +1,16 @@
-import type { GetDataRequestResponse, GetDataRequestsByStatusResponse, QueryMsg } from "@sedaprotocol/core-contract-schema";
+import type {
+	GetDataRequestResponse,
+	GetDataRequestsByStatusResponse,
+	QueryMsg,
+} from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
 import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 import { Cache } from "../services/cache";
 import { DebouncedPromise } from "./debounce-promise";
-import { JSONStringify } from "json-with-bigint";
 
 interface DataRequestsResponse {
 	dataRequests: DataRequest[];
@@ -32,7 +36,7 @@ export async function getDataRequests(
 	};
 
 	const result = await sedaChain.queryContractSmartBigInt<GetDataRequestsByStatusResponse>(message);
-	
+
 	if (result.isErr) {
 		return Result.err(new Error(`Failed to fetch data requests: ${JSONStringify(message)} ${result.error.message}`));
 	}
@@ -63,7 +67,7 @@ const dataRequestDebouncedPromise = new DebouncedPromise<Result<Maybe<DataReques
 export async function getDataRequest(drId: string, sedaChain: SedaChain): Promise<Result<Maybe<DataRequest>, Error>> {
 	return dataRequestDebouncedPromise.execute(drId, async () => {
 		const cachedValue = dataRequestCache.get(drId);
-		
+
 		if (cachedValue.isJust) {
 			logger.trace("Data request data fetched from cache", {
 				id: drId,

@@ -280,9 +280,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 		const txMessage = this.getNextTransaction(accountIndex);
 		if (txMessage.isNothing) return;
 
-		logger.trace(`Processing transaction on address ${this.getSignerAddress(txMessage.value.accountIndex)} and account index ${txMessage.value.accountIndex}`, {
-			id: txMessage.value.traceId,
-		});
+		logger.trace(
+			`Processing transaction on address ${this.getSignerAddress(txMessage.value.accountIndex)} and account index ${txMessage.value.accountIndex}`,
+			{
+				id: txMessage.value.traceId,
+			},
+		);
 
 		const cosmosMessage = txMessage.value.message;
 		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
@@ -393,7 +396,14 @@ export class SedaChain extends EventEmitter<EventMap> {
 				id: traceId,
 			});
 
-			const transactionHash = await this.queueSmartContractMessage(executeMsg, priority, attachedAttoSeda, gasOptions, forcedAccountIndex, traceId);
+			const transactionHash = await this.queueSmartContractMessage(
+				executeMsg,
+				priority,
+				attachedAttoSeda,
+				gasOptions,
+				forcedAccountIndex,
+				traceId,
+			);
 
 			if (transactionHash.isErr) {
 				logger.trace(`Transaction could not be queued for ${traceId}: ${transactionHash.error}`, {
