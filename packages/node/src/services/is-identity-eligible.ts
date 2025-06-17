@@ -131,7 +131,7 @@ export async function isIdentityEligibleForDataRequest(
 	}
 
 	const blocksPassed = currentBlockHeight.value - dataRequest.height;
-	const identityPublicKey = Buffer.from(identityId);
+	const identityPublicKey = Buffer.from(identityId, 'hex');
 
 	const isEligible = calculateDrEligibility(
 		stakers.value,
