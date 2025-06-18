@@ -1,4 +1,5 @@
 import { type Context, type Span, type Tracer, trace } from "@opentelemetry/api";
+import type { GetExecutorEligibilityResponse } from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, keccak256 } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
@@ -81,7 +82,7 @@ export async function isIdentityEligibleForDataRequest(
 	parentSpan: Span,
 	tracer: Tracer,
 	activeContext: Context,
-): Promise<Result<boolean, Error>> {
+): Promise<Result<GetExecutorEligibilityResponse, Error>> {
 	const ctx = trace.setSpan(activeContext, parentSpan);
 	const span = tracer.startSpan("isIdentityEligibleForDataRequest", undefined, ctx);
 	span.setAttributes({
@@ -147,5 +148,9 @@ export async function isIdentityEligibleForDataRequest(
 	);
 
 	span.end();
-	return Result.ok(isEligible);
+
+	return Result.ok({
+		block_height: Number(currentBlockHeight.value),
+		status: isEligible ? "eligible" : "not_eligible",
+	});
 }

@@ -84,7 +84,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		});
 
 		// So we can enable and disable offline eligibility through the config
-		const response: Result<boolean, Error> = await match(this.config.node.offlineEligibility)
+		const response: Result<GetExecutorEligibilityResponse, Error> = await match(this.config.node.offlineEligibility)
 			.with(true, async () => {
 				const response = await isIdentityEligibleForDataRequest(
 					this.sedaChain,
@@ -108,7 +108,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					return Result.err(messageSignature.error);
 				}
 
-				const response = await this.sedaChain.queryContractSmart<IsExecutorEligibleResponse>({
+				const response = await this.sedaChain.queryContractSmart<GetExecutorEligibilityResponse>({
 					is_executor_eligible: {
 						data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
 					},
@@ -134,15 +134,16 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			};
 		}
 
-		logger.debug(
-			response.value.status === "eligible" ? "🟢 Eligible" : `🔴 Not eligible: ${response.value.status}`,
-			{
-				id: traceId,
-			},
-		);
+		logger.debug(response.value.status === "eligible" ? "🟢 Eligible" : `🔴 Not eligible: ${response.value.status}`, {
+			id: traceId,
+		});
 
 		// Check if the data request is still in Commit Stage on chain
-		const drCheckSpan = this.eligibilityTracer.startSpan("check-dr-status", undefined, trace.setSpan(context.active(), span));
+		const drCheckSpan = this.eligibilityTracer.startSpan(
+			"check-dr-status",
+			undefined,
+			trace.setSpan(context.active(), span),
+		);
 		const drFromChain = await getDataRequest(dataRequest.id, this.sedaChain);
 		drCheckSpan.end();
 
@@ -293,20 +294,23 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			}
 
 			eligibilityChecks.push(
-				this.checkIdentityEligibilityForDataRequest(dataRequest, identityInfo.identityId, coreContractAddress, span).then(
-					(response) => {
-						if (response.eligible) {
-							this.pool.insertIdentityDataRequest(
-								dataRequest.id,
-								response.identityId,
-								response.height,
-								Maybe.nothing(),
-								IdentityDataRequestStatus.EligibleForExecution,
-							);
-							this.emit("eligible", dataRequest.id, response.height, response.identityId);
-						}
-					},
-				),
+				this.checkIdentityEligibilityForDataRequest(
+					dataRequest,
+					identityInfo.identityId,
+					coreContractAddress,
+					span,
+				).then((response) => {
+					if (response.eligible) {
+						this.pool.insertIdentityDataRequest(
+							dataRequest.id,
+							response.identityId,
+							response.height,
+							Maybe.nothing(),
+							IdentityDataRequestStatus.EligibleForExecution,
+						);
+						this.emit("eligible", dataRequest.id, response.height, response.identityId);
+					}
+				}),
 			);
 		}
 

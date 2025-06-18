@@ -6,12 +6,14 @@ import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-
 export const availableExecutors = populateWithCommonOptions(new Command("available-executors"))
 	.description("lists all available executors")
 	.action(async (options) => {
-		const { sedaChain } = await loadConfigAndSedaChain({
+		const { sedaChain, config } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
 			network: options.network,
 		});
 
+		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
 		logger.info("Listing available executors..");
 
 		const response = await getStakers(sedaChain);

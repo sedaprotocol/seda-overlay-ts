@@ -57,8 +57,9 @@ export const info = populateWithCommonOptions(new Command("info"))
 
 		const entries: TableEntry[] = [];
 
-		console.info("Loading..");
-		console.info(`Signer Address: ${sedaChain.getSignerAddress()}`);
+		logger.info("Loading..");
+		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
 
 		for (const [index, identityId] of config.sedaChain.identityIds.entries()) {
 			const response = await getStakerAndSequenceInfo(identityId, sedaChain);

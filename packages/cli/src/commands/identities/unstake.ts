@@ -18,6 +18,9 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 			network: options.network,
 		});
 
+		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
+
 		const identityId = Maybe.of(config.sedaChain.identityIds.at(Number(index)));
 
 		if (identityId.isNothing) {

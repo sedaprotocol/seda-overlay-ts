@@ -7,12 +7,14 @@ export const removeFromAllowlist = populateWithCommonOptions(new Command("remove
 	.description("removes an identity from the allowlist")
 	.argument("<identity-index>", "Identity public key you want to remove")
 	.action(async (identityId, options) => {
-		const { sedaChain } = await loadConfigAndSedaChain({
+		const { sedaChain, config } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
 			network: options.network,
 		});
 
+		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
 		logger.info(`Removing from allowlist ${identityId}..`);
 
 		const response = await sedaChain.waitForSmartContractTransaction(

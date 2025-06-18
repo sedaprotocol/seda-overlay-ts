@@ -8,11 +8,14 @@ export const multiSend = populateWithCommonOptions(new Command("multi-send"))
 	.option("-a, --amount <amount>", "Amount of SEDA to send", "1")
 	.action(async (options) => {
 		const amountToSend = parseTokenUnits(options.amount, 18);
-		const { sedaChain } = await loadConfigAndSedaChain({
+		const { sedaChain, config } = await loadConfigAndSedaChain({
 			config: options.config,
 			mnemonic: options.mnemonic,
 			network: options.network,
 		});
+
+		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
 
 		const sender = sedaChain.getSignerAddress(0);
 
