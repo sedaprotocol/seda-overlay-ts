@@ -81,7 +81,6 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 				gasPrice: BigInt(gasPrice),
 				identityPrivateKey,
 				appConfig: config.value,
-				requestTimeout: config.value.node.requestTimeout,
 				totalHttpTimeLimit: config.value.node.totalHttpTimeLimit,
 			},
 			sedaChain,

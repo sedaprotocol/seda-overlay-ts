@@ -49,7 +49,6 @@ function startWorker() {
 					eligibilityHeight: BigInt(message.eligibilityHeight),
 					gasPrice: message.dataRequest.gasPrice,
 					identityPrivateKey: message.identityPrivateKey,
-					requestTimeout: message.appConfig.node.requestTimeout,
 					totalHttpTimeLimit: message.appConfig.node.totalHttpTimeLimit,
 				},
 				sedaChain.value,

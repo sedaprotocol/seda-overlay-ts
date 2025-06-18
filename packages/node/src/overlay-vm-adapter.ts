@@ -28,7 +28,6 @@ type Options = {
 	identityPrivateKey: Buffer;
 	gasPrice: bigint;
 	appConfig: AppConfig;
-	requestTimeout: number;
 	totalHttpTimeLimit: number;
 };
 
@@ -45,7 +44,6 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 		private traceId: string,
 	) {
 		super({
-			requestTimeout: options.requestTimeout,
 			totalHttpTimeLimit: options.totalHttpTimeLimit,
 		});
 

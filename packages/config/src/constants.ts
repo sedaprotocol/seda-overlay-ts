@@ -27,7 +27,6 @@ export const DEFAULT_HTTP_SERVER_PORT = 3000;
 export const DEFAULT_ADJUSTMENT_FACTOR = 2;
 export const DEFAULT_GAS_PRICE = "10000000000";
 export const DEFAULT_GAS = "auto";
-export const DEFAULT_REQUEST_TIMEOUT = 2_000;
 export const DEFAULT_TOTAL_HTTP_TIME_LIMIT = 20_000;
 export const DEFAULT_MAX_REVEAL_SIZE = 24_000; // 24KB (should be divided by the replication factor)
 export const DEFAULT_ACCOUNT_AMOUNTS = 10;

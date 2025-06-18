@@ -14,7 +14,6 @@ import {
 	DEFAULT_MAX_VM_LOGS_SIZE_BYTES,
 	DEFAULT_OFFLINE_ELIGIBILITY,
 	DEFAULT_PROCESS_DR_INTERVAL,
-	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
 	DEFAULT_TOTAL_HTTP_TIME_LIMIT,
 } from "../constants";
@@ -34,7 +33,6 @@ export const NodeConfigSchema = v.object({
 	logRotationLevel: v.optional(v.string(), DEFAULT_LOG_ROTATION_LEVEL),
 	logRotationMaxFiles: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_FILES),
 	logRotationMaxSize: v.optional(v.string(), DEFAULT_LOG_ROTATION_MAX_SIZE),
-	requestTimeout: v.optional(v.number(), DEFAULT_REQUEST_TIMEOUT),
 	totalHttpTimeLimit: v.optional(v.number(), DEFAULT_TOTAL_HTTP_TIME_LIMIT),
 	drFetchLimit: v.optional(v.number(), DEFAULT_FETCH_LIMIT),
 	offlineEligibility: v.optional(v.boolean(), DEFAULT_OFFLINE_ELIGIBILITY),

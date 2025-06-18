@@ -79,7 +79,6 @@ export async function executeDataRequest(
 				identityPrivateKey,
 				eligibilityHeight,
 				appConfig,
-				requestTimeout: appConfig.node.requestTimeout,
 				totalHttpTimeLimit: appConfig.node.totalHttpTimeLimit,
 			},
 			sedaChain,
