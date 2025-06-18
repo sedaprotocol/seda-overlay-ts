@@ -13,6 +13,8 @@ export function createApi(mainTask: MainTask) {
 
 			txStats: mainTask.getTransactionStats(),
 
+			isFetchTaskHealthy: mainTask.isFetchTaskHealthy(),
+
 			activeIdentities: Array.from(mainTask.identityPool.all()).map(({ identityId, enabled }) => ({
 				identityId,
 				enabled,

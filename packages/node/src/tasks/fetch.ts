@@ -17,6 +17,14 @@ export class FetchTask extends EventEmitter<EventMap> {
 	private timerId: Maybe<Timer> = Maybe.nothing();
 	private fetchTracer: Tracer;
 
+	// Metrics:
+	public isFetchTaskHealthy: boolean | undefined = undefined;
+	private fetchCountLastRefresh = 0;
+	private failedFetchCount = 0;
+	private totalFetchCount = 0;
+	private readonly FETCH_FAILURE_THRESHOLD = 0.2;
+	private readonly FETCH_COUNT_REFRESH_INTERVAL = 300000; // 5 minutes
+
 	constructor(
 		private pool: DataRequestPool,
 		private config: AppConfig,
@@ -38,12 +46,15 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 		span.setAttribute("drFetchLimit", this.config.node.drFetchLimit);
 
+		this.addFetchCount();
+
 		logger.info("🔎 Looking for Data Requests...");
 		const result = await getDataRequests(this.sedaChain, this.config.node.drFetchLimit);
 
 		if (result.isErr) {
 			span.recordException(result.error);
 			span.end();
+			this.failedFetchCount++;
 			return Result.err(result.error);
 		}
 
@@ -116,5 +127,24 @@ export class FetchTask extends EventEmitter<EventMap> {
 			Just: (timer) => clearInterval(timer),
 			Nothing: () => {},
 		});
+	}
+
+	/**
+	 * Increments the total fetch count, refreshing the counter if necessary.
+	 * Updates lastFetchTaskStatus during refresh to indicate if more than 50% of fetches failed in the previous interval.
+	 * @private
+	 */
+	private addFetchCount() {
+		const now = Date.now();
+		if (now - this.fetchCountLastRefresh >= this.FETCH_COUNT_REFRESH_INTERVAL) {
+			if (this.fetchCountLastRefresh) {
+				this.isFetchTaskHealthy = this.failedFetchCount < this.totalFetchCount * this.FETCH_FAILURE_THRESHOLD;
+			}
+			this.totalFetchCount = 1;
+			this.failedFetchCount = 0;
+			this.fetchCountLastRefresh = now;
+		} else {
+			this.totalFetchCount++;
+		}
 	}
 }

@@ -27,8 +27,8 @@ export const availableExecutors = populateWithCommonOptions(new Command("availab
 			const publicKey = staker.publicKey.toString("hex");
 			return {
 				publicKey,
-				tokensStaked: staker.tokensStaked,
-				tokensPendingWithdrawal: staker.tokensPendingWithdrawal,
+				tokensStaked: staker.tokensStaked.toString(),
+				tokensPendingWithdrawal: staker.tokensPendingWithdrawal.toString(),
 				memo: staker.memo.unwrapOr(Buffer.alloc(0)).toString("utf-8"),
 			};
 		});
