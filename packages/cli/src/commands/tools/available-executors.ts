@@ -1,6 +1,6 @@
 import { Command } from "@commander-js/extra-typings";
-import type { GetExecutorsResponse } from "@sedaprotocol/core-contract-schema";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { getStakers } from "@sedaprotocol/overlay-ts-node/src/services/get-staker";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 
 export const availableExecutors = populateWithCommonOptions(new Command("available-executors"))
@@ -14,19 +14,24 @@ export const availableExecutors = populateWithCommonOptions(new Command("availab
 
 		logger.info("Listing available executors..");
 
-		const response = await sedaChain.queryContractSmart<GetExecutorsResponse>({
-			get_executors: {
-				limit: 100,
-				offset: 0,
-			},
-		});
+		const response = await getStakers(sedaChain);
 
 		if (response.isErr) {
 			logger.error(`Listing failed: ${response.error}`);
 			process.exit(1);
 		}
 
-		console.table(response.value.executors);
+		const stakers = response.value.map((staker) => {
+			const publicKey = staker.publicKey.toString("hex");
+			return {
+				publicKey,
+				tokensStaked: staker.tokensStaked,
+				tokensPendingWithdrawal: staker.tokensPendingWithdrawal,
+				memo: staker.memo.unwrapOr(Buffer.alloc(0)).toString("utf-8"),
+			};
+		});
+
+		console.table(stakers);
 
 		logger.info("Succesfully listed available executors");
 		process.exit(0);

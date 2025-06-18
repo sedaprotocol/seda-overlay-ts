@@ -39,21 +39,44 @@ export async function getStaker(sedaChain: SedaChain, publicKey: string): Promis
 
 const STAKERS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 const stakersCache = new Cache<Staker[]>(STAKERS_CACHE_TTL);
-const DEFAULT_LIMIT = 100;
+const DEFAULT_LIMIT = 20;
 
-export async function getStakers(sedaChain: SedaChain): Promise<Result<Staker[], Error>> {
+/**
+ * Fetches all stakers from the contract.
+ *
+ * @param sedaChain - The SedaChain instance to use for querying the contract.
+ * @param limit - The number of stakers to fetch per page.
+ * @returns A Result containing an array of Staker objects or an Error if the query fails.
+ */
+export async function getStakers(sedaChain: SedaChain, limit = DEFAULT_LIMIT): Promise<Result<Staker[], Error>> {
 	return stakersCache.getOrFetch("stakers", async () => {
-		const result = await sedaChain.queryContractSmart<GetExecutorsResponse>({
-			get_executors: {
-				limit: DEFAULT_LIMIT,
-				offset: 0,
-			},
-		});
+		const stakers: Staker[] = [];
+		let offset = 0;
 
-		if (result.isErr) {
-			return Result.err(result.error);
+		async function fetchStakers(): Promise<Result<Staker[], Error>> {
+			const result = await sedaChain.queryContractSmart<GetExecutorsResponse>({
+				get_executors: {
+					limit,
+					offset,
+				},
+			});
+
+			if (result.isErr) {
+				return Result.err(result.error);
+			}
+
+			stakers.push(...result.value.executors.map((staker) => transformStakerFromContract(staker, staker.public_key)));
+
+			// If we got fewer results than requested, we're done (end of data)
+			if (result.value.executors.length < limit) {
+				return Result.ok(stakers);
+			}
+
+			// Otherwise, fetch the next page
+			offset = stakers.length;
+			return fetchStakers();
 		}
 
-		return Result.ok(result.value.executors.map((staker) => transformStakerFromContract(staker, staker.public_key)));
+		return fetchStakers();
 	});
 }
