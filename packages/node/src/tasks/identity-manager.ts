@@ -89,8 +89,6 @@ export class IdentityManagerTask {
 	/**
 	 * Making sure all accounts have at least the minimum SEDA amount
 	 * This is to be able to execute transactions on the chain. Not alot is needed since the chain refunds succesfully executed transactions.
-	 *
-	 * TODO: This is a very bad implementation. We should use a better way to do this. It does not take sequence numbers into account.
 	 */
 	private async sendTokensToAllAddresses() {
 		// We only want to send tokens from the first account
@@ -106,7 +104,7 @@ export class IdentityManagerTask {
 
 			if (BigInt(balance.amount) < this.config.sedaChain.minSedaPerAccount) {
 				logger.info(
-					`${accountIndex}: Sending ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
+					`${accountIndex}: Account ${this.sedaChain.getSignerAddress(accountIndex)} has less than the minimum SEDA amount. Sending ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA..`,
 				);
 
 				const sendMsg = {
@@ -123,7 +121,13 @@ export class IdentityManagerTask {
 					},
 				};
 
-				await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
+				const response = await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
+
+				if (response.isErr) {
+					logger.error(
+						`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
+					);
+				}
 
 				logger.info(
 					`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
@@ -147,6 +151,7 @@ export class IdentityManagerTask {
 		// Set up periodic checks
 		debouncedInterval(async () => {
 			await this.processAllIdentities();
+			await this.sendTokensToAllAddresses();
 		}, this.config.intervals.identityCheck);
 	}
 }
