@@ -34,6 +34,8 @@ export const DEFAULT_MIN_SEDA_PER_ACCOUNT = 1_000_000_000_000_000_000n; // 1 SED
 export const DEFAULT_LOG_LEVEL = "debug";
 export const DEFAULT_FETCH_LIMIT = 20;
 export const DEFAULT_OFFLINE_ELIGIBILITY = true;
+export const DEFAULT_FETCH_FAILURE_THRESHOLD = 0.2;
+export const DEFAULT_FETCH_COUNT_REFRESH_INTERVAL = 300000; // 5 minutes in milliseconds
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

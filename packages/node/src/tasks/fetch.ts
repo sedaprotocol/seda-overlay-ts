@@ -22,8 +22,8 @@ export class FetchTask extends EventEmitter<EventMap> {
 	private fetchCountLastRefresh = 0;
 	private failedFetchCount = 0;
 	private totalFetchCount = 0;
-	private readonly FETCH_FAILURE_THRESHOLD = 0.2;
-	private readonly FETCH_COUNT_REFRESH_INTERVAL = 300000; // 5 minutes
+	private fetchFailureThreshold;
+	private fetchCountRefreshInterval;
 
 	constructor(
 		private pool: DataRequestPool,
@@ -32,6 +32,9 @@ export class FetchTask extends EventEmitter<EventMap> {
 	) {
 		super();
 		this.fetchTracer = trace.getTracer("fetch");
+
+		this.fetchFailureThreshold = config.node.fetchFailureThreshold;
+		this.fetchCountRefreshInterval = config.node.fetchCountRefreshInterval;
 	}
 
 	async fetch(parentSpan?: Span): Promise<Result<Unit, Error>> {
@@ -136,9 +139,9 @@ export class FetchTask extends EventEmitter<EventMap> {
 	 */
 	private addFetchCount() {
 		const now = Date.now();
-		if (now - this.fetchCountLastRefresh >= this.FETCH_COUNT_REFRESH_INTERVAL) {
+		if (now - this.fetchCountLastRefresh >= this.fetchCountRefreshInterval) {
 			if (this.fetchCountLastRefresh) {
-				this.isFetchTaskHealthy = this.failedFetchCount < this.totalFetchCount * this.FETCH_FAILURE_THRESHOLD;
+				this.isFetchTaskHealthy = this.failedFetchCount < this.totalFetchCount * this.fetchFailureThreshold;
 			}
 			this.totalFetchCount = 1;
 			this.failedFetchCount = 0;
