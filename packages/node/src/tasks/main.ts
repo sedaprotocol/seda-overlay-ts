@@ -191,4 +191,8 @@ export class MainTask {
 			sedaChain: this.sedaChain.getTransactionStats(),
 		};
 	}
+
+	isFetchTaskHealthy() {
+		return this.fetchTask.isFetchTaskHealthy;
+	}
 }
