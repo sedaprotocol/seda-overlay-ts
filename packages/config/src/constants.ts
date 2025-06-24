@@ -37,6 +37,7 @@ export const DEFAULT_OFFLINE_ELIGIBILITY = true;
 export const DEFAULT_FETCH_FAILURE_THRESHOLD = 0.2;
 export const DEFAULT_FETCH_COUNT_REFRESH_INTERVAL = 300000; // 5 minutes in milliseconds
 export const DEFAULT_GAS_ESTIMATIONS_ENABLED = true;
+export const DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD = 2;
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {

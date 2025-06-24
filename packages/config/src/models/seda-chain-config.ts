@@ -14,6 +14,7 @@ import {
 	DEFAULT_MIN_SEDA_PER_ACCOUNT,
 	DEFAULT_QUEUE_INTERVAL,
 	DEFAULT_SLEEP_BETWEEN_FAILED_TX,
+	DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD,
 	DEFAULT_TRANSACTION_POLL_INTERVAL,
 } from "../constants";
 import { getAppVersions } from "./app-versions" with { type: "macro" };
@@ -34,6 +35,8 @@ export const SedaChainConfigSchema = v.object({
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
 	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
 	memoSuffix: v.optional(v.string(), ""),
+	// The amount of blocks to search for a transaction in the block (Through block indexing). Before switching to an immediate search. (direct getTx call)
+	transactionBlockSearchThreshold: v.optional(v.number(), DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

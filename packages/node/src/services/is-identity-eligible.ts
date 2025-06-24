@@ -1,10 +1,9 @@
 import { type Context, type Span, type Tracer, trace } from "@opentelemetry/api";
 import type { GetExecutorEligibilityResponse } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, keccak256 } from "@sedaprotocol/overlay-ts-common";
+import { type SedaChain, getCurrentBlockHeight, keccak256 } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
-import { getCurrentBlockHeight } from "./block";
 import { getDrConfig } from "./dr-config";
 import { type Staker, getStakers } from "./get-staker";
 import { getStakingConfig } from "./get-staking-config";
@@ -131,7 +130,7 @@ export async function isIdentityEligibleForDataRequest(
 		return Result.err(drConfig.error);
 	}
 
-	const blocksPassed = currentBlockHeight.value - dataRequest.height;
+	const blocksPassed = BigInt(currentBlockHeight.value) - dataRequest.height;
 	const identityPublicKey = Buffer.from(identityId, "hex");
 
 	const isEligible = calculateDrEligibility(

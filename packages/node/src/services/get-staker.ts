@@ -1,7 +1,7 @@
 import type { GetExecutorsResponse, Staker as StakerFromContract } from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { Cache } from "@sedaprotocol/overlay-ts-common";
 import { Maybe, Result } from "true-myth";
-import { Cache } from "./cache";
 
 export interface Staker {
 	memo: Maybe<Buffer>;

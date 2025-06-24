@@ -1,12 +1,12 @@
 import { callVm, executeVm } from "@seda-protocol/vm";
 import type { VmCallData, VmResult } from "@seda-protocol/vm";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
+import { Cache } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { type Maybe, Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import { OverlayVmAdapter } from "../overlay-vm-adapter";
-import { Cache } from "../services/cache";
 import { getVmVersion } from "../services/determine-vm-version" with { type: "macro" };
 import { getOracleProgram } from "../services/get-oracle-program";
 import { compile } from "./execute-worker/compile-worker";

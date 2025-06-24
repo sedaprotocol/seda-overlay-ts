@@ -1,8 +1,8 @@
 import type { DrConfig as DrConfigFromContract } from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { Cache } from "@sedaprotocol/overlay-ts-common";
 import { Result } from "true-myth";
 import type { CamelCasedPropertiesDeep } from "type-fest";
-import { Cache } from "./cache";
 
 export type DrConfig = CamelCasedPropertiesDeep<DrConfigFromContract>;
 

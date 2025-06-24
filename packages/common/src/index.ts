@@ -12,3 +12,6 @@ export { vrfProve } from "./services/vrf";
 export { WorkerPool } from "./services/worker-pool";
 export { isBun } from "./services/is-bun";
 export { getRuntime } from "./services/runtime";
+export { Cache } from "./services/cache";
+export { getCurrentBlockHeight, getBlock } from "./seda/block";
+export { DebouncedPromise } from "./services/debounce-promise";
