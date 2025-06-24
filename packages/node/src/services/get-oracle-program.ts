@@ -5,6 +5,7 @@ import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Maybe, Result } from "true-myth";
+import { rpcMetrics } from "../internal-metrics";
 
 type OracleProgram = {
 	bytes: Buffer;
@@ -23,6 +24,7 @@ export async function getOracleProgram(
 		return Result.ok(Maybe.just({ bytes: cachedWasmFile.value, fromCache: true }));
 	}
 
+	rpcMetrics.incrementRpcCalls();
 	const binary = await tryAsync(sedaChain.getWasmStorageQueryClient().OracleProgram({ hash: execProgramId }));
 
 	if (binary.isErr) {

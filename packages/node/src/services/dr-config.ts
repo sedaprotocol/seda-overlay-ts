@@ -3,6 +3,7 @@ import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Result } from "true-myth";
 import type { CamelCasedPropertiesDeep } from "type-fest";
 import { Cache } from "./cache";
+import { rpcMetrics } from "../internal-metrics";
 
 export type DrConfig = CamelCasedPropertiesDeep<DrConfigFromContract>;
 
@@ -26,6 +27,7 @@ const drConfigCache = new Cache<DrConfig>(DR_CONFIG_CACHE_TTL);
 
 export async function getDrConfig(sedaChain: SedaChain): Promise<Result<DrConfig, Error>> {
 	return drConfigCache.getOrFetch("drConfig", async () => {
+		rpcMetrics.incrementRpcCalls();
 		const result = await sedaChain.queryContractSmart<DrConfigFromContract>({
 			get_dr_config: {},
 		});

@@ -8,6 +8,7 @@ import { Result, type Unit } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
+import { rpcMetrics } from "../internal-metrics";
 
 export class EnchancedRevealError {
 	constructor(
@@ -41,6 +42,7 @@ export async function revealDr(
 		id: traceId,
 	});
 
+	rpcMetrics.incrementDataRequestRpcCalls(dataRequest.id, "revealDr");
 	const revealResponse = await sedaChain.waitForSmartContractTransaction(
 		{
 			reveal_data_result: {

@@ -14,6 +14,7 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import isLocalhostIp from "is-localhost-ip";
 import { Maybe, Result } from "true-myth";
 import { createProxyHttpProof, verifyProxyHttpResponse } from "./services/proxy-http";
+import { rpcMetrics } from "./internal-metrics";
 
 type Options = {
 	dataRequestId: string;
@@ -122,6 +123,7 @@ export class OverlayVmAdapter extends DataRequestVmAdapter {
 			);
 		}
 
+		rpcMetrics.incrementRpcCalls();
 		const dataProxyRegistryResponse = (
 			await tryAsync(
 				this.dataProxyRpcQueryClient.DataProxyConfig({

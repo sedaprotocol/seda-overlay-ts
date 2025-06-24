@@ -17,6 +17,7 @@ import {
 	DEFAULT_REQUEST_TIMEOUT,
 	DEFAULT_TERMINATE_AFTER_COMPLETION,
 	DEFAULT_TOTAL_HTTP_TIME_LIMIT,
+	DEFAULT_ENABLE_RPC_METRICS,
 } from "../constants";
 
 export const NodeConfigSchema = v.object({
@@ -38,6 +39,7 @@ export const NodeConfigSchema = v.object({
 	totalHttpTimeLimit: v.optional(v.number(), DEFAULT_TOTAL_HTTP_TIME_LIMIT),
 	drFetchLimit: v.optional(v.number(), DEFAULT_FETCH_LIMIT),
 	offlineEligibility: v.optional(v.boolean(), DEFAULT_OFFLINE_ELIGIBILITY),
+	enableRpcMetrics: v.optional(v.boolean(), DEFAULT_ENABLE_RPC_METRICS),
 });
 
 export type NodeConfig = v.InferOutput<typeof NodeConfigSchema>;

@@ -1,10 +1,17 @@
 import { Hono } from "hono";
 import type { MainTask } from "../../tasks/main";
+import { getRpcMetrics } from "../../internal-metrics";
+import { match } from "ts-pattern";
 
 export function createApi(mainTask: MainTask) {
 	const api = new Hono();
 
 	api.get("/health", (c) => {
+		const rpcAggregation = match(c.req.query("rpcFilter"))
+			.with("avg", () => "avg" as const)
+			.with("all", () => "all" as const)
+			.otherwise(() => "avg" as const);
+
 		return c.json({
 			activelyExecutingSize: mainTask.activeDataRequestTasks,
 			eligibleButWaitingForExecutionSize: mainTask.dataRequestsToProcess.length,
@@ -28,6 +35,7 @@ export function createApi(mainTask: MainTask) {
 					}),
 				),
 			},
+			rpcMetrics: getRpcMetrics(rpcAggregation),
 		});
 	});
 

@@ -12,6 +12,7 @@ import { Result } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
+import { rpcMetrics } from "../internal-metrics";
 
 export async function commitDr(
 	identityId: string,
@@ -61,6 +62,7 @@ export async function commitDr(
 		id: traceId,
 	});
 
+	rpcMetrics.incrementDataRequestRpcCalls(dataRequest.id, "commitDr");
 	const commitResponse = await sedaChain.waitForSmartContractTransaction(
 		{
 			commit_data_result: {

@@ -2,6 +2,7 @@ import type { GetExecutorsResponse, Staker as StakerFromContract } from "@sedapr
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Maybe, Result } from "true-myth";
 import { Cache } from "./cache";
+import { rpcMetrics } from "../internal-metrics";
 
 export interface Staker {
 	memo: Maybe<Buffer>;
@@ -54,6 +55,7 @@ export async function getStakers(sedaChain: SedaChain, limit = DEFAULT_LIMIT): P
 		let offset = 0;
 
 		async function fetchStakers(): Promise<Result<Staker[], Error>> {
+			rpcMetrics.incrementRpcCalls();
 			const result = await sedaChain.queryContractSmart<GetExecutorsResponse>({
 				get_executors: {
 					limit,

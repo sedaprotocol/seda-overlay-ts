@@ -2,6 +2,7 @@ import type { StakingConfig as StakingConfigFromContract } from "@sedaprotocol/c
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Result } from "true-myth";
 import { Cache } from "./cache";
+import { rpcMetrics } from "../internal-metrics";
 
 export interface StakingConfig {
 	minimumStake: bigint;
@@ -14,6 +15,7 @@ const stakingConfigCache = new Cache<StakingConfig>(STAKING_CONFIG_CACHE_TTL);
 
 export async function getStakingConfig(sedaChain: SedaChain): Promise<Result<StakingConfig, Error>> {
 	return stakingConfigCache.getOrFetch("staking_config", async () => {
+		rpcMetrics.incrementRpcCalls();
 		const response = await sedaChain.queryContractSmart<StakingConfigFromContract>({
 			get_staking_config: {},
 		});

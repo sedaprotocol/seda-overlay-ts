@@ -1,12 +1,14 @@
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Result } from "true-myth";
 import { Cache } from "./cache";
+import { rpcMetrics } from "../internal-metrics";
 
 const BLOCK_HEIGHT_CACHE_TTL = 2500; // 2.5 seconds
 const blockHeightCache = new Cache<bigint>(BLOCK_HEIGHT_CACHE_TTL);
 
 export async function getCurrentBlockHeight(sedaChain: SedaChain): Promise<Result<bigint, Error>> {
 	return blockHeightCache.getOrFetch("blockHeight", async () => {
+		rpcMetrics.incrementRpcCalls();
 		const result = await sedaChain.getBlock();
 
 		if (result.isErr) {

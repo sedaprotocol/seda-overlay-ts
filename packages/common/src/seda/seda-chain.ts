@@ -23,6 +23,7 @@ import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
 import { type ISigner, Signer } from "./signer";
 import { type SedaSigningCosmWasmClient, createSigningClient } from "./signing-client";
+import { rpcMetrics } from "@sedaprotocol/overlay-ts-node/src/internal-metrics";
 
 type EventMap = {
 	"tx-error": [string, TransactionMessage | undefined];
@@ -386,6 +387,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 	): Promise<
 		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
 	> {
+		const drId = traceId?.split("_")[0] ?? "unknown";
+
 		return new Promise(async (resolve) => {
 			logger.trace(`Queueing smart contract transaction account index ${forcedAccountIndex ?? "default"}`, {
 				id: traceId,
@@ -419,6 +422,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 					id: traceId,
 				});
 
+				rpcMetrics.incrementDataRequestRpcCalls(drId, "pollTx");
 				const transactionResult = await this.getTransaction(transactionHash.value);
 
 				if (transactionResult.isErr) {

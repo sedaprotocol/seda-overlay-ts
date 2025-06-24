@@ -11,6 +11,7 @@ import { transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 import { Cache } from "../services/cache";
 import { DebouncedPromise } from "./debounce-promise";
+import { rpcMetrics } from "../internal-metrics";
 
 interface DataRequestsResponse {
 	dataRequests: DataRequest[];
@@ -35,6 +36,7 @@ export async function getDataRequests(
 		},
 	};
 
+	rpcMetrics.incrementRpcCalls();
 	const result = await sedaChain.queryContractSmartBigInt<GetDataRequestsByStatusResponse>(message);
 
 	if (result.isErr) {
@@ -80,6 +82,7 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 			id: drId,
 		});
 
+		rpcMetrics.incrementDataRequestRpcCalls(drId, "getDataRequest");
 		const result = await sedaChain.queryContractSmart<GetDataRequestResponse>({
 			get_data_request: {
 				dr_id: drId,

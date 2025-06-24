@@ -6,6 +6,7 @@ import { Result, type Unit } from "true-myth";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getStaker } from "../services/get-staker";
 import { getStakingConfig } from "../services/get-staking-config";
+import { rpcMetrics } from "../internal-metrics";
 
 export class IdentityManagerTask {
 	constructor(
@@ -97,6 +98,7 @@ export class IdentityManagerTask {
 		for (const [accountIndex, _] of this.sedaChain.signerClients.entries()) {
 			if (accountIndex === 0) continue;
 
+			rpcMetrics.incrementRpcCalls();
 			const balance = await this.sedaChain.signerClients[0].getBalance(
 				this.sedaChain.getSignerAddress(accountIndex),
 				"aseda",
@@ -121,6 +123,7 @@ export class IdentityManagerTask {
 					},
 				};
 
+				rpcMetrics.incrementRpcCalls();
 				const response = await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
 
 				if (response.isErr) {
