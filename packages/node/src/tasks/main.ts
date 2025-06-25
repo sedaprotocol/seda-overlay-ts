@@ -18,6 +18,7 @@ import {
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
+import { BlockMonitorTask } from "./block-monitor";
 
 // Embed worker code so we can ouput a single binary
 const executeWorkerCode = getEmbeddedVmWorkerCode();
@@ -60,10 +61,17 @@ function writeWorkersToDisk(workersDir: string) {
 
 export class MainTask {
 	public pool: DataRequestPool = new DataRequestPool();
+	
+	// RPC polling system (legacy/fallback)
 	private fetchTask: FetchTask;
+	private eligibilityTask: EligibilityTask;
+	
+	// gRPC block monitoring system (new)
+	private blockMonitorTask?: BlockMonitorTask;
+	
+	// Shared components
 	private identityManagerTask: IdentityManagerTask;
 	public identityPool: IdentityPool;
-	private eligibilityTask: EligibilityTask;
 	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
 	private syncExecuteWorker: Maybe<WorkerPool> = Maybe.nothing();
@@ -147,35 +155,119 @@ export class MainTask {
 		span.setAttribute("process_dr_interval", this.config.node.processDrInterval);
 
 		await this.identityManagerTask.start();
+		
+		// Determine which monitoring system to use
+		const useBlockMonitoring = this.config.node.experimental?.useBlockMonitoring ?? false;
+		const hybridMode = this.config.node.experimental?.hybridMode ?? false;
+		const fallbackToRpc = this.config.node.experimental?.fallbackToRpc ?? true;
+		
+		if (useBlockMonitoring) {
+			logger.info("🚀 Starting with gRPC block monitoring");
+			await this.startBlockMonitoring();
+			
+			if (hybridMode) {
+				logger.info("🔄 Hybrid mode: also starting RPC polling for comparison");
+				await this.startRpcPolling();
+			}
+		} else {
+			logger.info("📡 Starting with RPC polling (legacy mode)");
+			await this.startRpcPolling();
+		}
+
+		span.end();
+	}
+	
+	private async startBlockMonitoring(): Promise<void> {
+		try {
+			this.blockMonitorTask = new BlockMonitorTask(this.config, this.sedaChain, this.identityPool);
+			
+			const startResult = await this.blockMonitorTask.start();
+			if (startResult.isErr) {
+				throw startResult.error;
+			}
+			
+			// Handle events from block monitoring
+			this.blockMonitorTask.on('eligible', this.handleEligibleDR.bind(this));
+			this.blockMonitorTask.on('readyForReveal', this.handleReadyForReveal.bind(this));
+			this.blockMonitorTask.on('error', this.handleBlockMonitorError.bind(this));
+			
+			logger.info("Block monitoring started successfully");
+		} catch (error) {
+			const err = error instanceof Error ? error : new Error(String(error));
+			logger.error(`Failed to start block monitoring: ${err.message}`);
+			
+			const fallbackToRpc = this.config.node.experimental?.fallbackToRpc ?? true;
+			if (fallbackToRpc) {
+				logger.warn("🔄 Falling back to RPC polling");
+				await this.startRpcPolling();
+			} else {
+				throw err;
+			}
+		}
+	}
+	
+	private async startRpcPolling(): Promise<void> {
 		this.fetchTask.start();
 
 		this.fetchTask.on("data-request", (_dataRequest) => {
 			this.eligibilityTask.process();
 		});
 
-		this.eligibilityTask.on("eligible", async (drId, eligibilityHeight, identityId) => {
-			const eligibleSpan = this.mainTracer.startSpan("data-request-eligible");
-			eligibleSpan.setAttribute("dr_id", drId);
-			eligibleSpan.setAttribute("identity_id", identityId);
+		this.eligibilityTask.on("eligible", this.handleEligibleDRFromRpc.bind(this));
+		
+		logger.info("RPC polling started successfully");
+	}
+	
+	private async handleEligibleDRFromRpc(drId: string, eligibilityHeight: bigint, identityId: string): Promise<void> {
+		// Handle single identity from RPC polling
+		this.createDataRequestTask(drId, identityId, eligibilityHeight);
+	}
+	
+	private async handleEligibleDR(drId: string, identityIds: string[], eligibilityHeight: bigint): Promise<void> {
+		// Handle multiple identities from block monitoring
+		for (const identityId of identityIds) {
+			this.createDataRequestTask(drId, identityId, eligibilityHeight);
+		}
+	}
+	
+	private createDataRequestTask(drId: string, identityId: string, eligibilityHeight: bigint): void {
+		const eligibleSpan = this.mainTracer.startSpan("data-request-eligible");
+		eligibleSpan.setAttribute("dr_id", drId);
+		eligibleSpan.setAttribute("identity_id", identityId);
 
-			const drTask = new DataRequestTask(
-				this.pool,
-				this.identityPool,
-				this.config,
-				this.sedaChain,
-				drId,
-				identityId,
-				eligibilityHeight,
-				this.executeWorkerPool,
-				this.compilerWorkerPool,
-				this.syncExecuteWorker,
-			);
-			this.dataRequestsToProcess.push(drTask);
-			eligibleSpan.end();
-			this.processNextDr();
-		});
-
-		span.end();
+		const drTask = new DataRequestTask(
+			this.pool,
+			this.identityPool,
+			this.config,
+			this.sedaChain,
+			drId,
+			identityId,
+			eligibilityHeight,
+			this.executeWorkerPool,
+			this.compilerWorkerPool,
+			this.syncExecuteWorker,
+		);
+		this.dataRequestsToProcess.push(drTask);
+		eligibleSpan.end();
+		this.processNextDr();
+	}
+	
+	private async handleReadyForReveal(drId: string, identityIds: string[]): Promise<void> {
+		// Handle reveal readiness from block monitoring
+		logger.debug(`DR ${drId} ready for reveal by ${identityIds.length} identities`);
+		// TODO: Implement reveal handling
+	}
+	
+	private handleBlockMonitorError(error: Error): void {
+		logger.error(`Block monitor error: ${error.message}`);
+		
+		const fallbackToRpc = this.config.node.experimental?.fallbackToRpc ?? true;
+		if (fallbackToRpc) {
+			logger.warn("🔄 Block monitoring failed, falling back to RPC polling");
+			this.startRpcPolling().catch((fallbackError) => {
+				logger.error(`Failed to start RPC fallback: ${fallbackError}`);
+			});
+		}
 	}
 
 	stop() {
