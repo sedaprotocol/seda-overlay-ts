@@ -20,6 +20,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "1.9.4",
+        "@types/bn.js": "^5.2.0",
         "@types/bun": "latest",
         "esbuild": "0.25.4",
         "sea-plugin": "0.4.0",
@@ -313,6 +314,8 @@
     "@sedaprotocol/overlay-ts-node": ["@sedaprotocol/overlay-ts-node@workspace:packages/node"],
 
     "@types/big.js": ["@types/big.js@6.2.2", "", {}, "sha512-e2cOW9YlVzFY2iScnGBBkplKsrn2CsObHQ2Hiw4V1sSyiGbgWL8IyqE3zFi1Pt5o1pdAtYkDAIsF3KKUPjdzaA=="],
+
+    "@types/bn.js": ["@types/bn.js@5.2.0", "", { "dependencies": { "@types/node": "*" } }, "sha512-DLbJ1BPqxvQhIGbeu8VbUC1DiAiahHtAYvA0ZEAa4P31F7IaArc8z3C3BRQdWX4mtLQuABG4yzp76ZrS02Ui1Q=="],
 
     "@types/bun": ["@types/bun@1.2.2", "", { "dependencies": { "bun-types": "1.2.2" } }, "sha512-tr74gdku+AEDN5ergNiBnplr7hpDp3V1h7fqI2GcR/rsUaM39jpSeKH0TFibRvU0KwniRx5POgaYnaXbk0hU+w=="],
 

@@ -1,0 +1,210 @@
+import { Comet38Client } from "@cosmjs/tendermint-rpc";
+import { type Block, type BlockResultsResponse } from "@cosmjs/tendermint-rpc/build/tendermint37";
+import type { Event } from "@cosmjs/tendermint-rpc/build/tendermint37/responses";
+import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { EventEmitter } from "eventemitter3";
+import { Maybe, Result } from "true-myth";
+
+export interface BlockEvent {
+  height: bigint;
+  block: Block;
+  blockResults: BlockResultsResponse;
+  transactions: ParsedTransaction[];
+}
+
+export interface ParsedTransaction {
+  hash: string;
+  success: boolean;
+  messages: ParsedMessage[];
+  events: Event[];
+}
+
+export interface ParsedMessage {
+  typeUrl: string;
+  value: any; // Decoded message
+  sedaContext?: SedaMessageContext;
+}
+
+export interface SedaMessageContext {
+  type: 'post_data_request' | 'commit_data_result' | 'reveal_data_result';
+  drId?: string;
+  commitmentHash?: string;
+  publicKey?: string;
+}
+
+type EventMap = {
+  newBlock: [BlockEvent];
+  error: [Error];
+};
+
+export class BlockMonitorService extends EventEmitter<EventMap> {
+  private cometClient: Maybe<Comet38Client> = Maybe.nothing();
+  private isMonitoring = false;
+  private lastProcessedHeight: bigint = 0n;
+  private pollInterval: number;
+  private timerId: Maybe<Timer> = Maybe.nothing();
+
+  constructor(
+    private rpcEndpoint: string,
+    private config: {
+      pollInterval?: number;
+      maxBlockHistory?: number;
+      grpcTimeout?: number;
+    } = {}
+  ) {
+    super();
+    this.pollInterval = config.pollInterval ?? 1000;
+  }
+
+  async startMonitoring(): Promise<Result<void, Error>> {
+    try {
+      logger.info("Starting gRPC block monitoring");
+
+      // Connect to Comet client
+      const client = await Comet38Client.connect(this.rpcEndpoint);
+      this.cometClient = Maybe.just(client);
+      
+      // Get current height to start monitoring
+      const latestHeight = await this.getCurrentHeight();
+      if (latestHeight.isErr) {
+        return Result.err(latestHeight.error);
+      }
+
+      this.lastProcessedHeight = latestHeight.value - 1n;
+      this.isMonitoring = true;
+
+      // Start polling for new blocks
+      this.timerId = Maybe.just(
+        setInterval(() => {
+          this.pollForNewBlocks().catch((error) => {
+            logger.error("Error polling for new blocks");
+            this.emit('error', error);
+          });
+        }, this.pollInterval)
+      );
+
+      logger.info("Block monitoring started");
+      return Result.ok(undefined);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error("Failed to start block monitoring");
+      return Result.err(err);
+    }
+  }
+
+  async stopMonitoring(): Promise<void> {
+    logger.info("Stopping block monitoring");
+    
+    this.isMonitoring = false;
+    
+    this.timerId.match({
+      Just: (timer) => clearInterval(timer),
+      Nothing: () => {}
+    });
+
+    await this.cometClient.match({
+      Just: async (client) => {
+        await client.disconnect();
+        this.cometClient = Maybe.nothing();
+      },
+      Nothing: async () => {}
+    });
+
+    logger.info("Block monitoring stopped");
+  }
+
+  private async getCurrentHeight(): Promise<Result<bigint, Error>> {
+    if (this.cometClient.isNothing) {
+      return Result.err(new Error("Comet client not connected"));
+    }
+
+    try {
+      const client = this.cometClient.value;
+      const block = await client.block();
+      return Result.ok(BigInt(block.block.header.height));
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Result.err(err);
+    }
+  }
+
+  async getLatestBlock(): Promise<Result<BlockEvent, Error>> {
+    if (this.cometClient.isNothing) {
+      return Result.err(new Error("Comet client not connected"));
+    }
+
+    try {
+      const client = this.cometClient.value;
+      const block = await client.block();
+      const blockResults = await client.blockResults(block.block.header.height);
+      
+      const blockEvent: BlockEvent = {
+        height: BigInt(block.block.header.height),
+        block: block.block,
+        blockResults,
+        transactions: []
+      };
+
+      return Result.ok(blockEvent);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Result.err(err);
+    }
+  }
+
+  private async pollForNewBlocks(): Promise<void> {
+    if (!this.isMonitoring) return;
+
+    const currentHeight = await this.getCurrentHeight();
+    if (currentHeight.isErr) {
+      logger.error("Failed to get current block height");
+      return;
+    }
+
+    // Process all blocks since last processed height
+    for (let height = this.lastProcessedHeight + 1n; height <= currentHeight.value; height++) {
+      try {
+        const blockEvent = await this.getBlockAtHeight(height);
+        if (blockEvent.isOk) {
+          logger.debug("New block detected");
+          this.emit('newBlock', blockEvent.value);
+          this.lastProcessedHeight = height;
+        }
+      } catch (error) {
+        logger.error("Error processing block");
+      }
+    }
+  }
+
+  private async getBlockAtHeight(height: bigint): Promise<Result<BlockEvent, Error>> {
+    if (this.cometClient.isNothing) {
+      return Result.err(new Error("Comet client not connected"));
+    }
+
+    try {
+      const client = this.cometClient.value;
+      const block = await client.block(Number(height));
+      const blockResults = await client.blockResults(Number(height));
+      
+      const blockEvent: BlockEvent = {
+        height,
+        block: block.block,
+        blockResults,
+        transactions: []
+      };
+
+      return Result.ok(blockEvent);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Result.err(err);
+    }
+  }
+
+  isHealthy(): boolean {
+    return this.isMonitoring && this.cometClient.isJust;
+  }
+
+  getLastProcessedHeight(): bigint {
+    return this.lastProcessedHeight;
+  }
+} 

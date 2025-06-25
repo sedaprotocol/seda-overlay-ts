@@ -14,3 +14,16 @@ export async function createWasmQueryClient(rpc: string) {
 
 	return new sedachain.wasm_storage.v1.QueryClientImpl(protoRpcClient);
 }
+
+// New function for block monitoring capabilities
+export async function createBlockMonitorClient(rpc: string) {
+	const cometClient = await Comet38Client.connect(rpc);
+	return {
+		getLatestBlock: () => cometClient.block(),
+		getBlockResults: (height: number) => cometClient.blockResults(height),
+		getBlock: (height: number) => cometClient.block(height),
+		// For future streaming implementation:
+		// subscribeNewBlocks: () => cometClient.subscribeTm({ query: "tm.event = 'NewBlock'" })
+		disconnect: () => cometClient.disconnect()
+	};
+}
