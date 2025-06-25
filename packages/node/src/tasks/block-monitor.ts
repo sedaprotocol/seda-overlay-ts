@@ -119,9 +119,7 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
       
       this.lastProcessedHeight = blockEvent.height;
       
-      if (events.length > 0) {
-        logger.debug(`Processed ${events.length} SEDA events in block ${blockEvent.height}`);
-      }
+      logger.debug(`Processed ${blockEvent.transactions.length} transactions, found ${events.length} SEDA events`);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(`Failed to process block ${blockEvent.height}: ${err.message}`);
