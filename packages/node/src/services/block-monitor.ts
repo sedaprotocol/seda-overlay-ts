@@ -1,6 +1,5 @@
 import { Comet38Client } from "@cosmjs/tendermint-rpc";
 import { type Block, type BlockResultsResponse } from "@cosmjs/tendermint-rpc/build/tendermint37";
-import type { Event } from "@cosmjs/tendermint-rpc/build/tendermint37/responses";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
@@ -16,12 +15,12 @@ export interface ParsedTransaction {
   hash: string;
   success: boolean;
   messages: ParsedMessage[];
-  events: Event[];
+  // NOTE: We do NOT use blockchain events - all data derived from message arguments
 }
 
 export interface ParsedMessage {
   typeUrl: string;
-  value: any; // Decoded message
+  value: any; // Decoded message arguments (this is where we extract all DR data)
   sedaContext?: SedaMessageContext;
 }
 

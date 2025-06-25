@@ -21,11 +21,33 @@ This plan outlines the transition from RPC-intensive polling to gRPC block monit
 
 ## New Architecture: gRPC Block Monitoring
 
-### New Flow (Event-Driven)
+### New Flow (Transaction Argument-Driven)
 1. **BlockMonitorTask** - Monitor latest blocks via gRPC streaming every second
-2. **TransactionParser** - Parse all transactions in new blocks
-3. **EventProcessor** - Process relevant SEDA transactions
-4. **StateMachine** - Manage DR lifecycle based on observed events
+2. **TransactionParser** - Parse all transactions in new blocks and extract message arguments
+3. **EventProcessor** - Process relevant SEDA transactions by parsing message arguments (NOT blockchain events)
+4. **StateMachine** - Manage DR lifecycle based on observed transaction arguments
+
+**CRITICAL ARCHITECTURAL DECISION**: 
+- We do NOT use blockchain events for data extraction
+- All data request attributes (DR ID, replication factor, gas limits, etc.) are derived directly from transaction message arguments
+- This is because events are not available in the getBlock query and are less reliable
+- The `message.value` field contains all the transaction arguments we need to parse
+- Focus on parsing `post_data_request`, `commit_data_result`, and `reveal_data_result` message arguments
+
+### Data Extraction Strategy from Transaction Arguments
+
+For `post_data_request` transactions:
+- Extract: `exec_program_id`, `exec_inputs`, `exec_gas_limit`, `tally_program_id`, `tally_inputs`, `tally_gas_limit`, `replication_factor`, `consensus_filter`, `gas_price`, `memo`
+- Generate DR ID using DataRequestIdGenerator from these arguments
+- Derive all DR attributes directly from message arguments
+
+For `commit_data_result` transactions:
+- Extract: `data_request_id`, `commitment`, `public_key` from message arguments
+- Track commits by DR ID and public key
+
+For `reveal_data_result` transactions:
+- Extract: `data_request_id`, `public_key`, `reveal_data` from message arguments
+- Track reveals and determine completion status
 
 ## Implementation Plan
 
@@ -46,12 +68,12 @@ interface ParsedTransaction {
   hash: string;
   success: boolean;
   messages: ParsedMessage[];
-  events: Event[];
+  // NOTE: We do NOT use blockchain events - all data derived from message arguments
 }
 
 interface ParsedMessage {
   typeUrl: string;
-  value: any; // Decoded message
+  value: any; // Decoded message arguments (this is where we extract all DR data)
   sedaContext?: SedaMessageContext;
 }
 
@@ -77,7 +99,11 @@ class TransactionParser {
   parseBlock(block: Block, blockResults: BlockResultsResponse): ParsedTransaction[]
   parseSedaMessage(message: Any): ParsedMessage | null
   extractDataRequestId(message: ParsedMessage): string | null
+  extractDataRequestAttributes(message: ParsedMessage): DataRequestAttributes | null
   isSuccessfulTransaction(txResult: ExecTxResult): boolean
+  
+  // NOTE: All DR attributes extracted from message.value (transaction arguments)
+  // NOT from blockchain events which are unreliable and not in getBlock query
 }
 ```
 
@@ -111,10 +137,13 @@ interface DataRequestEvent {
 }
 
 class EventProcessor {
-  async processBlockEvents(blockEvent: BlockEvent): Promise<DataRequestEvent[]>
-  private extractPostDataRequestEvents(tx: ParsedTransaction): DataRequestEvent[]
-  private extractCommitEvents(tx: ParsedTransaction): DataRequestEvent[]
-  private extractRevealEvents(tx: ParsedTransaction): DataRequestEvent[]
+  async processBlockTransactions(blockEvent: BlockEvent): Promise<DataRequestEvent[]>
+  private extractPostDataRequestFromTx(tx: ParsedTransaction): DataRequestEvent[]
+  private extractCommitFromTx(tx: ParsedTransaction): DataRequestEvent[]
+  private extractRevealFromTx(tx: ParsedTransaction): DataRequestEvent[]
+  
+  // NOTE: All data extracted from transaction message arguments, NOT blockchain events
+  // Parse message.value to get all required DR attributes
 }
 ```
 
@@ -469,10 +498,11 @@ Create commits after each major milestone:
 ## Benefits After Implementation
 
 1. **Reduced RPC Load**: ~90% reduction in RPC calls
-2. **Faster Response**: Near real-time detection of events
+2. **Faster Response**: Near real-time detection of transactions
 3. **Better Scalability**: Supports many overlay nodes without RPC overload
-4. **Improved Reliability**: Less dependent on RPC stability
-5. **Cleaner Architecture**: Event-driven vs polling-based
+4. **Improved Reliability**: Less dependent on RPC stability and blockchain events
+5. **Cleaner Architecture**: Transaction argument-driven vs polling-based
+6. **More Reliable**: Direct parsing of transaction arguments vs unreliable events
 
 ## Dependencies and Questions
 
