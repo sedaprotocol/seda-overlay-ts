@@ -3,6 +3,7 @@ import { type Block, type BlockResultsResponse } from "@cosmjs/tendermint-rpc/bu
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 
 export interface BlockEvent {
   height: bigint;
@@ -41,10 +42,10 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
   private isMonitoring = false;
   private lastProcessedHeight: bigint = 0n;
   private pollInterval: number;
-  private timerId: Maybe<Timer> = Maybe.nothing();
+  private intervalId?: ReturnType<typeof setInterval>;
 
   constructor(
-    private grpcEndpoint: string,
+    private appConfig: AppConfig,
     private config: {
       pollInterval?: number;
       maxBlockHistory?: number;
@@ -60,10 +61,13 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
 
   async startMonitoring(): Promise<Result<void, Error>> {
     try {
-      logger.info("Starting gRPC block monitoring");
+      logger.info("Starting block monitoring via Tendermint RPC");
 
-      // Connect to Comet client
-      const client = await Comet38Client.connect(this.grpcEndpoint);
+              // Connect to Comet client using Tendermint RPC endpoint
+        // Note: We use RPC for block monitoring, gRPC for application queries
+      const rpcEndpoint = this.appConfig.sedaChain.rpc;
+      logger.info(`Connecting to Tendermint RPC at ${rpcEndpoint}`);
+      const client = await Comet38Client.connect(rpcEndpoint);
       this.cometClient = Maybe.just(client);
       
       // Get current height to start monitoring
@@ -76,14 +80,12 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       this.isMonitoring = true;
 
       // Start polling for new blocks
-      this.timerId = Maybe.just(
-        setInterval(() => {
-          this.pollForNewBlocks().catch((error) => {
-            logger.error("Error polling for new blocks");
-            this.emit('error', error);
-          });
-        }, this.pollInterval)
-      );
+      this.intervalId = setInterval(() => {
+        this.pollForNewBlocks().catch((error) => {
+          logger.error("Error polling for new blocks");
+          this.emit('error', error);
+        });
+      }, this.pollInterval);
 
       logger.info("Block monitoring started");
       return Result.ok(undefined);
@@ -99,10 +101,10 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     
     this.isMonitoring = false;
     
-    this.timerId.match({
-      Just: (timer) => clearInterval(timer),
-      Nothing: () => {}
-    });
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = undefined;
+    }
 
     await this.cometClient.match({
       Just: async (client) => {

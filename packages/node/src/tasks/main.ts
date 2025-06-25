@@ -162,7 +162,7 @@ export class MainTask {
 		const fallbackToRpc = this.config.node.experimental?.fallbackToRpc ?? true;
 		
 		if (useBlockMonitoring) {
-			logger.info("🚀 Starting with gRPC block monitoring");
+			logger.info("🚀 Starting with real-time block monitoring");
 			await this.startBlockMonitoring();
 			
 			if (hybridMode) {
