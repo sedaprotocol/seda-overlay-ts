@@ -1,7 +1,6 @@
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { Maybe, Result } from "true-myth";
+import { Result } from "true-myth";
 import type { BlockEvent, ParsedTransaction, ParsedMessage } from "./block-monitor";
-import { TransactionParser } from "./transaction-parser";
 import { DataRequestIdGenerator } from "./dr-id-generator";
 
 export interface DataRequestEvent {
@@ -9,47 +8,73 @@ export interface DataRequestEvent {
   drId: string;
   height: bigint;
   txHash: string;
-  data: any; // Transaction argument data specific to event type
+  data: any;
+}
+
+export interface PostedDataRequestEvent extends DataRequestEvent {
+  type: 'posted';
+  data: {
+    version: string;
+    execProgramId: string;
+    execInputs: Buffer;
+    execGasLimit: bigint;
+    tallyProgramId: string;
+    tallyInputs: Buffer;
+    tallyGasLimit: bigint;
+    replicationFactor: number;
+    consensusFilter: Buffer;
+    gasPrice: bigint;
+    memo: Buffer;
+  };
+}
+
+export interface CommittedDataRequestEvent extends DataRequestEvent {
+  type: 'committed';
+  data: {
+    dataRequestId: string;
+    commitment: string;
+    publicKey: string;
+  };
+}
+
+export interface RevealedDataRequestEvent extends DataRequestEvent {
+  type: 'revealed';
+  data: {
+    dataRequestId: string;
+    publicKey: string;
+    revealData: Buffer;
+  };
 }
 
 export class EventProcessor {
-  private transactionParser: TransactionParser;
   private drIdGenerator: DataRequestIdGenerator;
 
   constructor() {
-    this.transactionParser = new TransactionParser();
     this.drIdGenerator = new DataRequestIdGenerator();
   }
 
   /**
-   * Process all transactions in a block and extract DR events from transaction arguments
-   * NOTE: We parse message arguments, NOT blockchain events
+   * Process all transactions in a block and extract SEDA-related events
+   * NOTE: All data extracted from transaction message arguments, NOT blockchain events
    */
   async processBlockTransactions(blockEvent: BlockEvent): Promise<DataRequestEvent[]> {
     const events: DataRequestEvent[] = [];
-    
-    // Enhance block event with parsed transactions if not already done
-    const enhancedBlock = this.transactionParser.enhanceBlockEvent(blockEvent);
-    
-    for (const tx of enhancedBlock.transactions) {
+
+    for (const tx of blockEvent.transactions) {
       if (!tx.success) {
-        // Skip failed transactions
-        continue;
+        continue; // Skip failed transactions
       }
 
       try {
-        // Extract DR events from successful transaction
+        // Extract events from each transaction
         const txEvents = await this.extractEventsFromTransaction(tx, blockEvent.height);
         events.push(...txEvents);
       } catch (error) {
-        logger.warn("Failed to extract events from transaction");
+        logger.error(`Failed to process transaction ${tx.hash}`, { error: error instanceof Error ? error.message : String(error) });
       }
     }
 
-    if (events.length > 0) {
-      logger.debug("Extracted DR events from block");
-    }
-
+    logger.debug(`Processed ${blockEvent.transactions.length} transactions, found ${events.length} SEDA events`);
     return events;
   }
 
@@ -60,119 +85,160 @@ export class EventProcessor {
     const events: DataRequestEvent[] = [];
 
     for (const message of tx.messages) {
-      if (!message.sedaContext) continue;
+      if (!message.sedaContext) {
+        continue; // Not a SEDA message
+      }
 
       try {
         switch (message.sedaContext.type) {
           case 'post_data_request':
-            const postedEvents = await this.extractPostDataRequestFromTx(tx, message, height);
-            events.push(...postedEvents);
+            const postedEvent = this.extractPostDataRequestFromMessage(message, tx.hash, height);
+            if (postedEvent.isOk) {
+              events.push(postedEvent.value);
+            }
             break;
 
           case 'commit_data_result':
-            const commitEvents = this.extractCommitFromTx(tx, message, height);
-            events.push(...commitEvents);
+            const commitEvent = this.extractCommitFromMessage(message, tx.hash, height);
+            if (commitEvent.isOk) {
+              events.push(commitEvent.value);
+            }
             break;
 
           case 'reveal_data_result':
-            const revealEvents = this.extractRevealFromTx(tx, message, height);
-            events.push(...revealEvents);
+            const revealEvent = this.extractRevealFromMessage(message, tx.hash, height);
+            if (revealEvent.isOk) {
+              events.push(revealEvent.value);
+            }
             break;
         }
       } catch (error) {
-        logger.warn("Failed to extract event from message");
+        logger.error(`Failed to extract event from message type ${message.sedaContext.type}`, { error: error instanceof Error ? error.message : String(error) });
       }
     }
 
     return events;
   }
 
-  /**
-   * Extract post_data_request events from transaction arguments
-   */
-  private async extractPostDataRequestFromTx(
-    tx: ParsedTransaction, 
-    message: ParsedMessage, 
+  private extractPostDataRequestFromMessage(
+    message: ParsedMessage,
+    txHash: string,
     height: bigint
-  ): Promise<DataRequestEvent[]> {
-    // Extract DR attributes from transaction arguments
-    const drAttributes = this.transactionParser.extractDataRequestAttributes(message);
-    if (!drAttributes) {
-      logger.warn("Could not extract DR attributes from post_data_request");
-      return [];
-    }
-
+  ): Result<PostedDataRequestEvent, Error> {
     try {
-      // Generate DR ID from transaction arguments
-      const drId = this.drIdGenerator.generateDrId(drAttributes);
+      const msgValue = message.value;
       
-      const event: DataRequestEvent = {
+      // Extract all DR attributes from message arguments
+      const postDrData = {
+        version: msgValue.version || "1.0.0",
+        execProgramId: msgValue.exec_program_id,
+        execInputs: Buffer.from(msgValue.exec_inputs || "", 'base64'),
+        execGasLimit: BigInt(msgValue.exec_gas_limit || 0),
+        tallyProgramId: msgValue.tally_program_id,
+        tallyInputs: Buffer.from(msgValue.tally_inputs || "", 'base64'),
+        tallyGasLimit: BigInt(msgValue.tally_gas_limit || 0),
+        replicationFactor: Number(msgValue.replication_factor || 1),
+        consensusFilter: Buffer.from(msgValue.consensus_filter || "", 'base64'),
+        gasPrice: BigInt(msgValue.gas_price || 0),
+        memo: Buffer.from(msgValue.memo || "", 'base64'),
+      };
+
+      // Generate DR ID from message arguments
+      const drId = this.drIdGenerator.generateDrId({
+        version: postDrData.version,
+        exec_program_id: postDrData.execProgramId,
+        exec_inputs: postDrData.execInputs.toString('base64'),
+        exec_gas_limit: Number(postDrData.execGasLimit),
+        tally_program_id: postDrData.tallyProgramId,
+        tally_inputs: postDrData.tallyInputs.toString('base64'),
+        tally_gas_limit: Number(postDrData.tallyGasLimit),
+        replication_factor: postDrData.replicationFactor,
+        consensus_filter: postDrData.consensusFilter.toString('base64'),
+        gas_price: postDrData.gasPrice.toString(),
+        memo: postDrData.memo.toString('base64'),
+      });
+
+      const event: PostedDataRequestEvent = {
         type: 'posted',
         drId,
         height,
-        txHash: tx.hash,
-        data: drAttributes // All DR parameters from transaction arguments
+        txHash,
+        data: postDrData,
       };
 
-      logger.debug("Extracted post_data_request event");
-      return [event];
+      logger.debug(`Extracted post_data_request event: ${drId} in tx ${txHash}`);
+      return Result.ok(event);
     } catch (error) {
-      logger.error("Failed to generate DR ID from transaction arguments");
-      return [];
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Result.err(new Error(`Failed to extract post_data_request: ${err.message}`));
     }
   }
 
-  /**
-   * Extract commit_data_result events from transaction arguments
-   */
-  private extractCommitFromTx(
-    tx: ParsedTransaction, 
-    message: ParsedMessage, 
+  private extractCommitFromMessage(
+    message: ParsedMessage,
+    txHash: string,
     height: bigint
-  ): DataRequestEvent[] {
-    // Extract commit attributes from transaction arguments
-    const commitAttributes = this.transactionParser.extractDataRequestAttributes(message);
-    if (!commitAttributes?.data_request_id) {
-      logger.warn("Could not extract commit attributes from transaction");
-      return [];
+  ): Result<CommittedDataRequestEvent, Error> {
+    try {
+      const msgValue = message.value;
+      
+      const commitData = {
+        dataRequestId: msgValue.data_request_id,
+        commitment: msgValue.commitment,
+        publicKey: msgValue.public_key || message.sedaContext?.publicKey || "",
+      };
+
+      if (!commitData.dataRequestId || !commitData.commitment) {
+        return Result.err(new Error("Missing required commit data"));
+      }
+
+      const event: CommittedDataRequestEvent = {
+        type: 'committed',
+        drId: commitData.dataRequestId,
+        height,
+        txHash,
+        data: commitData,
+      };
+
+      logger.debug(`Extracted commit_data_result event: ${commitData.dataRequestId} by ${commitData.publicKey} in tx ${txHash}`);
+      return Result.ok(event);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Result.err(new Error(`Failed to extract commit_data_result: ${err.message}`));
     }
-
-    const event: DataRequestEvent = {
-      type: 'committed',
-      drId: commitAttributes.data_request_id,
-      height,
-      txHash: tx.hash,
-      data: commitAttributes // Commit data from transaction arguments
-    };
-
-    logger.debug("Extracted commit_data_result event");
-    return [event];
   }
 
-  /**
-   * Extract reveal_data_result events from transaction arguments  
-   */
-  private extractRevealFromTx(
-    tx: ParsedTransaction, 
-    message: ParsedMessage, 
+  private extractRevealFromMessage(
+    message: ParsedMessage,
+    txHash: string,
     height: bigint
-  ): DataRequestEvent[] {
-    // Extract reveal attributes from transaction arguments
-    const revealAttributes = this.transactionParser.extractDataRequestAttributes(message);
-    if (!revealAttributes?.data_request_id) {
-      logger.warn("Could not extract reveal attributes from transaction");
-      return [];
+  ): Result<RevealedDataRequestEvent, Error> {
+    try {
+      const msgValue = message.value;
+      
+      const revealData = {
+        dataRequestId: msgValue.data_request_id,
+        publicKey: msgValue.public_key || message.sedaContext?.publicKey || "",
+        revealData: Buffer.from(msgValue.reveal_data || "", 'base64'),
+      };
+
+      if (!revealData.dataRequestId || !revealData.publicKey) {
+        return Result.err(new Error("Missing required reveal data"));
+      }
+
+      const event: RevealedDataRequestEvent = {
+        type: 'revealed',
+        drId: revealData.dataRequestId,
+        height,
+        txHash,
+        data: revealData,
+      };
+
+      logger.debug(`Extracted reveal_data_result event: ${revealData.dataRequestId} by ${revealData.publicKey} in tx ${txHash}`);
+      return Result.ok(event);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      return Result.err(new Error(`Failed to extract reveal_data_result: ${err.message}`));
     }
-
-    const event: DataRequestEvent = {
-      type: 'revealed',
-      drId: revealAttributes.data_request_id,
-      height,
-      txHash: tx.hash,
-      data: revealAttributes // Reveal data from transaction arguments
-    };
-
-    logger.debug("Extracted reveal_data_result event");
-    return [event];
   }
 } 
