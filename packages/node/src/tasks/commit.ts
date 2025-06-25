@@ -6,12 +6,14 @@ import {
 } from "@sedaprotocol/core-contract-schema/src/commit";
 import { RevealStarted, type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired, DataRequestNotFound } from "@sedaprotocol/overlay-ts-common";
+import type { GasOptions } from "@sedaprotocol/overlay-ts-common/src/seda/gas-options";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
+import { estimateGasForCommit } from "../services/gas";
 
 export async function commitDr(
 	identityId: string,
@@ -61,6 +63,10 @@ export async function commitDr(
 		id: traceId,
 	});
 
+	const gasOptions: GasOptions | undefined = appConfig.node.gasEstimationsEnabled
+		? { gas: estimateGasForCommit(dataRequest) * appConfig.sedaChain.gasAdjustmentFactor }
+		: undefined;
+
 	const commitResponse = await sedaChain.waitForSmartContractTransaction(
 		{
 			commit_data_result: {
@@ -72,7 +78,7 @@ export async function commitDr(
 		},
 		TransactionPriority.LOW,
 		undefined,
-		undefined,
+		gasOptions,
 		undefined,
 		traceId,
 	);

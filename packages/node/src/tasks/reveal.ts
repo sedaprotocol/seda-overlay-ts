@@ -2,12 +2,14 @@ import { createRevealBodyHash, createRevealMessageHash } from "@sedaprotocol/cor
 // import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyRevealed, DataRequestExpired, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
+import type { GasOptions } from "@sedaprotocol/overlay-ts-common/src/seda/gas-options";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result, type Unit } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 import type { IdentityPool } from "../models/identitiest-pool";
+import { estimateGasForReveal } from "../services/gas";
 
 export class EnchancedRevealError {
 	constructor(
@@ -41,6 +43,10 @@ export async function revealDr(
 		id: traceId,
 	});
 
+	const gasOptions: GasOptions | undefined = appConfig.node.gasEstimationsEnabled
+		? { gas: estimateGasForReveal(dataRequest, executionResult) * appConfig.sedaChain.gasAdjustmentFactor }
+		: undefined;
+
 	const revealResponse = await sedaChain.waitForSmartContractTransaction(
 		{
 			reveal_data_result: {
@@ -57,7 +63,7 @@ export async function revealDr(
 		},
 		TransactionPriority.HIGH,
 		undefined,
-		undefined,
+		gasOptions,
 		undefined,
 		traceId,
 	);

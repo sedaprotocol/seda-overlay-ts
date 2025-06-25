@@ -6,6 +6,7 @@ import {
 	DEFAULT_FETCH_FAILURE_THRESHOLD,
 	DEFAULT_FETCH_LIMIT,
 	DEFAULT_FORCE_SYNC_VM,
+	DEFAULT_GAS_ESTIMATIONS_ENABLED,
 	DEFAULT_LOG_LEVEL,
 	DEFAULT_LOG_ROTATION_ENABLED,
 	DEFAULT_LOG_ROTATION_LEVEL,
@@ -40,6 +41,7 @@ export const NodeConfigSchema = v.object({
 	offlineEligibility: v.optional(v.boolean(), DEFAULT_OFFLINE_ELIGIBILITY),
 	fetchFailureThreshold: v.optional(v.number(), DEFAULT_FETCH_FAILURE_THRESHOLD),
 	fetchCountRefreshInterval: v.optional(v.number(), DEFAULT_FETCH_COUNT_REFRESH_INTERVAL),
+	gasEstimationsEnabled: v.optional(v.boolean(), DEFAULT_GAS_ESTIMATIONS_ENABLED),
 });
 
 export type NodeConfig = v.InferOutput<typeof NodeConfigSchema>;
