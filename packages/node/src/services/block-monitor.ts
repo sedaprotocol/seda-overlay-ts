@@ -44,11 +44,14 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
   private timerId: Maybe<Timer> = Maybe.nothing();
 
   constructor(
-    private rpcEndpoint: string,
+    private grpcEndpoint: string,
     private config: {
       pollInterval?: number;
       maxBlockHistory?: number;
-      grpcTimeout?: number;
+      connectionTimeout?: number;
+      retryAttempts?: number;
+      retryDelay?: number;
+      tlsEnabled?: boolean;
     } = {}
   ) {
     super();
@@ -60,7 +63,7 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       logger.info("Starting gRPC block monitoring");
 
       // Connect to Comet client
-      const client = await Comet38Client.connect(this.rpcEndpoint);
+      const client = await Comet38Client.connect(this.grpcEndpoint);
       this.cometClient = Maybe.just(client);
       
       // Get current height to start monitoring

@@ -85,6 +85,16 @@ interface SedaMessageContext {
 }
 
 class BlockMonitorService {
+  constructor(config: {
+    grpcEndpoint: string;
+    pollInterval?: number;
+    maxBlockHistory?: number;
+    connectionTimeout?: number;
+    retryAttempts?: number;
+    retryDelay?: number;
+    tlsEnabled?: boolean;
+  })
+  
   async startMonitoring(): Promise<void>
   async getLatestBlock(): Promise<BlockEvent>
   on(event: 'newBlock', handler: (blockEvent: BlockEvent) => void): void
@@ -252,6 +262,21 @@ export interface NodeConfig {
     grpcTimeout: number; // milliseconds, default 5000
   };
   
+  // gRPC connection configuration
+  grpc: {
+    endpoint: string; // gRPC server URL (e.g., "localhost:9090" or "https://rpc.seda.xyz:443")
+    timeout: number; // Connection timeout in milliseconds, default 5000
+    retryAttempts: number; // Number of retry attempts on failure, default 3
+    retryDelay: number; // Delay between retries in milliseconds, default 1000
+    keepAlive: boolean; // Enable keep-alive, default true
+    keepAliveTimeout: number; // Keep-alive timeout in milliseconds, default 30000
+    tls: {
+      enabled: boolean; // Enable TLS/SSL, default true for https endpoints
+      insecure: boolean; // Allow insecure connections, default false
+      serverName?: string; // Server name for TLS verification
+    };
+  };
+  
   // Keep existing RPC polling config for fallback
   // drFetchLimit, fetchFailureThreshold, etc.
 }
@@ -372,6 +397,13 @@ export interface NodeConfig {
 export const DEFAULT_BLOCK_MONITOR_INTERVAL = 1000; // 1 second
 export const DEFAULT_MAX_BLOCK_HISTORY = 100;
 export const DEFAULT_GRPC_TIMEOUT = 5000;
+
+// gRPC connection defaults
+export const DEFAULT_GRPC_ENDPOINT = "localhost:9090";
+export const DEFAULT_GRPC_CONNECTION_TIMEOUT = 5000;
+export const DEFAULT_GRPC_RETRY_ATTEMPTS = 3;
+export const DEFAULT_GRPC_RETRY_DELAY = 1000;
+export const DEFAULT_GRPC_KEEP_ALIVE_TIMEOUT = 30000;
 ```
 
 #### 5.3 Interval Configuration Updates
@@ -602,6 +634,44 @@ export interface NodeConfig {
     "useBlockMonitoring": false,
     "fallbackToRpc": true,
     "hybridMode": false
+  }
+}
+```
+
+### Sample config.jsonc Configuration
+
+```jsonc
+{
+  // Existing RPC configuration (keep for fallback)
+  "rpc": "https://rpc.seda.xyz",
+  
+  // New gRPC configuration for block monitoring
+  "grpc": {
+    "endpoint": "rpc.seda.xyz:443", // Or localhost:9090 for local testing
+    "timeout": 5000,
+    "retryAttempts": 3,
+    "retryDelay": 1000,
+    "keepAlive": true,
+    "keepAliveTimeout": 30000,
+    "tls": {
+      "enabled": true,
+      "insecure": false,
+      "serverName": "rpc.seda.xyz" // Optional: for TLS verification
+    }
+  },
+  
+  // Feature flags for migration
+  "experimental": {
+    "useBlockMonitoring": false, // Set to true to enable gRPC block monitoring
+    "fallbackToRpc": true,       // Fallback to RPC if gRPC fails
+    "hybridMode": false          // Run both systems in parallel for testing
+  },
+  
+  // Block monitoring specific settings
+  "blockMonitoring": {
+    "pollInterval": 1000,
+    "maxBlockHistory": 100,
+    "grpcTimeout": 5000
   }
 }
 ```
