@@ -1,14 +1,12 @@
-import { Comet38Client } from "@cosmjs/tendermint-rpc";
-import { type Block, type BlockResultsResponse } from "@cosmjs/tendermint-rpc/build/tendermint37";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
+import { Tendermint37Client } from "@cosmjs/tendermint-rpc";
 
 export interface BlockEvent {
   height: bigint;
-  block: Block;
-  blockResults: BlockResultsResponse;
+  block: any; // Block data from gRPC query
   transactions: ParsedTransaction[];
 }
 
@@ -38,7 +36,7 @@ type EventMap = {
 };
 
 export class BlockMonitorService extends EventEmitter<EventMap> {
-  private cometClient: Maybe<Comet38Client> = Maybe.nothing();
+  private tmClient: Maybe<Tendermint37Client> = Maybe.nothing();
   private isMonitoring = false;
   private lastProcessedHeight: bigint = 0n;
   private pollInterval: number;
@@ -61,14 +59,13 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
 
   async startMonitoring(): Promise<Result<void, Error>> {
     try {
-      logger.info("Starting block monitoring via Tendermint RPC");
+      logger.info("Starting block monitoring with optimized polling");
 
-              // Connect to Comet client using Tendermint RPC endpoint
-        // Note: We use RPC for block monitoring, gRPC for application queries
+      // Create Tendermint client for block operations
       const rpcEndpoint = this.appConfig.sedaChain.rpc;
       logger.info(`Connecting to Tendermint RPC at ${rpcEndpoint}`);
-      const client = await Comet38Client.connect(rpcEndpoint);
-      this.cometClient = Maybe.just(client);
+      const tmClient = await Tendermint37Client.connect(rpcEndpoint);
+      this.tmClient = Maybe.just(tmClient);
       
       // Get current height to start monitoring
       const latestHeight = await this.getCurrentHeight();
@@ -79,7 +76,7 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       this.lastProcessedHeight = latestHeight.value - 1n;
       this.isMonitoring = true;
 
-      // Start polling for new blocks
+      // Start polling for new blocks every second
       this.intervalId = setInterval(() => {
         this.pollForNewBlocks().catch((error) => {
           logger.error("Error polling for new blocks");
@@ -106,10 +103,10 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       this.intervalId = undefined;
     }
 
-    await this.cometClient.match({
+    await this.tmClient.match({
       Just: async (client) => {
-        await client.disconnect();
-        this.cometClient = Maybe.nothing();
+        client.disconnect();
+        this.tmClient = Maybe.nothing();
       },
       Nothing: async () => {}
     });
@@ -118,14 +115,14 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
   }
 
   private async getCurrentHeight(): Promise<Result<bigint, Error>> {
-    if (this.cometClient.isNothing) {
-      return Result.err(new Error("Comet client not connected"));
+    if (this.tmClient.isNothing) {
+      return Result.err(new Error("Tendermint client not connected"));
     }
 
     try {
-      const client = this.cometClient.value;
-      const block = await client.block();
-      return Result.ok(BigInt(block.block.header.height));
+      const client = this.tmClient.value;
+      const latestBlock = await client.block();
+      return Result.ok(BigInt(latestBlock.block.header.height));
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       return Result.err(err);
@@ -133,20 +130,21 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
   }
 
   async getLatestBlock(): Promise<Result<BlockEvent, Error>> {
-    if (this.cometClient.isNothing) {
-      return Result.err(new Error("Comet client not connected"));
+    if (this.tmClient.isNothing) {
+      return Result.err(new Error("Tendermint client not connected"));
     }
 
     try {
-      const client = this.cometClient.value;
-      const block = await client.block();
-      const blockResults = await client.blockResults(block.block.header.height);
+      const client = this.tmClient.value;
+      const blockResponse = await client.block();
+      
+      // Parse transactions from the block
+      const transactions = this.parseTransactions(blockResponse.block);
       
       const blockEvent: BlockEvent = {
-        height: BigInt(block.block.header.height),
-        block: block.block,
-        blockResults,
-        transactions: []
+        height: BigInt(blockResponse.block.header.height),
+        block: blockResponse.block,
+        transactions,
       };
 
       return Result.ok(blockEvent);
@@ -170,31 +168,32 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       try {
         const blockEvent = await this.getBlockAtHeight(height);
         if (blockEvent.isOk) {
-          logger.debug("New block detected");
+          logger.debug(`Processing block ${height} with ${blockEvent.value.transactions.length} transactions`);
           this.emit('newBlock', blockEvent.value);
           this.lastProcessedHeight = height;
         }
       } catch (error) {
-        logger.error("Error processing block");
+        logger.error(`Error processing block ${height}`);
       }
     }
   }
 
   private async getBlockAtHeight(height: bigint): Promise<Result<BlockEvent, Error>> {
-    if (this.cometClient.isNothing) {
-      return Result.err(new Error("Comet client not connected"));
+    if (this.tmClient.isNothing) {
+      return Result.err(new Error("Tendermint client not connected"));
     }
 
     try {
-      const client = this.cometClient.value;
-      const block = await client.block(Number(height));
-      const blockResults = await client.blockResults(Number(height));
+      const client = this.tmClient.value;
+      const blockResponse = await client.block(Number(height));
+      
+      // Parse transactions from the block
+      const transactions = this.parseTransactions(blockResponse.block);
       
       const blockEvent: BlockEvent = {
         height,
-        block: block.block,
-        blockResults,
-        transactions: []
+        block: blockResponse.block,
+        transactions,
       };
 
       return Result.ok(blockEvent);
@@ -204,8 +203,41 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     }
   }
 
+  private parseTransactions(block: any): ParsedTransaction[] {
+    const transactions: ParsedTransaction[] = [];
+    
+    if (!block.txs || !Array.isArray(block.txs)) {
+      return transactions;
+    }
+
+    for (let i = 0; i < block.txs.length; i++) {
+      try {
+        const tx = block.txs[i];
+        
+        // Create a basic parsed transaction
+        // TODO: Implement proper transaction decoding
+        const parsedTx: ParsedTransaction = {
+          hash: this.computeTxHash(tx, i),
+          success: true, // TODO: Get from block results
+          messages: [], // TODO: Parse actual messages
+        };
+        
+        transactions.push(parsedTx);
+      } catch (error) {
+        logger.warn(`Failed to parse transaction ${i} in block ${block.header.height}`);
+      }
+    }
+
+    return transactions;
+  }
+
+  private computeTxHash(tx: any, index: number): string {
+    // Simple hash computation - in real implementation would use proper tx hash
+    return `tx_${index}_${Date.now()}`;
+  }
+
   isHealthy(): boolean {
-    return this.isMonitoring && this.cometClient.isJust;
+    return this.isMonitoring && this.tmClient.isJust;
   }
 
   getLastProcessedHeight(): bigint {
