@@ -176,7 +176,7 @@ export class TransactionParser {
     return txResult?.code === 0;
   }
 
-  // Enhanced block parsing that populates transactions in BlockEvent
+  // Parse transactions and populate BlockEvent
   enhanceBlockEvent(blockEvent: BlockEvent): BlockEvent {
     const transactions = this.parseBlock(blockEvent.block, blockEvent.blockResults);
     

@@ -6,7 +6,8 @@ import { Tendermint37Client } from "@cosmjs/tendermint-rpc";
 
 export interface BlockEvent {
   height: bigint;
-  block: any; // Block data from gRPC query
+  block: any; // Block data from RPC query
+  blockResults: any; // Block results from RPC query
   transactions: ParsedTransaction[];
 }
 
@@ -137,14 +138,13 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     try {
       const client = this.tmClient.value;
       const blockResponse = await client.block();
-      
-      // Parse transactions from the block
-      const transactions = this.parseTransactions(blockResponse.block);
+      const blockResults = await client.blockResults(blockResponse.block.header.height);
       
       const blockEvent: BlockEvent = {
         height: BigInt(blockResponse.block.header.height),
         block: blockResponse.block,
-        transactions,
+        blockResults,
+        transactions: [], // Will be populated by TransactionParser
       };
 
       return Result.ok(blockEvent);
@@ -186,14 +186,13 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     try {
       const client = this.tmClient.value;
       const blockResponse = await client.block(Number(height));
-      
-      // Parse transactions from the block
-      const transactions = this.parseTransactions(blockResponse.block);
+      const blockResults = await client.blockResults(Number(height));
       
       const blockEvent: BlockEvent = {
         height,
         block: blockResponse.block,
-        transactions,
+        blockResults,
+        transactions: [], // Will be populated by TransactionParser
       };
 
       return Result.ok(blockEvent);
@@ -203,38 +202,7 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     }
   }
 
-  private parseTransactions(block: any): ParsedTransaction[] {
-    const transactions: ParsedTransaction[] = [];
-    
-    if (!block.txs || !Array.isArray(block.txs)) {
-      return transactions;
-    }
 
-    for (let i = 0; i < block.txs.length; i++) {
-      try {
-        const tx = block.txs[i];
-        
-        // Create a basic parsed transaction
-        // TODO: Implement proper transaction decoding
-        const parsedTx: ParsedTransaction = {
-          hash: this.computeTxHash(tx, i),
-          success: true, // TODO: Get from block results
-          messages: [], // TODO: Parse actual messages
-        };
-        
-        transactions.push(parsedTx);
-      } catch (error) {
-        logger.warn(`Failed to parse transaction ${i} in block ${block.header.height}`);
-      }
-    }
-
-    return transactions;
-  }
-
-  private computeTxHash(tx: any, index: number): string {
-    // Simple hash computation - in real implementation would use proper tx hash
-    return `tx_${index}_${Date.now()}`;
-  }
 
   isHealthy(): boolean {
     return this.isMonitoring && this.tmClient.isJust;
