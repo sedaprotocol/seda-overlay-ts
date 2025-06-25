@@ -231,25 +231,95 @@ class EligibilityChecker {
 }
 ```
 
-### Phase 4: Integration with Existing Systems (Week 7-8)
+### Phase 4: Migration Strategy and Integration (Week 7-8)
 
-#### 4.1 Update Main Task
+#### 4.1 Add Migration Configuration
+**File**: `packages/config/src/models/node-config.ts`
+
+```typescript
+export interface NodeConfig {
+  // Add experimental block monitoring config
+  experimental: {
+    useBlockMonitoring: boolean; // Feature flag - default false
+    fallbackToRpc: boolean; // Fallback if gRPC fails - default true
+    hybridMode: boolean; // Run both systems in parallel for testing - default false
+  };
+  
+  blockMonitoring: {
+    enabled: boolean; // Internal flag set by experimental.useBlockMonitoring
+    pollInterval: number; // milliseconds, default 1000
+    maxBlockHistory: number; // blocks to keep in memory, default 100
+    grpcTimeout: number; // milliseconds, default 5000
+  };
+  
+  // Keep existing RPC polling config for fallback
+  // drFetchLimit, fetchFailureThreshold, etc.
+}
+```
+
+#### 4.2 Update Main Task with Dual Mode Support
 **File**: `packages/node/src/tasks/main.ts`
 
 ```typescript
 export class MainTask {
-  private blockMonitorTask: BlockMonitorTask; // New
-  private dataRequestExecutor: DataRequestExecutor; // New
+  // New gRPC block monitoring system
+  private blockMonitorTask?: BlockMonitorTask;
+  private dataRequestExecutor?: DataRequestExecutor;
   
-  // Remove: fetchTask, eligibilityTask (replaced by block monitoring)
-  // Keep: identityManagerTask, worker pools
+  // Existing RPC polling system (keep for fallback)
+  private fetchTask: FetchTask;
+  private eligibilityTask: EligibilityTask;
+  
+  // Shared components
+  private identityManagerTask: IdentityManagerTask;
+  public identityPool: IdentityPool;
   
   async start() {
     await this.identityManagerTask.start();
-    await this.blockMonitorTask.start(); // New
     
+    if (this.config.experimental.useBlockMonitoring) {
+      logger.info("🚀 Starting with gRPC block monitoring");
+      await this.startBlockMonitoring();
+      
+      if (this.config.experimental.hybridMode) {
+        logger.info("🔄 Hybrid mode: also starting RPC polling for comparison");
+        await this.startRpcPolling();
+      }
+    } else {
+      logger.info("📡 Starting with RPC polling (legacy mode)");
+      await this.startRpcPolling();
+    }
+  }
+  
+  private async startBlockMonitoring() {
+    this.blockMonitorTask = new BlockMonitorTask(/* ... */);
+    this.dataRequestExecutor = new DataRequestExecutor(/* ... */);
+    
+    await this.blockMonitorTask.start();
+    
+    // Handle events from block monitoring
     this.blockMonitorTask.on('eligible', this.handleEligibleDR.bind(this));
     this.blockMonitorTask.on('readyForReveal', this.handleReadyForReveal.bind(this));
+    this.blockMonitorTask.on('error', this.handleBlockMonitorError.bind(this));
+  }
+  
+  private async startRpcPolling() {
+    this.fetchTask.start();
+    
+    this.fetchTask.on("data-request", (_dataRequest) => {
+      this.eligibilityTask.process();
+    });
+
+    this.eligibilityTask.on("eligible", this.handleEligibleDR.bind(this));
+  }
+  
+  private async handleBlockMonitorError(error: Error) {
+    logger.error("Block monitoring failed", { error: error.message });
+    
+    if (this.config.experimental.fallbackToRpc) {
+      logger.warn("🔄 Falling back to RPC polling");
+      await this.startRpcPolling();
+    }
   }
 }
 ```
@@ -451,11 +521,32 @@ describe('BlockMonitorTask', () => {
 });
 ```
 
-#### 7.2 Migration Strategy
-1. **Dual Mode**: Run both old and new systems in parallel initially
-2. **Gradual Transition**: Use feature flag to switch between modes
-3. **Rollback Plan**: Keep old code until new system proven stable
-4. **Monitoring**: Add metrics to compare RPC call reduction
+#### 7.2 Migration Strategy - Step by Step
+
+**Phase A: Development Integration (Week 11)**
+1. **Implement dual mode support** in MainTask with feature flags
+2. **Add configuration options** for experimental.useBlockMonitoring
+3. **Default to RPC polling** (useBlockMonitoring = false) for safety
+4. **Test both systems** can coexist without conflicts
+
+**Phase B: Testing and Validation (Week 11)**
+1. **Enable hybrid mode** (both systems running in parallel)
+2. **Compare results** between RPC polling and block monitoring
+3. **Validate DR discovery** timing and accuracy 
+4. **Test failover** from gRPC to RPC when gRPC fails
+5. **Performance testing** with RPC call reduction metrics
+
+**Phase C: Gradual Rollout (Week 12)**
+1. **Enable block monitoring** on test/staging environments
+2. **Monitor for 24+ hours** to ensure stability
+3. **Gradual production rollout** with immediate rollback capability
+4. **Phased user adoption** with configuration flags
+
+**Phase D: Full Migration (Future)**
+1. **Default to block monitoring** after proven stable
+2. **Keep RPC polling** as fallback for reliability
+3. **Eventually deprecate** RPC polling code paths
+4. **Remove legacy code** after confidence period
 
 #### 7.3 Configuration for Migration
 ```typescript
@@ -474,9 +565,46 @@ export interface NodeConfig {
 | 1-2 | Core Infrastructure | BlockMonitorService, TransactionParser, gRPC client updates |
 | 3-4 | Event Processing | EventProcessor, DataRequestStateManager, EligibilityChecker |
 | 5-6 | Block Monitoring | BlockMonitorTask, integration with event processing |
-| 7-8 | System Integration | Updated MainTask, DataRequestExecutor, remove old polling |
+| 7-8 | Migration Strategy | Dual mode MainTask, feature flags, fallback system |
 | 9-10 | Configuration & Testing | Config updates, unit tests, integration tests |
-| 11-12 | Migration & Deployment | Dual mode, testing, gradual rollout |
+| 11-12 | Deployment & Migration | Testing, validation, gradual rollout with RPC fallback |
+
+**CRITICAL**: The system will continue to use RPC polling by default until explicitly enabled via `experimental.useBlockMonitoring = true`. This ensures zero disruption during development and allows for safe testing.
+
+### How to Test the New System
+
+**Option 1: gRPC Block Monitoring Only**
+```json
+{
+  "experimental": {
+    "useBlockMonitoring": true,
+    "fallbackToRpc": false,
+    "hybridMode": false
+  }
+}
+```
+
+**Option 2: Hybrid Mode (Both Systems)**
+```json
+{
+  "experimental": {
+    "useBlockMonitoring": true,
+    "fallbackToRpc": true,
+    "hybridMode": true
+  }
+}
+```
+
+**Option 3: Legacy RPC Polling (Default)**
+```json
+{
+  "experimental": {
+    "useBlockMonitoring": false,
+    "fallbackToRpc": true,
+    "hybridMode": false
+  }
+}
+```
 
 ## Git Commit Strategy
 
@@ -488,8 +616,8 @@ Create commits after each major milestone:
 4. **Phase 4 completion**: `feat: implement EligibilityChecker with offline DR ID generation`
 5. **Phase 5 completion**: `feat: implement BlockMonitorTask with event processing integration`
 6. **Phase 6 completion**: `feat: add DataRequestIdGenerator with reference implementation`
-7. **Phase 7 completion**: `feat: integrate BlockMonitorTask with MainTask and remove old polling`
-8. **Phase 8 completion**: `feat: implement DataRequestExecutor for new architecture`
+7. **Phase 7 completion**: `feat: implement dual-mode MainTask with gRPC/RPC fallback system`
+8. **Phase 8 completion**: `feat: implement DataRequestExecutor and migration configuration`
 9. **Phase 9 completion**: `feat: update configuration and add comprehensive tests`
 10. **Phase 10 completion**: `test: add integration tests and performance benchmarks`
 11. **Phase 11 completion**: `feat: implement dual-mode migration with feature flags`
