@@ -217,6 +217,28 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       const blockResponse = await client.block(Number(height));
       const blockResults = await client.blockResults(Number(height));
       
+      // SOPHISTICATED LOGGING: Log full block structure
+      logger.debug(`[${this.instanceId}] Raw blockResponse structure - keys: ${Object.keys(blockResponse).join(', ')}`);
+      logger.debug(`[${this.instanceId}] Block keys: ${Object.keys(blockResponse.block || {}).join(', ')}`);
+      logger.debug(`[${this.instanceId}] Header keys: ${Object.keys(blockResponse.block?.header || {}).join(', ')}`);
+      logger.debug(`[${this.instanceId}] Data keys: ${Object.keys((blockResponse.block as any)?.data || {}).join(', ')}`);
+      
+      // Log the full block data structure
+      const blockDataForLogging = {
+        block: {
+          header: blockResponse.block.header,
+          data: (blockResponse.block as any).data,
+          evidence: (blockResponse.block as any).evidence,
+          lastCommit: (blockResponse.block as any).last_commit
+        }
+      };
+      logger.debug(`[${this.instanceId}] Full block ${height} contents: ${JSON.stringify(blockDataForLogging, null, 2)}`);
+      
+      // Log block results structure  
+      logger.debug(`[${this.instanceId}] Block results keys: ${Object.keys(blockResults || {}).join(', ')}`);
+      logger.debug(`[${this.instanceId}] Block results txs_results length: ${(blockResults as any)?.txs_results?.length || 0}`);
+      logger.debug(`[${this.instanceId}] Block results results length: ${(blockResults as any)?.results?.length || 0}`);
+      
       // Create initial block event
       const blockEvent: BlockEvent = {
         height,
@@ -226,7 +248,9 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       };
 
       // Parse transactions using TransactionParser
+      logger.debug(`[${this.instanceId}] About to parse transactions for block ${height}`);
       const enhancedBlockEvent = this.transactionParser.enhanceBlockEvent(blockEvent);
+      logger.debug(`[${this.instanceId}] TransactionParser returned ${enhancedBlockEvent.transactions.length} transactions`);
       
       // Add sophisticated logging
       const rawTxCount = (blockResponse.block as any).data?.txs?.length || 0;
@@ -235,8 +259,21 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
         tx.messages.some(msg => msg.sedaContext !== undefined)
       ).length;
       
-      if (rawTxCount > 0) {
-        logger.debug(`Block ${height}: raw_txs=${rawTxCount}, parsed_txs=${parsedTxCount}, seda_txs=${sedaTxCount}`);
+      logger.info(`[${this.instanceId}] Block ${height}: raw_txs=${rawTxCount}, parsed_txs=${parsedTxCount}, seda_txs=${sedaTxCount}`);
+      
+              // Log raw transaction data if we have any
+        if (rawTxCount > 0) {
+          const rawTxs = (blockResponse.block as any).data?.txs || [];
+          const txDetails = rawTxs.map((tx: any, index: number) => ({
+            index,
+            type: typeof tx,
+            length: tx?.length || 'unknown',
+            isString: typeof tx === 'string',
+            isBuffer: Buffer.isBuffer(tx),
+            isArray: Array.isArray(tx),
+            firstBytes: typeof tx === 'string' ? tx.substring(0, 100) : 'not string'
+          }));
+          logger.debug(`[${this.instanceId}] Raw transactions in block ${height}: ${JSON.stringify(txDetails, null, 2)}`);
         
         // Log transaction details if we have SEDA transactions
         if (sedaTxCount > 0) {
@@ -247,16 +284,30 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
           for (const tx of sedaTxs) {
             const sedaMessages = tx.messages.filter(msg => msg.sedaContext !== undefined);
             for (const msg of sedaMessages) {
-              logger.info(`SEDA transaction found: type=${msg.sedaContext?.type}, success=${tx.success}, hash=${tx.hash}`);
+              logger.info(`[${this.instanceId}] SEDA transaction found: type=${msg.sedaContext?.type}, success=${tx.success}, hash=${tx.hash}`);
             }
           }
+        } else if (parsedTxCount > 0) {
+          // Log details about non-SEDA transactions to understand what we're getting
+          const nonSedaTxDetails = enhancedBlockEvent.transactions.map(tx => ({
+            hash: tx.hash,
+            success: tx.success,
+            messageCount: tx.messages.length,
+            messageTypes: tx.messages.map(msg => msg.typeUrl)
+          }));
+          logger.debug(`[${this.instanceId}] Non-SEDA transactions in block ${height}: ${JSON.stringify(nonSedaTxDetails, null, 2)}`);
         }
+      } else {
+        logger.debug(`[${this.instanceId}] Block ${height} has no transactions`);
       }
 
       return Result.ok(enhancedBlockEvent);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      logger.error(`Failed to get block at height ${height}: ${err.message}`);
+      logger.error(`[${this.instanceId}] Failed to get block at height ${height}: ${err.message}`);
+      if (err.stack) {
+        logger.debug(`[${this.instanceId}] Error stack: ${err.stack}`);
+      }
       return Result.err(err);
     }
   }

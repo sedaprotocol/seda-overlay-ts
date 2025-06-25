@@ -11,25 +11,49 @@ export class TransactionParser {
 
     // Check if block has transactions
     const txs = (block as any).data?.txs || [];
+    logger.debug(`TransactionParser: Block has ${txs.length} raw transactions`);
+    
     if (txs.length === 0) {
+      logger.debug("TransactionParser: No transactions in block");
       return parsedTransactions;
     }
 
+    // Log transaction structure
+    logger.debug(`TransactionParser: Raw transaction types: ${txs.map((tx: any, i: number) => `${i}:${typeof tx}`).join(', ')}`);
+    
+    // Log block results structure
+    const txResults = (blockResults as any).results || (blockResults as any).txs_results || [];
+    logger.debug(`TransactionParser: Block results has ${txResults.length} transaction results`);
+
     for (let i = 0; i < txs.length; i++) {
       try {
-        const txBytes = fromBase64(txs[i]);
+        logger.debug(`TransactionParser: Processing transaction ${i}/${txs.length}`);
+        
+        const rawTx = txs[i];
+        logger.debug(`TransactionParser: Raw tx ${i} - type: ${typeof rawTx}, length: ${rawTx?.length || 'unknown'}`);
+        
+        if (typeof rawTx !== 'string') {
+          logger.warn(`TransactionParser: Transaction ${i} is not a string, skipping`);
+          continue;
+        }
+        
+        const txBytes = fromBase64(rawTx);
+        logger.debug(`TransactionParser: Decoded tx ${i} to ${txBytes.length} bytes`);
+        
         const txRaw = decodeTxRaw(txBytes);
+        logger.debug(`TransactionParser: Parsed tx ${i} - body messages: ${txRaw.body.messages.length}`);
         
         // Get transaction result from block results  
-        const txResults = (blockResults as any).results || [];
         const txResult = txResults[i];
         const success = txResult?.code === 0;
+        logger.debug(`TransactionParser: Tx ${i} result - success: ${success}, code: ${txResult?.code}`);
         
         // Parse messages from the transaction
         const messages = this.parseMessages(txRaw.body.messages);
+        logger.debug(`TransactionParser: Tx ${i} parsed ${messages.length} messages`);
         
         const parsedTx: ParsedTransaction = {
-          hash: this.getTxHash(txs[i]),
+          hash: this.getTxHash(rawTx),
           success,
           messages
         };
@@ -37,13 +61,14 @@ export class TransactionParser {
         parsedTransactions.push(parsedTx);
 
         if (success && this.hasSedaMessages(messages)) {
-          logger.debug("Found SEDA transaction");
+          logger.info(`TransactionParser: Found SEDA transaction at index ${i}`);
         }
       } catch (error) {
-        logger.warn("Failed to parse transaction");
+        logger.warn(`TransactionParser: Failed to parse transaction ${i}: ${error}`);
       }
     }
 
+    logger.debug(`TransactionParser: Parsed ${parsedTransactions.length} transactions from ${txs.length} raw transactions`);
     return parsedTransactions;
   }
 
