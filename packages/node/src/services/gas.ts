@@ -3,16 +3,16 @@ import type { ExecutionResult } from "../models/execution-result";
 
 // Commit gas estimation coefficients
 const COMMIT_COEFFICIENTS = {
-	a: 18, // Cost per byte of the data request definition
-	b: 280_000, // Fixed base gas for commit transaction execution
-	c: 7_500, // RF overhead for additional hash computations (worst-case position)
+	dataCost: 18, // Cost per byte of the data request definition
+	baseCost: 280_000, // Fixed base gas for commit transaction execution
+	rfOverhead: 7_500, // RF overhead for additional hash computations (worst-case position)
 } as const;
 
 // Reveal gas estimation coefficients
 const REVEAL_COEFFICIENTS = {
-	a: 60, // Cost per byte of the result value (reveal)
-	b: 15, // Cost per byte of stdout and stderr output
-	c: 3_000, // Cost per RF for additional hashing computation
+	dataCost: 60, // Cost per byte of the result value (reveal)
+	outputCost: 15, // Cost per byte of stdout and stderr output
+	rfOverhead: 3_000, // Cost per RF for additional hashing computation
 } as const;
 
 /**
@@ -20,10 +20,10 @@ const REVEAL_COEFFICIENTS = {
  * Gas = cost of the data request definition + base execution + replication overhead
  */
 export function estimateGasForCommit(dataRequest: DataRequest): number {
-	const { a, b, c } = COMMIT_COEFFICIENTS;
+	const { dataCost, baseCost, rfOverhead } = COMMIT_COEFFICIENTS;
 	const drBytes = calculateDataRequestSize(dataRequest);
-	const baseGas = a * drBytes + b;
-	const estimatedGas = baseGas + dataRequest.replicationFactor * c;
+	const baseGas = dataCost * drBytes + baseCost;
+	const estimatedGas = baseGas + dataRequest.replicationFactor * rfOverhead;
 
 	return Math.round(estimatedGas);
 }
@@ -33,13 +33,13 @@ export function estimateGasForCommit(dataRequest: DataRequest): number {
  * Gas = base cost + cost of revealing data + cost of stdout/stderr logs + replication overhead
  */
 export function estimateGasForReveal(dataRequest: DataRequest, executionResult: ExecutionResult): number {
-	const { a, b, c } = REVEAL_COEFFICIENTS;
+	const { dataCost, outputCost, rfOverhead } = REVEAL_COEFFICIENTS;
 	const commitGas = estimateGasForCommit(dataRequest);
 	const revealBytes = executionResult.revealBody.reveal.byteLength;
 	const stdBytes = calculateStdSize(executionResult);
-	const gasRevealBytes = a * revealBytes;
-	const gasStd = b * stdBytes;
-	const estimatedGas = commitGas + gasRevealBytes + gasStd + dataRequest.replicationFactor * c;
+	const gasRevealBytes = dataCost * revealBytes;
+	const gasStd = outputCost * stdBytes;
+	const estimatedGas = commitGas + gasRevealBytes + gasStd + dataRequest.replicationFactor * rfOverhead;
 
 	return Math.round(estimatedGas);
 }
