@@ -7,7 +7,7 @@ import {
 	parseJsonRpcResponse,
 } from "@cosmjs/json-rpc";
 import { type DeliverTxResponse, type SequenceResponse, createProtobufRpcClient } from "@cosmjs/stargate";
-import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc";
+import { Comet38Client, HttpClient, type HttpEndpoint } from "@cosmjs/tendermint-rpc";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { QueryClientImpl } from "cosmjs-types/cosmwasm/wasm/v1/query";
 import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
@@ -106,11 +106,35 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 
 const fetchCookie = makeFetchCookie(fetch);
 
+interface SedaHttpClientOptions {
+	followRedirects: boolean;
+	redirectTtlMs: number;
+}
+
 class SedaHttpClient extends HttpClient {
+	private originalUrl: string;
+	private redirectExpiresAt = 0;
+
+	constructor(
+		url: string | HttpEndpoint,
+		private options: SedaHttpClientOptions,
+	) {
+		super(url);
+		this.originalUrl = this.url;
+	}
+
 	async execute(request: JsonRpcRequest): Promise<JsonRpcSuccessResponse> {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
 		};
+
+		if (this.redirectExpiresAt && this.redirectExpiresAt < Date.now()) {
+			// @ts-expect-error - this is a private property that we need to override
+			this.url = this.originalUrl;
+			this.redirectExpiresAt = 0;
+
+			logger.debug(`Reset redirect url, url is now ${this.url}`);
+		}
 
 		const res = await fetchCookie(this.url, {
 			credentials: "include",
@@ -118,6 +142,14 @@ class SedaHttpClient extends HttpClient {
 			body: request ? JSON.stringify(request) : undefined,
 			headers,
 		});
+
+		if (res.redirected && this.options.followRedirects) {
+			// @ts-expect-error - this is a private property that we need to override
+			this.url = res.url;
+			this.redirectExpiresAt = Date.now() + this.options.redirectTtlMs;
+
+			logger.debug(`Redirecting to ${res.url}, expires at ${new Date(this.redirectExpiresAt).toISOString()}`);
+		}
 
 		if (res.status >= 400) {
 			throw new Error(`Bad status on response: ${res.status}`);
@@ -138,8 +170,9 @@ class SedaHttpClient extends HttpClient {
 export async function createSigningClient(
 	signer: ISigner,
 	cacheSequenceNumber: boolean,
+	httpClientOptions: SedaHttpClientOptions,
 ): Promise<Result<{ client: SedaSigningCosmWasmClient; address: string }, unknown>> {
-	const httpClient = new SedaHttpClient(signer.getEndpoint());
+	const httpClient = new SedaHttpClient(signer.getEndpoint(), httpClientOptions);
 	const tendermintRpc = await Comet38Client.create(httpClient);
 
 	// @ts-ignore

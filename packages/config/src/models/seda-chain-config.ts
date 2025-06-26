@@ -9,6 +9,8 @@ import {
 	DEFAULT_ADJUSTMENT_FACTOR,
 	DEFAULT_GAS,
 	DEFAULT_GAS_PRICE,
+	DEFAULT_HTTP_REDIRECT_FOLLOW,
+	DEFAULT_HTTP_REDIRECT_TTL_MS,
 	DEFAULT_IDENTITIES_AMOUNT,
 	DEFAULT_MAX_RETRIES,
 	DEFAULT_MIN_SEDA_PER_ACCOUNT,
@@ -35,6 +37,8 @@ export const SedaChainConfigSchema = v.object({
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
 	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
 	memoSuffix: v.optional(v.string(), ""),
+	followHttpRedirects: v.optional(v.boolean(), DEFAULT_HTTP_REDIRECT_FOLLOW),
+	httpRedirectTtlMs: v.optional(v.number(), DEFAULT_HTTP_REDIRECT_TTL_MS),
 	// The amount of blocks to search for a transaction in the block (Through block indexing). Before switching to an immediate search. (direct getTx call)
 	transactionBlockSearchThreshold: v.optional(v.number(), DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD),
 });

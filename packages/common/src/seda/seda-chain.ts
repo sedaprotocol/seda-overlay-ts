@@ -496,7 +496,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 		for (const [accountIndex] of Array(config.sedaChain.accountAmounts).entries()) {
 			const signer = await Signer.fromConfig(config, accountIndex);
-			const signingClient = await createSigningClient(signer, cacheSequenceNumber);
+			const signingClient = await createSigningClient(signer, cacheSequenceNumber, {
+				followRedirects: config.sedaChain.followHttpRedirects,
+				redirectTtlMs: config.sedaChain.httpRedirectTtlMs,
+			});
 
 			if (signingClient.isErr) {
 				return Result.err(signingClient.error);

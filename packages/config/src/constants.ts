@@ -38,6 +38,8 @@ export const DEFAULT_FETCH_FAILURE_THRESHOLD = 0.2;
 export const DEFAULT_FETCH_COUNT_REFRESH_INTERVAL = 300000; // 5 minutes in milliseconds
 export const DEFAULT_GAS_ESTIMATIONS_ENABLED = true;
 export const DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD = 2;
+export const DEFAULT_HTTP_REDIRECT_FOLLOW = true;
+export const DEFAULT_HTTP_REDIRECT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
