@@ -81,7 +81,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 			},
 			TransactionPriority.LOW,
 			attoSedaAmount,
-			{ gas: "auto" },
+			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
 			"stake",
 		);

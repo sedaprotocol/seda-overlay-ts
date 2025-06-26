@@ -72,7 +72,7 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 			},
 			TransactionPriority.LOW,
 			undefined,
-			{ gas: "auto" },
+			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
 			"unstake",
 		);

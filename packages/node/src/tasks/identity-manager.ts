@@ -121,7 +121,12 @@ export class IdentityManagerTask {
 					},
 				};
 
-				const response = await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
+				const response = await this.sedaChain.queueCosmosMessage(
+					sendMsg,
+					TransactionPriority.LOW,
+					{ gas: "auto", adjustmentFactor: this.config.sedaChain.gasAdjustmentFactorCosmosMessages },
+					0,
+				);
 
 				if (response.isErr) {
 					logger.error(

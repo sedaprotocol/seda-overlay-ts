@@ -64,7 +64,7 @@ export async function commitDr(
 	});
 
 	const gasOptions: GasOptions | undefined = appConfig.node.gasEstimationsEnabled
-		? { gas: estimateGasForCommit(dataRequest) * appConfig.sedaChain.gasAdjustmentFactor }
+		? { gas: Math.round(estimateGasForCommit(dataRequest) * appConfig.sedaChain.gasAdjustmentFactor) }
 		: undefined;
 
 	const commitResponse = await sedaChain.waitForSmartContractTransaction(

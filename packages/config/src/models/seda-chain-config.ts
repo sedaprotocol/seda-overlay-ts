@@ -7,6 +7,8 @@ import * as v from "valibot";
 import {
 	DEFAULT_ACCOUNT_AMOUNTS,
 	DEFAULT_ADJUSTMENT_FACTOR,
+	DEFAULT_ADJUSTMENT_FACTOR_COSMOS_MESSAGES,
+	DEFAULT_DISABLE_TRANSACTION_BLOCK_SEARCH,
 	DEFAULT_GAS,
 	DEFAULT_GAS_PRICE,
 	DEFAULT_HTTP_REDIRECT_FOLLOW,
@@ -35,12 +37,14 @@ export const SedaChainConfigSchema = v.object({
 	queueInterval: v.optional(v.number(), DEFAULT_QUEUE_INTERVAL),
 	gasPrice: v.optional(v.string(), DEFAULT_GAS_PRICE),
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
+	gasAdjustmentFactorCosmosMessages: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR_COSMOS_MESSAGES),
 	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
 	memoSuffix: v.optional(v.string(), ""),
 	followHttpRedirects: v.optional(v.boolean(), DEFAULT_HTTP_REDIRECT_FOLLOW),
 	httpRedirectTtlMs: v.optional(v.number(), DEFAULT_HTTP_REDIRECT_TTL_MS),
 	// The amount of blocks to search for a transaction in the block (Through block indexing). Before switching to an immediate search. (direct getTx call)
 	transactionBlockSearchThreshold: v.optional(v.number(), DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD),
+	disableTransactionBlockSearch: v.optional(v.boolean(), DEFAULT_DISABLE_TRANSACTION_BLOCK_SEARCH),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

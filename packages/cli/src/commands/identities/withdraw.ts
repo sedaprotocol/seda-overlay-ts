@@ -80,7 +80,7 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 			},
 			TransactionPriority.LOW,
 			undefined,
-			{ gas: "auto" },
+			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
 			"withdraw",
 		);

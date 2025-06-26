@@ -44,7 +44,7 @@ export async function revealDr(
 	});
 
 	const gasOptions: GasOptions | undefined = appConfig.node.gasEstimationsEnabled
-		? { gas: estimateGasForReveal(dataRequest, executionResult) * appConfig.sedaChain.gasAdjustmentFactor }
+		? { gas: Math.round(estimateGasForReveal(dataRequest, executionResult) * appConfig.sedaChain.gasAdjustmentFactor) }
 		: undefined;
 
 	const revealResponse = await sedaChain.waitForSmartContractTransaction(

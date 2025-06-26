@@ -119,6 +119,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 	 *
 	 */
 	async getTransaction(txHash: string, accountIndex = 0) {
+		if (this.config.sedaChain.disableTransactionBlockSearch) {
+			return getTransaction(this.signerClients[accountIndex], txHash);
+		}
+
 		const lastSearchedInBlock = Maybe.of(this.txLastSearchedBlockHeight.get(txHash));
 
 		if (lastSearchedInBlock.isNothing) {
