@@ -176,10 +176,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			}
 			// Edge case where the `is_executor_eligible` query returns true but the data request is already in reveal stage
 			// Note: `is_executor_eligible` only checks that request exists and eligibility is valid
-			if (
-				drFromChain.value.isJust &&
-				drFromChain.value.value.commitsLength === drFromChain.value.value.replicationFactor
-			) {
+			if (drFromChain.value.isJust && isDrInRevealStage(drFromChain.value.value)) {
 				logger.debug("💨 Data Request already in reveal stage - skipping eligibility check", {
 					id: traceId,
 				});

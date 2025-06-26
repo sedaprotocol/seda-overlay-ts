@@ -1,3 +1,5 @@
+import type { DataRequestStatus } from "./result-schema/query";
+
 export type {
 	DataRequestResponse as DataRequest,
 	GetDataRequestsByStatusResponse,
@@ -22,3 +24,8 @@ export type { StakingConfig } from "./result-schema/response_to_get_staking_conf
 export type { GetExecutorsResponse } from "./result-schema/response_to_get_executors";
 export type { Staker } from "./result-schema/response_to_get_staker";
 export type { DrConfig } from "./result-schema/response_to_get_dr_config";
+export type { DataRequestStatus } from "./result-schema/query";
+
+export interface GetDataRequestStatusesResponse {
+	[drId: string]: DataRequestStatus | null;
+}

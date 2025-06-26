@@ -49,6 +49,11 @@ export type QueryMsg1 =
       };
     }
   | {
+      get_data_requests_statuses: {
+        dr_ids: string[];
+      };
+    }
+  | {
       get_data_requests_by_status: {
         /**
          * @minItems 3

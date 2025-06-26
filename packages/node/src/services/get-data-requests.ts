@@ -1,5 +1,7 @@
 import type {
+	DataRequestStatus,
 	GetDataRequestResponse,
+	GetDataRequestStatusesResponse,
 	GetDataRequestsByStatusResponse,
 	QueryMsg,
 } from "@sedaprotocol/core-contract-schema";
@@ -8,7 +10,7 @@ import { Cache, DebouncedPromise } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
-import { transformDataRequestFromContract } from "../models/data-request";
+import { isDrInRevealStage, transformDataRequestFromContract } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 
 interface DataRequestsResponse {
@@ -104,4 +106,39 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 		dataRequestCache.set(drId, dr);
 		return Result.ok(Maybe.of(dr));
 	});
+}
+
+export async function getDataRequestStatuses(
+	sedaChain: SedaChain,
+	drId: string,
+): Promise<Result<Maybe<DataRequestStatus>, Error>> {
+	// We should first check the cache to avoid unnecessary queries
+	// It coud take a bit longer for committs to come in, and the paginated fetch data requests call is already refreshing the cache
+	const cachedValue = dataRequestCache.get(drId);
+
+	if (cachedValue.isJust) {
+		if (isDrInRevealStage(cachedValue.value)) {
+			return Result.ok(Maybe.just("revealing"));
+		}
+
+		return Result.ok(Maybe.just("committing"));
+	}
+
+	const message: QueryMsg = {
+		get_data_requests_statuses: {
+			dr_ids: [drId],
+		},
+	};
+
+	const result = await sedaChain.queryContractSmart<GetDataRequestStatusesResponse>(message);
+
+	if (result.isErr) {
+		return Result.err(result.error);
+	}
+
+	if (!result.value[drId]) {
+		return Result.ok(Maybe.nothing());
+	}
+
+	return Result.ok(Maybe.of(result.value[drId]));
 }

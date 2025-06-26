@@ -21,7 +21,7 @@ import { type DataRequest, isDrInRevealStage } from "./models/data-request";
 import { type DataRequestPool, IdentityDataRequestStatus } from "./models/data-request-pool";
 import type { ExecutionResult } from "./models/execution-result";
 import type { IdentityPool } from "./models/identitiest-pool";
-import { getDataRequest } from "./services/get-data-requests";
+import { getDataRequestStatuses } from "./services/get-data-requests";
 import { commitDr } from "./tasks/commit";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
@@ -213,13 +213,13 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			id: this.name,
 		});
 
-		const result = await getDataRequest(drId, this.sedaChain);
+		const statusResult = await getDataRequestStatuses(this.sedaChain, drId);
 
-		if (result.isErr) {
-			logger.error(`Error while fetching data request: ${result.error}`, {
+		if (statusResult.isErr) {
+			logger.error(`Error while fetching status of data request: ${statusResult.error}`, {
 				id: this.drId,
 			});
-			span.recordException(result.error);
+			span.recordException(statusResult.error);
 			span.setAttribute("error", "fetch_failed");
 
 			this.retries += 1;
@@ -235,7 +235,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		if (result.value.isNothing) {
+		if (statusResult.value.isNothing) {
 			logger.debug("Data Request not found on chain, deleting from pool - likely resolved", {
 				id: this.name,
 			});
@@ -246,7 +246,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		this.pool.insertDataRequest(result.value.value);
+		this.pool.updateDataRequestStatus(drId, statusResult.value.value);
 		span.end();
 	}
 

@@ -1,4 +1,4 @@
-import type { DataRequest as DataRequestFromContract } from "@sedaprotocol/core-contract-schema";
+import type { DataRequest as DataRequestFromContract, DataRequestStatus } from "@sedaprotocol/core-contract-schema";
 
 export type DataRequestId = string;
 
@@ -18,11 +18,12 @@ export interface DataRequest {
 	paybackAddress: Buffer;
 	sedaPayload: Buffer;
 	height: bigint;
-	commitsLength: number;
 	lastUpdated: Date;
+	status: DataRequestStatus;
 }
 
 export function transformDataRequestFromContract(request: DataRequestFromContract): DataRequest {
+	const commitsLength = Object.keys(request.commits).length;
 	return {
 		id: request.id,
 		version: request.version,
@@ -39,13 +40,13 @@ export function transformDataRequestFromContract(request: DataRequestFromContrac
 		paybackAddress: Buffer.from(request.payback_address, "base64"),
 		sedaPayload: Buffer.from(request.seda_payload, "base64"),
 		height: BigInt(request.height),
-		commitsLength: Object.keys(request.commits).length,
 		lastUpdated: new Date(),
+		status: commitsLength >= request.replication_factor ? "revealing" : "committing",
 	};
 }
 
 export function isDrInRevealStage(request: DataRequest): boolean {
-	return request.commitsLength >= request.replicationFactor;
+	return request.status === "revealing";
 }
 
 export function isDrStale(request: DataRequest): boolean {

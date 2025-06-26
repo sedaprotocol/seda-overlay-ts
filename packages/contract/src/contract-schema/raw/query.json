@@ -172,6 +172,26 @@
 				},
 				{
 					"type": "object",
+					"required": ["get_data_requests_statuses"],
+					"properties": {
+						"get_data_requests_statuses": {
+							"type": "object",
+							"required": ["dr_ids"],
+							"properties": {
+								"dr_ids": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								}
+							},
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
 					"required": ["get_data_requests_by_status"],
 					"properties": {
 						"get_data_requests_by_status": {

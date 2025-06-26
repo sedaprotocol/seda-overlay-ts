@@ -1,3 +1,4 @@
+import type { DataRequestStatus } from "@sedaprotocol/core-contract-schema";
 import { Maybe } from "true-myth";
 import type { DataRequest, DataRequestId } from "./data-request";
 import type { ExecutionResult } from "./execution-result";
@@ -94,6 +95,14 @@ export class DataRequestPool {
 	 */
 	isDrBeingProcessed(drId: DataRequestId): boolean {
 		return this.identityDataRequests.values().some((identityDataRequest) => identityDataRequest.drId === drId);
+	}
+
+	updateDataRequestStatus(drId: DataRequestId, status: DataRequestStatus) {
+		const dataRequest = this.getDataRequest(drId);
+		if (dataRequest.isNothing) {
+			return;
+		}
+		dataRequest.value.status = status;
 	}
 
 	insertDataRequest(dataRequest: DataRequest) {

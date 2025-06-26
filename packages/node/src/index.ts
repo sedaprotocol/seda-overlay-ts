@@ -19,7 +19,7 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 	const sedaChain = await SedaChain.fromConfig(appConfig);
 
 	if (sedaChain.isErr) {
-		logger.error(`${sedaChain.error}`);
+		logger.error(`SedaChain creation error: ${sedaChain.error}`);
 		process.exit(1);
 	}
 
