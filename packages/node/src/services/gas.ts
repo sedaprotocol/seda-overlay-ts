@@ -1,3 +1,4 @@
+import type { RevealBody } from "@sedaprotocol/core-contract-schema";
 import type { DataRequest } from "../models/data-request";
 import type { ExecutionResult } from "../models/execution-result";
 
@@ -35,7 +36,7 @@ export function estimateGasForCommit(dataRequest: DataRequest): number {
 export function estimateGasForReveal(dataRequest: DataRequest, executionResult: ExecutionResult): number {
 	const { dataCost, outputCost, rfOverhead } = REVEAL_COEFFICIENTS;
 	const commitGas = estimateGasForCommit(dataRequest);
-	const revealBytes = executionResult.revealBody.reveal.byteLength;
+	const revealBytes = calculateRevealBytes(executionResult.revealBody);
 	const stdBytes = calculateStdSize(executionResult);
 	const gasRevealBytes = dataCost * revealBytes;
 	const gasStd = outputCost * stdBytes;
@@ -79,4 +80,11 @@ function calculateStdSize(executionResult: ExecutionResult): number {
 	const stderrString = executionResult.stderr.join("");
 
 	return Buffer.byteLength(stdoutString, "utf8") + Buffer.byteLength(stderrString, "utf8");
+}
+
+/**
+ * Calculates the size of the reveal body in bytes considering only revealed result and proxy public keys
+ */
+function calculateRevealBytes(revealBody: RevealBody): number {
+	return revealBody.reveal.byteLength + revealBody.proxy_public_keys.reduce((sum, key) => sum + key.length, 0);
 }
