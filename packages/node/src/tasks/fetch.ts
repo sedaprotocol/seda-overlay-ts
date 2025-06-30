@@ -120,6 +120,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 			debouncedInterval(async () => {
 				(await this.fetch()).mapErr((error) => {
 					logger.error(`FetchTask: ${error}`);
+					// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 				});
 			}, this.config.intervals.fetchTask),
 		);
