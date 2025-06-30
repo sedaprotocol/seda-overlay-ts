@@ -72,7 +72,7 @@ async function resolveCoreContractAddress(config: AppConfig) {
 	const response = await tryAsync(async () => queryClient.CoreContractRegistry({}));
 
 	if (response.isErr) {
-		throw Error("No core contract set on chain. Please provide a contract address manually.");
+		throw Error(`Could not fetch core contract from chain: ${response.error.message}`);
 	}
 
 	return response.value.address;
