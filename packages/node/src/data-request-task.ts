@@ -184,7 +184,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				this.stop();
 				return;
 			} else {
-				logger.error(`Unimplemented status ${this.status}, aborting data-request`, {
+				logger.warn(`Unimplemented status ${this.status}, aborting data-request`, {
 					id: this.name,
 				});
 				span.setAttribute("final_status", "error");
@@ -272,7 +272,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		const info = this.identitityPool.getIdentityInfo(this.identityId);
 
 		if (dr.isNothing) {
-			logger.error("Invariant found, data request task uses a data request that does not exist", {
+			logger.warn("Invariant found, data request task uses a data request that does not exist", {
 				id: this.name,
 			});
 			span.setAttribute("error", "data_request_not_found");
@@ -304,7 +304,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (vmResult.isErr) {
 			this.retries += 1;
-			logger.error(`Error while executing: ${vmResult.error}`, {
+			logger.warn(`Error while executing: ${vmResult.error}`, {
 				id: this.name,
 			});
 			span.recordException(vmResult.error);
@@ -332,7 +332,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			exitCode = EXECUTION_EXIT_CODE_RESULT_TOO_LARGE;
 			stderr = `${errMsg}\n${stderr}`;
 
-			logger.error(errMsg, {
+			logger.warn(errMsg, {
 				id: this.name,
 			});
 			span.setAttribute("error", "reveal_too_large");
@@ -437,7 +437,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				return;
 			}
 
-			logger.error(`Failed to commit: ${result.error}`, {
+			logger.warn(`Failed to commit: ${result.error}`, {
 				id: this.name,
 			});
 			span.recordException(result.error);
