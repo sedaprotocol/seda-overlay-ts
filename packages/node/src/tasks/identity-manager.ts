@@ -21,6 +21,7 @@ export class IdentityManagerTask {
 			logger.error(`Could not fetch staker info: ${staker.error}`, {
 				id: `identity_${identity}`,
 			});
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 			return Result.err(staker.error);
 		}
@@ -29,6 +30,7 @@ export class IdentityManagerTask {
 			logger.error("Could not find staker info, did you register it?", {
 				id: `identity_${identity}`,
 			});
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 			return Result.err(new Error("Staker info was empty"));
 		}
@@ -37,6 +39,7 @@ export class IdentityManagerTask {
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			return Result.err(stakingConfig.error);
 		}
 
@@ -67,6 +70,7 @@ export class IdentityManagerTask {
 				logger.error("Identity could not be found in pool", {
 					id: `identity_${identity}`,
 				});
+				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			},
 		});
 
@@ -132,6 +136,7 @@ export class IdentityManagerTask {
 					logger.error(
 						`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
 					);
+					// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 				}
 
 				logger.info(

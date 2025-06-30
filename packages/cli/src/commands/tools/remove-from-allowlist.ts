@@ -32,6 +32,7 @@ export const removeFromAllowlist = populateWithCommonOptions(new Command("remove
 
 		if (response.isErr) {
 			logger.error(`Removing failed: ${response.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

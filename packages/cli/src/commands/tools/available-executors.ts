@@ -20,6 +20,7 @@ export const availableExecutors = populateWithCommonOptions(new Command("availab
 
 		if (response.isErr) {
 			logger.error(`Listing failed: ${response.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

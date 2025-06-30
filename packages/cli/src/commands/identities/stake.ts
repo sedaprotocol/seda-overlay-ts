@@ -29,6 +29,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 
 		if (identityId.isNothing) {
 			logger.error(`Identity with index "${index}" does not exist`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -36,6 +37,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 
 		if (privateKey.isNothing) {
 			logger.error(`Identity with index "${index}" does not exist`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -44,6 +46,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 
 		if (stakerInfo.isErr) {
 			logger.error(`Could not fetch sequence: ${stakerInfo.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -88,6 +91,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 
 		if (response.isErr) {
 			logger.error(`Staking failed: ${response.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

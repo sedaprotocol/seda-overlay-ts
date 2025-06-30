@@ -31,9 +31,11 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 
 		if (!config.isOk) {
 			logger.error("Error while parsing config:");
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 			for (const error of config.error) {
 				logger.error(error);
+				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			}
 			process.exit(1);
 		}
@@ -41,6 +43,7 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 		const sedaChainRes = await SedaChain.fromConfig(config.value);
 		if (sedaChainRes.isErr) {
 			logger.error(`Failed to create SedaChain: ${sedaChainRes.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -49,12 +52,14 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 		const binary = await tryAsync(fs.readFile(binaryPath));
 		if (binary.isErr) {
 			logger.error(`Failed to read binary: ${binary.error}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
 		const gasLimitTeraGas = Number(options.gasLimit);
 		if (Number.isNaN(gasLimitTeraGas)) {
 			logger.error(`Invalid gas limit: ${options.gasLimit}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 		const gasLimit = BigInt(Math.floor(gasLimitTeraGas * 1_000_000_000_000));
@@ -62,6 +67,7 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 		const gasPrice = Math.floor(Number(options.gasPrice));
 		if (Number.isNaN(gasPrice)) {
 			logger.error(`Invalid gas price: ${options.gasPrice}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -69,6 +75,7 @@ export const executeOracleProgram = populateWithCommonOptions(new Command("execu
 		const identityPrivateKey = config.value.sedaChain.identities.get(config.value.sedaChain.identityIds[0]);
 		if (!identityPrivateKey) {
 			logger.error(`Identity private key not found for identity ID: ${config.value.sedaChain.identityIds[0]}`);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

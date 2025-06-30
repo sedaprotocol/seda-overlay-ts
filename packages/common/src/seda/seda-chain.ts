@@ -133,6 +133,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 				logger.error(`Error getting current block height: ${currentBlockHeight.error}`, {
 					id: txHash,
 				});
+				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 				return Result.ok(Maybe.nothing());
 			}
@@ -143,6 +144,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 				logger.error(`Error getting block for current height ${currentBlockHeight.value}: ${block.error}`, {
 					id: txHash,
 				});
+				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 				// We only want to return an error on transaction level, not on the block level
 				return Result.ok(Maybe.nothing());
@@ -196,6 +198,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 					id: txHash,
 				},
 			);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 			// We only want to return an error on transaction level, not on the block level
 			return Result.ok(Maybe.nothing());
@@ -455,6 +458,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			logger.error(`Transaction failed: ${result.error}`, {
 				id: txMessage.value.traceId,
 			});
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 		} else {
 			this.txSuccessCount++;
 		}
@@ -465,6 +469,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`, {
 				id: txMessage.value.traceId,
 			});
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			return;
 		}
 
@@ -568,6 +573,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 					logger.error(`Transaction could not be received for ${transactionHash.value}: ${transactionResult.error}`, {
 						id: traceId,
 					});
+					// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 					const error = narrowDownError(transactionResult.error);
 					clearInterval(checkTransactionInterval);

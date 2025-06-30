@@ -20,6 +20,7 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 
 	if (sedaChain.isErr) {
 		logger.error(`SedaChain creation error: ${sedaChain.error}`);
+		// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 		process.exit(1);
 	}
 

@@ -34,9 +34,11 @@ export async function loadConfigAndSedaChain(options: {
 
 	if (config.isErr) {
 		logger.error("Error while parsing config:");
+		// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 		for (const error of config.error) {
 			logger.error(error);
+			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 		}
 		process.exit(1);
 	}
@@ -45,6 +47,7 @@ export async function loadConfigAndSedaChain(options: {
 
 	if (sedaChain.isErr) {
 		logger.error(`Could not create SEDA chain instance: ${sedaChain.error}`);
+		// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 		process.exit(1);
 	}
 
