@@ -142,13 +142,14 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
 
     try {
       const client = this.tmClient.value;
-      const blockResponse = await client.block();
-      const blockResults = await client.blockResults(blockResponse.block.header.height);
       
-      // Create initial block event
+      // Single RPC call to get block results which contains transaction data
+      const blockResults = await client.blockResults();
+      
+      // Create initial block event using just blockResults
       const blockEvent: BlockEvent = {
-        height: BigInt(blockResponse.block.header.height),
-        block: blockResponse.block,
+        height: BigInt(blockResults.height),
+        block: null, // We don't need raw block data, only transaction results
         blockResults,
         transactions: [],
       };
@@ -157,13 +158,15 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       const enhancedBlockEvent = this.transactionParser.enhanceBlockEvent(blockEvent);
       
       // Add sophisticated logging
-      const rawTxCount = (blockResponse.block as any).data?.txs?.length || 0;
+      const txResultsCount = (blockResults as any).results?.length || (blockResults as any).txs_results?.length || 0;
+      const beginBlockEventsCount = (blockResults as any).beginBlockEvents?.length || 0;
+      const endBlockEventsCount = (blockResults as any).endBlockEvents?.length || 0;
       const parsedTxCount = enhancedBlockEvent.transactions.length;
       const sedaTxCount = enhancedBlockEvent.transactions.filter(tx => 
         tx.messages.some(msg => msg.sedaContext !== undefined)
       ).length;
       
-      logger.debug(`Block ${blockResponse.block.header.height}: raw_txs=${rawTxCount}, parsed_txs=${parsedTxCount}, seda_txs=${sedaTxCount}`);
+      logger.debug(`Block ${blockResults.height}: tx_results=${txResultsCount}, begin_events=${beginBlockEventsCount}, end_events=${endBlockEventsCount}, parsed_txs=${parsedTxCount}, seda_txs=${sedaTxCount}`);
 
       return Result.ok(enhancedBlockEvent);
     } catch (error) {
@@ -185,26 +188,52 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     // Process all blocks since last processed height
     const blocksToProcess = currentHeight.value - this.lastProcessedHeight;
     if (blocksToProcess > 0n) {
-      logger.debug(`[${this.instanceId}] Processing ${blocksToProcess} new blocks (${this.lastProcessedHeight + 1n} to ${currentHeight.value})`);
+      logger.debug(`[${this.instanceId}] Processing ${blocksToProcess} new blocks (${this.lastProcessedHeight + 1n} to ${currentHeight.value}) - NON-BLOCKING`);
     }
 
+    // Process all blocks in background without blocking ongoing operations
+    const blockPromises: Promise<void>[] = [];
+    
     for (let height = this.lastProcessedHeight + 1n; height <= currentHeight.value; height++) {
-      try {
-        const blockEvent = await this.getBlockAtHeight(height);
-        if (blockEvent.isOk) {
-          const txCount = blockEvent.value.transactions.length;
-          const sedaTxCount = blockEvent.value.transactions.filter(tx => 
-            tx.messages.some(msg => msg.sedaContext !== undefined)
-          ).length;
-          
-          logger.debug(`[${this.instanceId}] Emitting block ${height}: ${txCount} transactions (${sedaTxCount} SEDA)`);
-          this.emit('newBlock', blockEvent.value);
-          this.lastProcessedHeight = height;
-        }
-      } catch (error) {
-        logger.error(`Error processing block ${height}: ${error}`);
-      }
+      const blockPromise = (async (blockHeight: bigint) => {
+        // Use setImmediate to ensure each block processing doesn't block the event loop
+        setImmediate(async () => {
+          try {
+            const blockEvent = await this.getBlockAtHeight(blockHeight);
+            if (blockEvent.isOk) {
+              const txCount = blockEvent.value.transactions.length;
+              const sedaTxCount = blockEvent.value.transactions.filter(tx => 
+                tx.messages.some(msg => msg.sedaContext !== undefined)
+              ).length;
+              
+              logger.debug(`[${this.instanceId}] Emitting block ${blockHeight}: ${txCount} transactions (${sedaTxCount} SEDA) - NON-BLOCKING`);
+              
+              // Emit the block event immediately without blocking
+              setImmediate(() => {
+                this.emit('newBlock', blockEvent.value);
+              });
+            }
+          } catch (error) {
+            logger.error(`Error processing block ${blockHeight}: ${error}`);
+          }
+        });
+      })(height);
+      
+      blockPromises.push(blockPromise);
     }
+    
+    // Process all blocks in background - don't block the polling loop
+    Promise.all(blockPromises).then(() => {
+      logger.debug(`[${this.instanceId}] Completed background processing of ${blocksToProcess} blocks`);
+    }).catch((error) => {
+      logger.error(`[${this.instanceId}] Error in background block processing: ${error}`);
+    });
+    
+    // Update last processed height immediately so we don't reprocess the same blocks
+    this.lastProcessedHeight = currentHeight.value;
+    
+    // Return immediately without waiting for processing to complete
+    logger.debug(`[${this.instanceId}] Queued ${blocksToProcess} blocks for background processing, continuing...`);
   }
 
   private async getBlockAtHeight(height: bigint): Promise<Result<BlockEvent, Error>> {
@@ -214,35 +243,47 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
 
     try {
       const client = this.tmClient.value;
-      const blockResponse = await client.block(Number(height));
+      
+      // Single RPC call to get block results which contains transaction data
       const blockResults = await client.blockResults(Number(height));
+      // Check all possible transaction result fields
+      const possibleTxFields = [
+        'results', 'txs_results', 'tx_results', 'transactions', 
+        'deliverTx', 'deliver_tx', 'txResults', 'transactionResults'
+      ];
       
-      // SOPHISTICATED LOGGING: Log full block structure
-      logger.debug(`[${this.instanceId}] Raw blockResponse structure - keys: ${Object.keys(blockResponse).join(', ')}`);
-      logger.debug(`[${this.instanceId}] Block keys: ${Object.keys(blockResponse.block || {}).join(', ')}`);
-      logger.debug(`[${this.instanceId}] Header keys: ${Object.keys(blockResponse.block?.header || {}).join(', ')}`);
-      logger.debug(`[${this.instanceId}] Data keys: ${Object.keys((blockResponse.block as any)?.data || {}).join(', ')}`);
-      
-      // Log the full block data structure
-      const blockDataForLogging = {
-        block: {
-          header: blockResponse.block.header,
-          data: (blockResponse.block as any).data,
-          evidence: (blockResponse.block as any).evidence,
-          lastCommit: (blockResponse.block as any).last_commit
+      for (const field of possibleTxFields) {
+        const value = (blockResults as any)[field];
+        if (value !== undefined) {
+          logger.debug(`[${this.instanceId}] Found field '${field}': type=${typeof value}, length=${Array.isArray(value) ? value.length : 'not array'}`);
+          if (Array.isArray(value) && value.length > 0) {
+            logger.debug(`[${this.instanceId}] Field '${field}' has ${value.length} items, first item keys: ${Object.keys(value[0] || {}).join(', ')}`);
+          }
         }
-      };
-      logger.debug(`[${this.instanceId}] Full block ${height} contents: ${JSON.stringify(blockDataForLogging, null, 2)}`);
+      }
+            
+      // Get transaction results from blockResults - try all possible locations
+      const txResults = (blockResults as any).results || 
+                       (blockResults as any).txs_results || 
+                       (blockResults as any).tx_results ||
+                       (blockResults as any).deliverTx ||
+                       (blockResults as any).deliver_tx ||
+                       [];
       
-      // Log block results structure  
-      logger.debug(`[${this.instanceId}] Block results keys: ${Object.keys(blockResults || {}).join(', ')}`);
-      logger.debug(`[${this.instanceId}] Block results txs_results length: ${(blockResults as any)?.txs_results?.length || 0}`);
-      logger.debug(`[${this.instanceId}] Block results results length: ${(blockResults as any)?.results?.length || 0}`);
+      logger.debug(`[${this.instanceId}] Using transaction results: ${txResults.length} items`);
       
-      // Create initial block event
+      if (txResults.length > 0) {
+        // Log detailed structure of transaction results
+        for (let i = 0; i < Math.min(txResults.length, 3); i++) {
+          const txResult = txResults[i];
+          const safeTxResult = this.createSafeLoggingObject(txResult);
+        }
+      }
+      
+      // Create initial block event using just blockResults
       const blockEvent: BlockEvent = {
         height,
-        block: blockResponse.block,
+        block: null, // We don't need raw block data, only transaction results
         blockResults,
         transactions: [],
       };
@@ -253,27 +294,25 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       logger.debug(`[${this.instanceId}] TransactionParser returned ${enhancedBlockEvent.transactions.length} transactions`);
       
       // Add sophisticated logging
-      const rawTxCount = (blockResponse.block as any).data?.txs?.length || 0;
+      const txResultsCount = txResults.length;
+      const beginBlockEventsCount = (blockResults as any).beginBlockEvents?.length || 0;
+      const endBlockEventsCount = (blockResults as any).endBlockEvents?.length || 0;
       const parsedTxCount = enhancedBlockEvent.transactions.length;
       const sedaTxCount = enhancedBlockEvent.transactions.filter(tx => 
         tx.messages.some(msg => msg.sedaContext !== undefined)
       ).length;
       
-      logger.info(`[${this.instanceId}] Block ${height}: raw_txs=${rawTxCount}, parsed_txs=${parsedTxCount}, seda_txs=${sedaTxCount}`);
+      logger.info(`[${this.instanceId}] Block ${height}: tx_results=${txResultsCount}, begin_events=${beginBlockEventsCount}, end_events=${endBlockEventsCount}, parsed_txs=${parsedTxCount}, seda_txs=${sedaTxCount}`);
       
-              // Log raw transaction data if we have any
-        if (rawTxCount > 0) {
-          const rawTxs = (blockResponse.block as any).data?.txs || [];
-          const txDetails = rawTxs.map((tx: any, index: number) => ({
-            index,
-            type: typeof tx,
-            length: tx?.length || 'unknown',
-            isString: typeof tx === 'string',
-            isBuffer: Buffer.isBuffer(tx),
-            isArray: Array.isArray(tx),
-            firstBytes: typeof tx === 'string' ? tx.substring(0, 100) : 'not string'
-          }));
-          logger.debug(`[${this.instanceId}] Raw transactions in block ${height}: ${JSON.stringify(txDetails, null, 2)}`);
+      // Log transaction details if we have any
+      if (txResultsCount > 0) {
+        const txDetails = txResults.map((txResult: any, index: number) => ({
+          index,
+          code: txResult?.code,
+          success: txResult?.code === 0,
+          events: txResult?.events?.length || 0,
+          log: txResult?.log?.substring(0, 100) || 'no log'
+        }));
         
         // Log transaction details if we have SEDA transactions
         if (sedaTxCount > 0) {
@@ -312,7 +351,47 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     }
   }
 
-
+  /**
+   * Create a safe object for logging that handles BigInt and other non-serializable values
+   */
+  private createSafeLoggingObject(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (typeof obj === 'bigint') {
+      return obj.toString();
+    }
+    
+    if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.slice(0, 5).map(item => this.createSafeLoggingObject(item)); // Limit array size for logging
+    }
+    
+    if (typeof obj === 'object') {
+      const safeObj: any = {};
+      const keys = Object.keys(obj).slice(0, 20); // Limit number of keys for logging
+      
+      for (const key of keys) {
+        try {
+          safeObj[key] = this.createSafeLoggingObject(obj[key]);
+        } catch (error) {
+          safeObj[key] = `[Error: ${error}]`;
+        }
+      }
+      
+      if (Object.keys(obj).length > 20) {
+        safeObj['...'] = `[${Object.keys(obj).length - 20} more keys]`;
+      }
+      
+      return safeObj;
+    }
+    
+    return String(obj);
+  }
 
   isHealthy(): boolean {
     return this.isMonitoring && this.tmClient.isJust;

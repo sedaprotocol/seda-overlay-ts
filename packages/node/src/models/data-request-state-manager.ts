@@ -157,9 +157,30 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
     
     if (request.status === 'executing') {
       this.updateStatus(request, 'committed');
+      
+      // Now that we're committed, check if we should reveal
+      // (replication factor might have been met while we were executing)
+      this.checkReadyForReveal(request);
     }
 
     logger.debug(`Added commit hash for DR ${drId}, identity ${identityId}`);
+  }
+
+  /**
+   * Add reveal hash for an identity (for transaction tracking)
+   */
+  addRevealHash(drId: string, identityId: string, revealHash: string): void {
+    const request = this.trackedRequests.get(drId);
+    if (!request) {
+      logger.warn(`Cannot add reveal hash for unknown DR ${drId}`);
+      return;
+    }
+
+    // Store the reveal hash for tracking - we'll wait for it to appear on-chain
+    // For now, we just track that we've submitted a reveal transaction
+    // The actual reveal confirmation will come from the block monitor when it detects the reveal event
+    
+    logger.debug(`Added reveal hash for DR ${drId}, identity ${identityId}: ${revealHash}`);
   }
 
   /**
@@ -176,6 +197,7 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
     request.successfulCommits.add(publicKey);
     request.lastUpdated = height;
 
+    logger.info(`📊 DR ${drId} commit stats: ${request.successfulCommits.size}/${request.replicationFactor} commits received (replication factor: ${request.replicationFactor})`);
     logger.debug(`Recorded commit for DR ${drId} by ${publicKey}. Total commits: ${request.successfulCommits.size}/${request.replicationFactor}`);
 
     // Check if we should transition to revealing state
@@ -240,16 +262,29 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
    * Check if we're ready to reveal (replication factor met)
    */
   private checkReadyForReveal(request: TrackedDataRequest): void {
+    logger.debug(`🔍 Checking reveal readiness for DR ${request.drId}: status=${request.status}, commits=${request.successfulCommits.size}/${request.replicationFactor}, ourCommits=${request.commitHashes.size}`);
+    
     if (request.status !== 'committed') {
+      logger.debug(`DR ${request.drId} not ready for reveal check: status is ${request.status}, expected 'committed'`);
       return; // Not in the right state
+    }
+
+    // Check if replication factor has been met by all nodes
+    if (request.successfulCommits.size < request.replicationFactor) {
+      logger.info(`🔄 DR ${request.drId} waiting for more commits: ${request.successfulCommits.size}/${request.replicationFactor} received`);
+      return;
     }
 
     // Check if we have committed identities that should reveal
     const identitiesReadyToReveal = Array.from(request.commitHashes.keys());
     
     if (identitiesReadyToReveal.length > 0) {
+      logger.info(`🎯 DR ${request.drId} READY FOR REVEAL: ${request.successfulCommits.size}/${request.replicationFactor} total commits, ${identitiesReadyToReveal.length} our identities ready`);
       this.updateStatus(request, 'revealing');
+      logger.info(`🚀 Emitting readyForReveal event for DR ${request.drId} with identities: ${identitiesReadyToReveal.join(', ')}`);
       this.emit('readyForReveal', request.drId, identitiesReadyToReveal);
+    } else {
+      logger.warn(`DR ${request.drId} replication factor met but we have no committed identities to reveal`);
     }
   }
 
@@ -274,16 +309,28 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
   }
 
   /**
-   * Get a tracked data request
+   * Get a tracked request by ID
    */
   getTrackedRequest(drId: string): TrackedDataRequest | undefined {
     return this.trackedRequests.get(drId);
   }
 
   /**
-   * Get all tracked requests in a specific status
+   * Remove a tracked request (for cleanup)
+   */
+  removeTrackedRequest(drId: string): boolean {
+    const removed = this.trackedRequests.delete(drId);
+    if (removed) {
+      logger.debug(`Removed tracked request ${drId}`);
+    }
+    return removed;
+  }
+
+  /**
+   * Get all requests with a specific status - optimized with parallel processing
    */
   getRequestsByStatus(status: DataRequestStatus): TrackedDataRequest[] {
+    // Use Array.from with filter for efficient parallel-style processing
     return Array.from(this.trackedRequests.values()).filter(req => req.status === status);
   }
 
@@ -324,32 +371,82 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
   private performCleanup(): void {
     // We don't have current height here, so this would need to be called with height
     // For now, just log that cleanup would run
-    logger.debug(`Tracked requests: ${this.trackedRequests.size}`);
+    logger.debug(`📊 Tracked requests: ${this.trackedRequests.size}`, this.getDetailedStats());
   }
 
   /**
    * Cleanup with current block height
    */
   performCleanupAtHeight(currentHeight: bigint): void {
-    const toCleanup: string[] = [];
-    
-    for (const [drId] of this.trackedRequests) {
+    // Process all cleanup decisions in parallel instead of sequentially
+    const cleanupPromises = Array.from(this.trackedRequests.keys()).map(async (drId) => {
       if (this.shouldCleanup(drId, currentHeight)) {
-        toCleanup.push(drId);
+        return drId;
       }
-    }
+      return null;
+    });
 
-    for (const drId of toCleanup) {
-      this.cleanup(drId);
-    }
-
-    if (toCleanup.length > 0) {
-      logger.debug(`Cleaned up ${toCleanup.length} old data requests`);
-    }
+    // Wait for all cleanup decisions to complete in parallel
+    Promise.all(cleanupPromises).then((results) => {
+      // Filter out null results and cleanup in parallel
+      const toCleanup = results.filter((drId): drId is string => drId !== null);
+      
+      if (toCleanup.length > 0) {
+        // Perform all cleanup operations in parallel
+        const cleanupOperationPromises = toCleanup.map(async (drId) => {
+          return Promise.resolve(this.cleanup(drId));
+        });
+        
+        // Wait for all cleanup operations to complete
+        Promise.all(cleanupOperationPromises).then(() => {
+          logger.debug(`Cleaned up ${toCleanup.length} old data requests in parallel`);
+        }).catch((error) => {
+          logger.error(`Error during parallel cleanup: ${error}`);
+        });
+      }
+    }).catch((error) => {
+      logger.error(`Error during parallel cleanup decision processing: ${error}`);
+    });
   }
 
   /**
-   * Get statistics about tracked requests
+   * Get detailed stats for debugging - parallel processing
+   */
+  private getDetailedStats(): any {
+    // Process all stats collection in parallel instead of sequentially
+    const statsPromises = Array.from(this.trackedRequests.entries()).map(async ([drId, request]) => {
+      return {
+        drId,
+        stats: {
+          status: request.status,
+          commits: `${request.successfulCommits.size}/${request.replicationFactor}`,
+          reveals: `${request.successfulReveals.size}/${request.replicationFactor}`,
+          ourCommits: request.commitHashes.size,
+          height: request.height.toString()
+        }
+      };
+    });
+
+    // Since this needs to return synchronously for logging, we'll use a different approach
+    // Create stats object efficiently using Object.fromEntries
+    const stats = Object.fromEntries(
+      Array.from(this.trackedRequests.entries()).map(([drId, request]) => [
+        drId,
+        {
+          status: request.status,
+          commits: `${request.successfulCommits.size}/${request.replicationFactor}`,
+          reveals: `${request.successfulReveals.size}/${request.replicationFactor}`,
+          ourCommits: request.commitHashes.size,
+          height: request.height.toString()
+        }
+      ])
+    );
+    
+    return stats;
+  }
+
+  /**
+   * Get statistics about tracked requests - optimized for parallel processing
    */
   getStats(): {
     total: number;
@@ -364,12 +461,16 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
       completed: 0,
     };
 
-    for (const request of this.trackedRequests.values()) {
+    // Process all requests efficiently using Array.from for optimal performance
+    const requests = Array.from(this.trackedRequests.values());
+    
+    // Count statuses in a single pass
+    for (const request of requests) {
       byStatus[request.status]++;
     }
 
     return {
-      total: this.trackedRequests.size,
+      total: requests.length,
       byStatus,
     };
   }

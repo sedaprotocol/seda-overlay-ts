@@ -57,11 +57,11 @@ export async function commitDr(
 	const commitProof = identityPool.sign(identityId, commitMessageHash);
 	if (commitProof.isErr) return Result.err(commitProof.error);
 
-	logger.trace("Waiting for commit transaction to be processed", {
+	logger.trace("Submitting commit transaction (non-blocking)", {
 		id: traceId,
 	});
 
-	const commitResponse = await sedaChain.waitForSmartContractTransaction(
+	const commitResponse = await sedaChain.queueSmartContractMessage(
 		{
 			commit_data_result: {
 				dr_id: dataRequest.id,
@@ -77,7 +77,7 @@ export async function commitDr(
 		traceId,
 	);
 
-	logger.trace("Commit transaction processed", {
+	logger.trace("Commit transaction queued", {
 		id: traceId,
 	});
 
@@ -85,5 +85,6 @@ export async function commitDr(
 		return Result.err(commitResponse.error);
 	}
 
+	// queueSmartContractMessage returns transaction hash, but we return the commitment hash for consistency
 	return Result.ok(commitment);
 }

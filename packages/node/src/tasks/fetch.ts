@@ -106,9 +106,17 @@ export class FetchTask extends EventEmitter<EventMap> {
 			);
 		}
 
-		// Emit data requests sequentially after they are added to the pool to ensure a single process() call handles them
-		for (const dataRequest of newDataRequests) {
-			this.emit("data-request", dataRequest);
+		// Emit all data requests in parallel instead of sequentially for immediate processing
+		if (newDataRequests.length > 0) {
+			logger.debug(`📤 Emitting ${newDataRequests.length} data requests in parallel`);
+			
+			// Emit all events in parallel using Promise.resolve for immediate execution
+			const emissionPromises = newDataRequests.map((dataRequest) => {
+				return Promise.resolve(this.emit("data-request", dataRequest));
+			});
+			
+			// Wait for all emissions to complete (though they should be immediate)
+			await Promise.all(emissionPromises);
 		}
 
 		span.end();

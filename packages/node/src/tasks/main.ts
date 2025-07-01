@@ -63,8 +63,8 @@ export class MainTask {
 	public pool: DataRequestPool = new DataRequestPool();
 	
 	// RPC polling system (legacy/fallback)
-	private fetchTask: FetchTask;
-	private eligibilityTask: EligibilityTask;
+	private fetchTask?: FetchTask;
+	private eligibilityTask?: EligibilityTask;
 	
 	// gRPC block monitoring system (new)
 	private blockMonitorTask?: BlockMonitorTask;
@@ -88,15 +88,25 @@ export class MainTask {
 	// That's why we keep track of data requests that we want to process before pushing them to active.
 	public dataRequestsToProcess: DataRequestTask[] = [];
 
+	// Map of active tasks by DR ID and identity ID for direct access by block monitor
+	private activeTasksMap = new Map<string, DataRequestTask>();
+
 	constructor(
 		private config: AppConfig,
 		private sedaChain: SedaChain,
 	) {
 		this.mainTracer = trace.getTracer("main-task");
 		this.identityPool = new IdentityPool(config);
-		this.fetchTask = new FetchTask(this.pool, config, sedaChain);
 		this.identityManagerTask = new IdentityManagerTask(this.identityPool, config, sedaChain);
-		this.eligibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
+		
+		// Only create legacy polling tasks if block monitoring is disabled or hybrid mode is enabled
+		const useBlockMonitoring = this.config.node.experimental?.useBlockMonitoring ?? true;
+		const hybridMode = this.config.node.experimental?.hybridMode ?? false;
+		
+		if (!useBlockMonitoring || hybridMode) {
+			this.fetchTask = new FetchTask(this.pool, config, sedaChain);
+			this.eligibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
+		}
 
 		let threadsAvailable = availableParallelism();
 
@@ -134,19 +144,76 @@ export class MainTask {
 	}
 
 	private processNextDr() {
+		// When using block monitoring, process all queued DRs immediately in parallel
+		if (this.blockMonitorTask) {
+			// Process all queued tasks in parallel without limits
+			const tasksToStart = [...this.dataRequestsToProcess];
+			this.dataRequestsToProcess = [];
+			
+			if (tasksToStart.length > 0) {
+				logger.info(`🚀 Starting ${tasksToStart.length} data request tasks in parallel`);
+				
+				for (const task of tasksToStart) {
+					const taskKey = this.getTaskKey(task.getDrId(), task.getIdentityId());
+					
+					// Track the task in our map for block monitor access
+					this.activeTasksMap.set(taskKey, task);
+					
+					task.on("done", () => {
+						// Remove from active tasks map when done
+						this.activeTasksMap.delete(taskKey);
+						this.activeDataRequestTasks -= 1;
+						this.completedDataRequests += 1;
+					});
+					
+					task.start();
+					this.activeDataRequestTasks += 1;
+				}
+			}
+			return;
+		}
+		
+		// Legacy mode: respect concurrency limits for RPC polling
 		if (this.activeDataRequestTasks >= this.config.node.maxConcurrentRequests) return;
 
 		const dataRequest = Maybe.of(this.dataRequestsToProcess.shift());
 		if (dataRequest.isNothing) return;
 
-		dataRequest.value.on("done", () => {
+		const task = dataRequest.value;
+		const taskKey = this.getTaskKey(task.getDrId(), task.getIdentityId());
+
+		// Track the task in our map for block monitor access
+		this.activeTasksMap.set(taskKey, task);
+
+		task.on("done", () => {
+			// Remove from active tasks map when done
+			this.activeTasksMap.delete(taskKey);
 			this.activeDataRequestTasks -= 1;
 			this.completedDataRequests += 1;
 			this.processNextDr();
 		});
 
-		dataRequest.value.start();
+		task.start();
 		this.activeDataRequestTasks += 1;
+	}
+
+	private getTaskKey(drId: string, identityId: string): string {
+		return `${drId}_${identityId}`;
+	}
+
+	// Public method for block monitor to access active tasks
+	public getActiveTask(drId: string, identityId: string): DataRequestTask | undefined {
+		const taskKey = this.getTaskKey(drId, identityId);
+		return this.activeTasksMap.get(taskKey);
+	}
+
+	// Public method for block monitor to terminate a specific task
+	public terminateTask(drId: string, identityId: string): void {
+		const task = this.getActiveTask(drId, identityId);
+		if (task) {
+			logger.info(`🏁 Block monitor terminating completed task for DR ${drId}, identity ${identityId}`);
+			task.forceStop(); // We'll add this method to DataRequestTask
+		}
 	}
 
 	async start() {
@@ -157,7 +224,7 @@ export class MainTask {
 		await this.identityManagerTask.start();
 		
 		// Determine which monitoring system to use
-		const useBlockMonitoring = this.config.node.experimental?.useBlockMonitoring ?? false;
+		const useBlockMonitoring = this.config.node.experimental?.useBlockMonitoring ?? true;
 		const hybridMode = this.config.node.experimental?.hybridMode ?? false;
 		const fallbackToRpc = this.config.node.experimental?.fallbackToRpc ?? true;
 		
@@ -179,7 +246,8 @@ export class MainTask {
 	
 	private async startBlockMonitoring(): Promise<void> {
 		try {
-			this.blockMonitorTask = new BlockMonitorTask(this.config, this.sedaChain, this.identityPool);
+			// Pass 'this' reference so block monitor can directly terminate tasks
+			this.blockMonitorTask = new BlockMonitorTask(this.config, this.sedaChain, this.identityPool, this.pool, this);
 			
 			const startResult = await this.blockMonitorTask.start();
 			if (startResult.isErr) {
@@ -207,10 +275,14 @@ export class MainTask {
 	}
 	
 	private async startRpcPolling(): Promise<void> {
+		if (!this.fetchTask || !this.eligibilityTask) {
+			throw new Error("Legacy polling tasks not initialized - cannot start RPC polling");
+		}
+		
 		this.fetchTask.start();
 
 		this.fetchTask.on("data-request", (_dataRequest) => {
-			this.eligibilityTask.process();
+			this.eligibilityTask!.process();
 		});
 
 		this.eligibilityTask.on("eligible", this.handleEligibleDRFromRpc.bind(this));
@@ -224,10 +296,17 @@ export class MainTask {
 	}
 	
 	private async handleEligibleDR(drId: string, identityIds: string[], eligibilityHeight: bigint): Promise<void> {
-		// Handle multiple identities from block monitoring
-		for (const identityId of identityIds) {
-			this.createDataRequestTask(drId, identityId, eligibilityHeight);
-		}
+		// Handle multiple identities from block monitoring - create all tasks in parallel
+		logger.info(`🚀 Creating ${identityIds.length} DR tasks in parallel for DR ${drId}`);
+		
+		const taskCreationPromises = identityIds.map((identityId) => {
+			return Promise.resolve(this.createDataRequestTask(drId, identityId, eligibilityHeight));
+		});
+		
+		// Wait for all tasks to be created in parallel
+		await Promise.all(taskCreationPromises);
+		
+		logger.debug(`✅ Created ${identityIds.length} tasks in parallel for DR ${drId}`);
 	}
 	
 	private createDataRequestTask(drId: string, identityId: string, eligibilityHeight: bigint): void {
@@ -246,10 +325,33 @@ export class MainTask {
 			this.executeWorkerPool,
 			this.compilerWorkerPool,
 			this.syncExecuteWorker,
+			this.blockMonitorTask, // Pass block monitor for commit tracking
 		);
-		this.dataRequestsToProcess.push(drTask);
+		
+		// If using block monitoring, start task immediately for maximum parallelism
+		if (this.blockMonitorTask) {
+			const taskKey = this.getTaskKey(drId, identityId);
+			
+			// Track the task in our map for block monitor access
+			this.activeTasksMap.set(taskKey, drTask);
+			
+			drTask.on("done", () => {
+				// Remove from active tasks map when done
+				this.activeTasksMap.delete(taskKey);
+				this.activeDataRequestTasks -= 1;
+				this.completedDataRequests += 1;
+			});
+			
+			logger.debug(`🚀 Starting DR ${drId} task immediately for identity ${identityId}`);
+			drTask.start();
+			this.activeDataRequestTasks += 1;
+		} else {
+			// Legacy mode: queue for processing with concurrency limits
+			this.dataRequestsToProcess.push(drTask);
+			this.processNextDr();
+		}
+		
 		eligibleSpan.end();
-		this.processNextDr();
 	}
 	
 	private async handleReadyForReveal(drId: string, identityIds: string[]): Promise<void> {
@@ -274,7 +376,15 @@ export class MainTask {
 		const span = this.mainTracer.startSpan("main-task-stop");
 		span.setAttribute("active_tasks", this.activeDataRequestTasks);
 		span.setAttribute("completed_requests", this.completedDataRequests);
-		this.fetchTask.stop();
+		
+		// Stop legacy polling tasks if they exist
+		if (this.fetchTask) {
+			this.fetchTask.stop();
+		}
+		if (this.blockMonitorTask) {
+			this.blockMonitorTask.stop();
+		}
+		
 		span.end();
 	}
 
@@ -285,6 +395,6 @@ export class MainTask {
 	}
 
 	isFetchTaskHealthy() {
-		return this.fetchTask.isFetchTaskHealthy;
+		return this.fetchTask?.isFetchTaskHealthy ?? false;
 	}
 }

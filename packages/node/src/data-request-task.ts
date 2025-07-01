@@ -25,6 +25,7 @@ import { getDataRequest } from "./services/get-data-requests";
 import { commitDr } from "./tasks/commit";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
+import type { BlockMonitorTask } from "./tasks/block-monitor";
 
 type EventMap = {
 	done: [];
@@ -39,9 +40,11 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private executeDrIntervalId: Maybe<Timer> = Maybe.nothing();
 	private isProcessing = false;
 	private commitHash: Buffer = Buffer.alloc(0);
+	private revealSubmitted = false; // Track if we've submitted the reveal transaction
 	private drTracer: Tracer;
 	private rootSpan: Span;
 	private rootContext: ReturnType<typeof context.active>;
+	private blockMonitor?: BlockMonitorTask; // Optional block monitor for commit tracking
 
 	constructor(
 		private pool: DataRequestPool,
@@ -54,6 +57,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		private executeWorkerPool: Maybe<WorkerPool>,
 		private compilerWorkerPool: Maybe<WorkerPool>,
 		private syncExecuteWorker: Maybe<WorkerPool>,
+		blockMonitor?: BlockMonitorTask, // Optional block monitor
 	) {
 		super();
 
@@ -64,6 +68,64 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.rootSpan.setAttribute("dr_id", this.drId);
 		this.rootSpan.setAttribute("identity_id", this.identityId);
 		this.rootSpan.setAttribute("start_time", new Date().toISOString());
+		this.blockMonitor = blockMonitor;
+
+		// Listen for readyForReveal events from block monitor if available
+		if (this.blockMonitor) {
+			this.blockMonitor.on('readyForReveal', this.handleReadyForRevealEvent.bind(this));
+			this.blockMonitor.on('revealConfirmed', this.handleRevealConfirmedEvent.bind(this));
+		}
+	}
+
+	/**
+	 * Handle readyForReveal event from block monitor
+	 */
+	private handleReadyForRevealEvent(drId: string, identityIds: string[]): void {
+		logger.debug(`🔔 Received readyForReveal event: drId=${drId}, identityIds=[${identityIds.join(',')}], ourDrId=${this.drId}, ourIdentityId=${this.identityId}`, {
+			id: this.name,
+		});
+		
+		if (drId !== this.drId || !identityIds.includes(this.identityId)) {
+			logger.debug(`🚫 Event not for this task (DR mismatch: ${drId !== this.drId}, identity mismatch: ${!identityIds.includes(this.identityId)})`, {
+				id: this.name,
+			});
+			return; // Not for this task
+		}
+
+		logger.info(`🚀 Block monitor detected reveal readiness for DR ${drId}`, {
+			id: this.name,
+		});
+		
+		// Transition to ready for reveal status 
+		this.transitionStatus(IdentityDataRequestStatus.ReadyToBeRevealed);
+		
+		// Continue processing to submit the reveal
+		if (this.blockMonitor) {
+			this.continueProcessingAfterEvent();
+		}
+	}
+
+	/**
+	 * Handle revealConfirmed event from block monitor
+	 */
+	private handleRevealConfirmedEvent(drId: string, identityId: string): void {
+		logger.debug(`🎉 Received revealConfirmed event: drId=${drId}, identityId=${identityId}, ourDrId=${this.drId}, ourIdentityId=${this.identityId}`, {
+			id: this.name,
+		});
+		
+		if (drId !== this.drId || identityId !== this.identityId) {
+			logger.debug(`🚫 Reveal confirmation not for this task (DR mismatch: ${drId !== this.drId}, identity mismatch: ${identityId !== this.identityId})`, {
+				id: this.name,
+			});
+			return; // Not for this task
+		}
+
+		logger.info(`✅ Block monitor confirmed our reveal on-chain for DR ${drId}`, {
+			id: this.name,
+		});
+		
+		// Transition to revealed status now that it's confirmed on-chain
+		this.transitionStatus(IdentityDataRequestStatus.Revealed);
 	}
 
 	private transitionStatus(toStatus: IdentityDataRequestStatus) {
@@ -95,6 +157,92 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.emit("done");
 	}
 
+	// Public methods for external access
+	public getDrId(): string {
+		return this.drId;
+	}
+
+	public getIdentityId(): string {
+		return this.identityId;
+	}
+
+	public forceStop(): void {
+		logger.info(`🛑 Force stopping task for DR ${this.drId}, identity ${this.identityId}`, {
+			id: this.name,
+		});
+		this.stop();
+	}
+
+	private async processUntilWaitingState(): Promise<void> {
+		try {
+			// Process repeatedly until we reach a waiting state - no delays, no polling
+			let maxIterations = 10; // Safety guard against infinite loops
+			let iterations = 0;
+			
+			while (iterations < maxIterations) {
+				const previousStatus = this.status;
+				await this.process();
+				iterations++;
+				
+				// Check if we've reached a waiting state
+				if (this.status === IdentityDataRequestStatus.Committed) {
+					logger.debug(`Task for DR ${this.drId} committed, now waiting for block monitor to detect sufficient commits`, {
+						id: this.name,
+					});
+					break;
+				}
+				
+				if (this.status === IdentityDataRequestStatus.ReadyToBeRevealed && this.revealSubmitted) {
+					logger.debug(`Task for DR ${this.drId} submitted reveal, now waiting for block monitor to confirm on-chain`, {
+						id: this.name,
+					});
+					break;
+				}
+				
+				if (this.status === IdentityDataRequestStatus.Revealed) {
+					logger.debug(`Task for DR ${this.drId} completed`, {
+						id: this.name,
+					});
+					break;
+				}
+				
+				// If status didn't change, we're probably stuck - stop processing
+				if (this.status === previousStatus) {
+					logger.debug(`Task for DR ${this.drId} status unchanged (${this.status}), stopping processing`, {
+						id: this.name,
+					});
+					break;
+				}
+			}
+			
+			if (iterations >= maxIterations) {
+				logger.warn(`Task for DR ${this.drId} hit max processing iterations, stopping`, {
+					id: this.name,
+				});
+			}
+		} catch (error) {
+			logger.error(`Error in processing for DR ${this.drId}: ${error}`, {
+				id: this.name,
+			});
+		}
+	}
+
+	private continueProcessingAfterEvent(): void {
+		// Continue processing after receiving a block monitor event
+		logger.debug(`Continuing processing after block monitor event for DR ${this.drId}`, {
+			id: this.name,
+		});
+		
+		// Use setTimeout to avoid blocking the event handler
+		setTimeout(() => {
+			this.processUntilWaitingState().catch((error: Error) => {
+				logger.error(`Error continuing processing after event for DR ${this.drId}: ${error}`, {
+					id: this.name,
+				});
+			});
+		}, 0);
+	}
+
 	public start() {
 		const span = this.drTracer.startSpan("start-data-request", undefined, this.rootContext);
 		span.setAttribute("dr_id", this.drId);
@@ -104,19 +252,32 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			id: this.name,
 		});
 
-		this.refreshDataRequestDataIntervalId = Maybe.of(
-			debouncedInterval(async () => {
-				await this.handleRefreshDataRequestData(this.drId);
-			}, this.appConfig.intervals.statusCheck),
-		);
+		if (this.blockMonitor) {
+			// With block monitoring: process until we reach a waiting state, then let block monitor drive
+			logger.debug(`Task for DR ${this.drId} starting in block monitoring mode - processing until waiting state`, {
+				id: this.name,
+			});
+			
+			// Process until we reach a waiting state
+			this.processUntilWaitingState();
+		} else {
+			// Legacy mode: set up polling intervals
+			logger.debug(`Task for DR ${this.drId} starting in legacy polling mode`, {
+				id: this.name,
+			});
+			
+			this.refreshDataRequestDataIntervalId = Maybe.of(
+				debouncedInterval(async () => {
+					await this.handleRefreshDataRequestData(this.drId);
+				}, this.appConfig.intervals.statusCheck),
+			);
 
-		// It seems like doing an interval is much more stable than recursively calling this.process()
-		// Also because it's more friendly with JS event loop
-		this.executeDrIntervalId = Maybe.of(
-			debouncedInterval(async () => {
-				await this.process();
-			}, this.appConfig.intervals.drTask),
-		);
+			this.executeDrIntervalId = Maybe.of(
+				debouncedInterval(async () => {
+					await this.process();
+				}, this.appConfig.intervals.drTask),
+			);
+		}
 
 		span.end();
 	}
@@ -170,12 +331,42 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			} else if (this.status === IdentityDataRequestStatus.Executed) {
 				await this.handleCommit(dataRequest.value);
 			} else if (this.status === IdentityDataRequestStatus.Committed) {
-				await this.handleCheckReadyToBeRevealed(dataRequest.value.id);
+				// If we have block monitoring, wait for readyForReveal event instead of polling
+				if (this.blockMonitor) {
+					// Do nothing - block monitor will emit readyForReveal event when conditions are met
+					logger.debug(`Waiting for block monitor to detect sufficient commits for DR ${this.drId}`, {
+						id: this.name,
+					});
+					return;
+				} else {
+					// Legacy polling mode - check if ready to reveal
+					await this.handleCheckReadyToBeRevealed(dataRequest.value.id);
+				}
 			} else if (this.status === IdentityDataRequestStatus.ReadyToBeRevealed) {
-				await this.handleReveal(dataRequest.value);
+				// Submit reveal once, then wait for block monitor to confirm
+				if (this.blockMonitor) {
+					if (!this.revealSubmitted) {
+						logger.debug(`🎯 Submitting reveal for DR ${this.drId}`, {
+							id: this.name,
+						});
+						await this.handleReveal(dataRequest.value);
+						logger.debug(`Reveal submitted for DR ${this.drId}, waiting for block monitor to confirm`, {
+							id: this.name,
+						});
+					}
+					// Don't continue processing - block monitor will handle completion
+					return;
+				} else {
+					// Legacy mode without block monitoring - always attempt reveal
+					logger.debug(`🎯 Processing ReadyToBeRevealed status for DR ${this.drId} (legacy mode)`, {
+						id: this.name,
+					});
+					await this.handleReveal(dataRequest.value);
+				}
 			} else if (this.status === IdentityDataRequestStatus.Revealed) {
-				span.setAttribute("final_status", "revealed");
-				span.end();
+				logger.info("🎉 Completed", {
+					id: this.name,
+				});
 				this.stop();
 				return;
 			} else {
@@ -204,6 +395,15 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	}
 
 	async handleRefreshDataRequestData(drId: string) {
+		// When using block monitoring, we don't need to refresh data request data via RPC
+		// as all state changes are handled by block events
+		if (this.blockMonitor) {
+			logger.debug("Skipping data request refresh - using block monitoring for state updates", {
+				id: this.name,
+			});
+			return;
+		}
+
 		const span = this.drTracer.startSpan("refresh-data-request", undefined, this.rootContext);
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
@@ -448,6 +648,15 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		this.transitionStatus(IdentityDataRequestStatus.Committed);
 		this.commitHash = result.value;
+		
+		// Notify block monitor about our commit if available
+		if (this.blockMonitor) {
+			this.blockMonitor.addCommitHash(this.drId, this.identityId, result.value.toString("hex"));
+			logger.info(`📝 Notified block monitor of our commit for DR ${this.drId}`, {
+				id: this.name,
+			});
+		}
+		
 		span.setAttribute("commit_hash", result.value.toString("hex"));
 		logger.info("📩 Committed", {
 			id: this.name,
@@ -456,10 +665,22 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	}
 
 	async handleCheckReadyToBeRevealed(drId: string) {
+		// Legacy method only used when block monitoring is disabled
+		if (this.blockMonitor) {
+			logger.error("handleCheckReadyToBeRevealed should never be called when using block monitoring", {
+				id: this.name,
+			});
+			return;
+		}
+
 		const span = this.drTracer.startSpan("check-ready-for-reveal", undefined, this.rootContext);
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 
+		logger.debug(`Using legacy RPC polling for reveal readiness detection`, {
+			id: this.name,
+		});
+		
 		await this.handleRefreshDataRequestData(drId);
 
 		const dataRequest = this.pool.getDataRequest(drId);
@@ -495,7 +716,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 
-		logger.info("📨 Revealing...", {
+		logger.info("📨 Revealing... (status transition triggered reveal)", {
 			id: this.name,
 		});
 
@@ -575,11 +796,30 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		this.transitionStatus(IdentityDataRequestStatus.Revealed);
-		span.setAttribute("status", "revealed");
-		logger.info("📨 Revealed", {
-			id: this.name,
-		});
+		// Transaction submitted successfully - add reveal hash to block monitor for tracking
+		if (this.blockMonitor) {
+			this.blockMonitor.addRevealHash(this.drId, this.identityId, result.value.toString("hex"));
+			logger.info(`📝 Notified block monitor of our reveal transaction for DR ${this.drId}`, {
+				id: this.name,
+			});
+			
+			// Mark that we've submitted the reveal to avoid duplicate submissions
+			this.revealSubmitted = true;
+			
+			// Don't transition to Revealed yet - wait for block monitor to confirm reveal on-chain
+			// Stay in ReadyToBeRevealed status until reveal is confirmed
+			span.setAttribute("status", "reveal_transaction_submitted");
+			logger.info("📨 Reveal transaction submitted, waiting for on-chain confirmation", {
+				id: this.name,
+			});
+		} else {
+			// Legacy mode - immediately mark as revealed (old behavior)
+			this.transitionStatus(IdentityDataRequestStatus.Revealed);
+			span.setAttribute("status", "revealed");
+			logger.info("📨 Revealed (legacy mode)", {
+				id: this.name,
+			});
+		}
 		span.end();
 	}
 }

@@ -23,7 +23,7 @@ export async function revealDr(
 	identityPool: IdentityPool,
 	sedaChain: SedaChain,
 	appConfig: AppConfig,
-): Promise<Result<Unit, EnchancedRevealError>> {
+): Promise<Result<Buffer, EnchancedRevealError>> {
 	const traceId = `${dataRequest.id}_${identityId}`;
 
 	const contractAddr = await sedaChain.getCoreContractAddress();
@@ -37,11 +37,11 @@ export async function revealDr(
 	const revealProof = identityPool.sign(identityId, revealMessageHash);
 	if (revealProof.isErr) return Result.err(new EnchancedRevealError(revealProof.error, revealBodyHash));
 
-	logger.trace("Waiting for reveal transaction to be processed", {
+	logger.trace("Submitting reveal transaction (non-blocking)", {
 		id: traceId,
 	});
 
-	const revealResponse = await sedaChain.waitForSmartContractTransaction(
+	const revealResponse = await sedaChain.queueSmartContractMessage(
 		{
 			reveal_data_result: {
 				public_key: identityId,
@@ -62,10 +62,12 @@ export async function revealDr(
 		traceId,
 	);
 
-	logger.trace("Reveal transaction processed", {
+	logger.trace("Reveal transaction queued", {
 		id: traceId,
 	});
 
 	if (revealResponse.isErr) return Result.err(new EnchancedRevealError(revealResponse.error, revealBodyHash));
-	return Result.ok();
+	
+	// Return the transaction hash instead of waiting for completion
+	return Result.ok(Buffer.from(revealResponse.value, 'hex'));
 }

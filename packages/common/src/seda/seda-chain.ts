@@ -46,11 +46,13 @@ export interface TransactionMessage {
 }
 
 export class SedaChain extends EventEmitter<EventMap> {
-	public lowPriorityTransactionQueue: TransactionMessage[] = [];
-	public highPriorityTransactionQueue: TransactionMessage[] = [];
 	private queueCallbacks: Map<string, (value: Result<string, Error>) => void> = new Map();
 	private intervalIds: Timer[] = [];
 	private nonceId = 0;
+
+	// Per-account sequence coordination
+	private accountSequenceQueues: Map<number, TransactionMessage[]> = new Map();
+	private accountProcessingLocks: Map<number, boolean> = new Map();
 
 	// Metrics:
 	private txSuccessCount = 0;
@@ -90,16 +92,45 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 
 	queueMessages(messages: TransactionMessage[]) {
+		// Group messages by account for proper sequence coordination
+		const messagesByAccount = new Map<number, TransactionMessage[]>();
+		
 		for (const message of messages) {
-			if (message.priority === TransactionPriority.HIGH) {
-				// High priority transactions should be at the front of the queue
-				this.highPriorityTransactionQueue.push(message);
-				continue;
+			const accountIndex = message.accountIndex;
+			if (!messagesByAccount.has(accountIndex)) {
+				messagesByAccount.set(accountIndex, []);
 			}
-
-			// Low priority transactions should be at the back of the queue
-			this.lowPriorityTransactionQueue.push(message);
+			messagesByAccount.get(accountIndex)!.push(message);
 		}
+		
+		// Add messages to per-account queues
+		for (const [accountIndex, accountMessages] of messagesByAccount) {
+			if (!this.accountSequenceQueues.has(accountIndex)) {
+				this.accountSequenceQueues.set(accountIndex, []);
+			}
+			
+			const accountQueue = this.accountSequenceQueues.get(accountIndex)!;
+			
+			// Sort by priority (high priority first)
+			accountMessages.sort((a, b) => {
+				if (a.priority === TransactionPriority.HIGH && b.priority === TransactionPriority.LOW) return -1;
+				if (a.priority === TransactionPriority.LOW && b.priority === TransactionPriority.HIGH) return 1;
+				return 0;
+			});
+			
+			accountQueue.push(...accountMessages);
+		}
+		
+		// Trigger immediate processing for affected accounts
+		setImmediate(() => {
+			Promise.all(
+				Array.from(messagesByAccount.keys()).map(accountIndex => 
+					this.processAccountQueue(accountIndex)
+				)
+			).catch((error) => {
+				logger.error(`Error in immediate queue processing: ${error}`);
+			});
+		});
 	}
 
 	async getTransaction(txHash: string, accountIndex = 0) {
@@ -111,10 +142,13 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 
 	getTransactionStats() {
+		const pendingCount = Array.from(this.accountSequenceQueues.values())
+			.reduce((total, queue) => total + queue.length, 0);
+		
 		return {
 			successCount: this.txSuccessCount,
 			failureCount: this.txFailureCount,
-			pendingCount: this.lowPriorityTransactionQueue.length + this.highPriorityTransactionQueue.length,
+			pendingCount,
 			retryCount: this.txRetryCount,
 		};
 	}
@@ -154,7 +188,8 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return new Promise(async (resolve) => {
 			this.nonceId += 1;
 
-			let accountIndex = this.nonceId % this.signers.length;
+			// Always use account 0 for simplicity and to eliminate sequence conflicts
+			let accountIndex = 0;
 
 			// Some cases like staking, unstaking require a specific account index
 			// this is because most of the time index 0 has all the funds
@@ -248,92 +283,93 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return result;
 	}
 
-	private getNextTransaction(accountIndex: number): Maybe<TransactionMessage> {
-		const txMessageIndex = this.highPriorityTransactionQueue.findIndex((tx) => tx.accountIndex === accountIndex);
-
-		if (txMessageIndex === -1) {
-			const txMessageIndex = this.lowPriorityTransactionQueue.findIndex((tx) => tx.accountIndex === accountIndex);
-			// When there are not low priority transactions, return nothing
-			// NOTE: We could take just a random high priority transaction instead and rewrite the account index
-			if (txMessageIndex === -1) return Maybe.nothing();
-
-			const txMessage = this.lowPriorityTransactionQueue.splice(txMessageIndex, 1)[0];
-			return Maybe.just(txMessage);
-		}
-
-		const txMessage = this.highPriorityTransactionQueue.splice(txMessageIndex, 1)[0];
-		return Maybe.just(txMessage);
-	}
-
 	/**
-	 * Processes a single transaction from the queue to maintain proper sequence numbers.
-	 * In Cosmos blockchains, transactions must be processed sequentially with incrementing
-	 * sequence numbers. This method ensures transactions are handled one at a time in order.
-	 * @returns void
+	 * Processes transactions sequentially for a specific account to maintain proper sequence numbers.
+	 * Each account processes its transactions one by one to avoid sequence conflicts.
 	 */
-	async processQueue(accountIndex: number) {
-		const txMessage = this.getNextTransaction(accountIndex);
-		if (txMessage.isNothing) return;
-
-		logger.trace(
-			`Processing transaction on address ${this.getSignerAddress(txMessage.value.accountIndex)} and account index ${txMessage.value.accountIndex}`,
-			{
-				id: txMessage.value.traceId,
-			},
-		);
-
-		const cosmosMessage = txMessage.value.message;
-		const gasOption = txMessage.value.gasOptions ?? { gas: this.config.sedaChain.gas };
-
-		const result = await signAndSendTxSync(
-			this.config.sedaChain,
-			this.signerClients[txMessage.value.accountIndex],
-			this.getSignerAddress(txMessage.value.accountIndex),
-			[cosmosMessage],
-			gasOption,
-			this.config.sedaChain.memo,
-			txMessage.value.traceId,
-		);
-
-		if (result.isErr) {
-			if (result.error instanceof IncorrectAccountSquence) {
-				logger.warn(`Incorrect account sequence, adding tx back to the queue: ${result.error}`, {
-					id: txMessage.value.traceId,
-				});
-
-				this.txRetryCount++;
-
-				if (txMessage.value.priority === TransactionPriority.HIGH) {
-					this.highPriorityTransactionQueue.push(txMessage.value);
-				} else {
-					this.lowPriorityTransactionQueue.push(txMessage.value);
-				}
-				return;
-			}
-
-			this.txFailureCount++;
-			logger.error(`Transaction failed: ${result.error}`, {
-				id: txMessage.value.traceId,
-			});
-		} else {
-			this.txSuccessCount++;
-		}
-
-		const callback = Maybe.of(this.queueCallbacks.get(txMessage.value.id));
-
-		if (callback.isNothing) {
-			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`, {
-				id: txMessage.value.traceId,
-			});
+	private async processAccountQueue(accountIndex: number): Promise<void> {
+		// Check if this account is already being processed
+		if (this.accountProcessingLocks.get(accountIndex)) {
 			return;
 		}
 
-		logger.trace("Transaction processed", {
-			id: txMessage.value.traceId,
-		});
+		// Lock this account's processing
+		this.accountProcessingLocks.set(accountIndex, true);
 
-		callback.value(result);
-		this.queueCallbacks.delete(txMessage.value.id);
+		try {
+			const accountQueue = this.accountSequenceQueues.get(accountIndex);
+			if (!accountQueue || accountQueue.length === 0) {
+				return;
+			}
+
+			// Process one transaction at a time for this account
+			const transaction = accountQueue.shift()!;
+			const cosmosMessage = transaction.message;
+			const gasOption = transaction.gasOptions ?? { gas: this.config.sedaChain.gas };
+
+			const result = await signAndSendTxSync(
+				this.config.sedaChain,
+				this.signerClients[transaction.accountIndex],
+				this.getSignerAddress(transaction.accountIndex),
+				[cosmosMessage],
+				gasOption,
+				this.config.sedaChain.memo,
+				transaction.traceId,
+			);
+
+			if (result.isErr) {
+				if (result.error instanceof IncorrectAccountSquence) {
+					logger.warn(`Incorrect account sequence, adding tx back to front of queue: ${result.error}`, {
+						id: transaction.traceId,
+					});
+
+					this.txRetryCount++;
+
+					// Put the transaction back at the front of the queue for retry
+					accountQueue.unshift(transaction);
+				} else {
+					this.txFailureCount++;
+					logger.error(`Transaction failed: ${result.error}`, {
+						id: transaction.traceId,
+					});
+
+					// Notify the callback of the failure
+					const callback = this.queueCallbacks.get(transaction.id);
+					if (callback) {
+						callback(result);
+						this.queueCallbacks.delete(transaction.id);
+					}
+				}
+			} else {
+				this.txSuccessCount++;
+
+				// Notify the callback of success
+				const callback = this.queueCallbacks.get(transaction.id);
+				if (callback) {
+					callback(result);
+					this.queueCallbacks.delete(transaction.id);
+				}
+			}
+
+			// Continue processing remaining transactions for this account
+			if (accountQueue.length > 0) {
+				setImmediate(() => this.processAccountQueue(accountIndex));
+			}
+		} finally {
+			// Release the lock
+			this.accountProcessingLocks.set(accountIndex, false);
+		}
+	}
+
+	/**
+	 * Process all account queues in parallel.
+	 * Each account processes its transactions sequentially to maintain sequence order.
+	 */
+	async processAllQueues(): Promise<void> {
+		const accountPromises = Array.from(this.accountSequenceQueues.keys()).map(accountIndex => 
+			this.processAccountQueue(accountIndex)
+		);
+		await Promise.all(accountPromises);
 	}
 
 	stop() {
@@ -345,13 +381,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 	start() {
 		this.stop();
 
-		for (const [accountIndex] of this.signerClients.entries()) {
-			this.intervalIds.push(
-				debouncedInterval(async () => {
-					await this.processQueue(accountIndex);
-				}, this.config.sedaChain.queueInterval),
-			);
-		}
+		// Use a single interval to process all account queues in parallel with much faster processing
+		this.intervalIds.push(
+			debouncedInterval(async () => {
+				await this.processAllQueues();
+			}, Math.min(this.config.sedaChain.queueInterval, 100)), // Max 100ms for rapid processing
+		);
 	}
 
 	static async fromConfig(config: AppConfig, cacheSequenceNumber = true): Promise<Result<SedaChain, unknown>> {
@@ -386,6 +421,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 	): Promise<
 		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
 	> {
+		// DEPRECATED: This method should not be used with block monitoring
+		// It contains polling logic that we want to eliminate
+		logger.warn("waitForSmartContractTransaction is deprecated - use queueSmartContractMessage with block monitoring instead", {
+			id: traceId,
+		});
+
 		return new Promise(async (resolve) => {
 			logger.trace(`Queueing smart contract transaction account index ${forcedAccountIndex ?? "default"}`, {
 				id: traceId,
@@ -410,12 +451,14 @@ export class SedaChain extends EventEmitter<EventMap> {
 				return;
 			}
 
-			logger.trace("Waiting for smart contract transaction to be included in a block", {
+			logger.trace("Transaction queued - relying on block monitoring for completion (no polling)", {
 				id: traceId,
 			});
 
+			// For CLI commands that still need to wait, we provide a basic polling fallback
+			// But for node operations, this should not be used - block monitoring handles completion
 			const checkTransactionInterval = debouncedInterval(async () => {
-				logger.trace("Checking if transaction is included in a block", {
+				logger.trace("Checking if transaction is included in a block (legacy mode)", {
 					id: traceId,
 				});
 

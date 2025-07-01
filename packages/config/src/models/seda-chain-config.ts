@@ -34,6 +34,14 @@ export const SedaChainConfigSchema = v.object({
 	gasAdjustmentFactor: v.optional(v.number(), DEFAULT_ADJUSTMENT_FACTOR),
 	gas: v.optional(v.union([v.number(), v.literal("auto")]), DEFAULT_GAS),
 	memoSuffix: v.optional(v.string(), ""),
+	grpcEndpoint: v.optional(v.string()),
+	grpcOptions: v.optional(v.object({
+		maxConcurrentStreams: v.optional(v.number()),
+		keepAlive: v.optional(v.boolean()),
+		poolSize: v.optional(v.number()),
+		enableStreaming: v.optional(v.boolean()),
+		timeout: v.optional(v.number()),
+	})),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

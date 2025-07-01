@@ -75,9 +75,15 @@ export class IdentityManagerTask {
 	}
 
 	private async processAllIdentities(): Promise<Result<Unit, Error>> {
-		for (const identityInfo of this.identityPool.all()) {
-			const result = await this.isIdentityEnabled(identityInfo.identityId);
+		// Process all identities in parallel instead of sequentially
+		const identityPromises = Array.from(this.identityPool.all()).map(async (identityInfo) => {
+			return await this.isIdentityEnabled(identityInfo.identityId);
+		});
 
+		const results = await Promise.all(identityPromises);
+		
+		// Check if any failed
+		for (const result of results) {
 			if (result.isErr) {
 				return Result.err(result.error);
 			}
@@ -94,50 +100,58 @@ export class IdentityManagerTask {
 		// We only want to send tokens from the first account
 		const sender = this.sedaChain.getSignerAddress(0);
 
-		for (const [accountIndex, _] of this.sedaChain.signerClients.entries()) {
-			if (accountIndex === 0) continue;
+		// Process all accounts in parallel instead of sequentially
+		const accountPromises = this.sedaChain.signerClients.map(async (_, accountIndex) => {
+			if (accountIndex === 0) return; // Skip sender account
 
-			const balance = await this.sedaChain.signerClients[0].getBalance(
-				this.sedaChain.getSignerAddress(accountIndex),
-				"aseda",
-			);
-
-			if (BigInt(balance.amount) < this.config.sedaChain.minSedaPerAccount) {
-				logger.info(
-					`${accountIndex}: Account ${this.sedaChain.getSignerAddress(accountIndex)} has less than the minimum SEDA amount. Sending ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA..`,
+			try {
+				const balance = await this.sedaChain.signerClients[0].getBalance(
+					this.sedaChain.getSignerAddress(accountIndex),
+					"aseda",
 				);
 
-				const sendMsg = {
-					typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-					value: {
-						fromAddress: sender,
-						toAddress: this.sedaChain.getSignerAddress(accountIndex),
-						amount: [
-							{
-								denom: "aseda",
-								amount: this.config.sedaChain.minSedaPerAccount.toString(),
-							},
-						],
-					},
-				};
+				if (BigInt(balance.amount) < this.config.sedaChain.minSedaPerAccount) {
+					logger.info(
+						`${accountIndex}: Account ${this.sedaChain.getSignerAddress(accountIndex)} has less than the minimum SEDA amount. Sending ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA..`,
+					);
 
-				const response = await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
+					const sendMsg = {
+						typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+						value: {
+							fromAddress: sender,
+							toAddress: this.sedaChain.getSignerAddress(accountIndex),
+							amount: [
+								{
+									denom: "aseda",
+									amount: this.config.sedaChain.minSedaPerAccount.toString(),
+								},
+							],
+						},
+					};
 
-				if (response.isErr) {
-					logger.error(
-						`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
+					const response = await this.sedaChain.queueCosmosMessage(sendMsg, TransactionPriority.LOW, undefined, 0);
+
+					if (response.isErr) {
+						logger.error(
+							`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
+						);
+					} else {
+						logger.info(
+							`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
+						);
+					}
+				} else {
+					logger.info(
+						`${accountIndex}: ${this.sedaChain.getSignerAddress(accountIndex)} has enough SEDA (min: ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA, current: ${formatTokenUnits(balance.amount)} SEDA)`,
 					);
 				}
-
-				logger.info(
-					`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
-				);
-			} else {
-				logger.info(
-					`${accountIndex}: ${this.sedaChain.getSignerAddress(accountIndex)} has enough SEDA (min: ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA, current: ${formatTokenUnits(balance.amount)} SEDA)`,
-				);
+			} catch (error) {
+				logger.error(`Error processing account ${accountIndex}: ${error}`);
 			}
-		}
+		});
+
+		// Wait for all account processing to complete
+		await Promise.all(accountPromises);
 	}
 
 	async start() {

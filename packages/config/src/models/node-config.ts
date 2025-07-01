@@ -41,8 +41,8 @@ export const NodeConfigSchema = v.object({
 	fetchFailureThreshold: v.optional(v.number(), DEFAULT_FETCH_FAILURE_THRESHOLD),
 	fetchCountRefreshInterval: v.optional(v.number(), DEFAULT_FETCH_COUNT_REFRESH_INTERVAL),
 	experimental: v.optional(v.object({
-		useBlockMonitoring: v.optional(v.boolean(), false),
-		fallbackToRpc: v.optional(v.boolean(), true),
+		useBlockMonitoring: v.optional(v.boolean(), true),
+		fallbackToRpc: v.optional(v.boolean(), false),
 		hybridMode: v.optional(v.boolean(), false),
 	}), {}),
 });
