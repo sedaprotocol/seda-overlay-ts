@@ -162,7 +162,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error("Exceeded maximum retry attempts, marking data request as failed", {
 					id: this.name,
 				});
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+				// HIGH: RPC connectivity
 				this.status = IdentityDataRequestStatus.Failed;
 				span.setAttribute("final_status", "failed");
 				span.setAttribute("failure_reason", "max_retries_exceeded");
@@ -185,10 +185,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				this.stop();
 				return;
 			} else {
-				logger.error(`Unimplemented status ${this.status}, aborting data-request`, {
+				logger.warn(`Unimplemented status ${this.status}, aborting data-request`, {
 					id: this.name,
 				});
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 				span.setAttribute("final_status", "error");
 				span.setAttribute("error_reason", "unimplemented_status");
 				span.end();
@@ -201,7 +200,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while processing data request: ${error}`, {
 				id: this.name,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: RPC connectivity
 			span.recordException(error as Error);
 			span.setAttribute("final_status", "error");
 			span.setAttribute("error_reason", "uncaught_exception");
@@ -231,7 +230,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while fetching status of data request: ${statusResult.error}`, {
 				id: this.drId,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: RPC connectivity
 			span.recordException(statusResult.error);
 			span.setAttribute("error", "fetch_failed");
 
@@ -276,10 +275,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		const info = this.identitityPool.getIdentityInfo(this.identityId);
 
 		if (dr.isNothing) {
-			logger.error("Invariant found, data request task uses a data request that does not exist", {
+			logger.warn("Invariant found, data request task uses a data request that does not exist", {
 				id: this.name,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			span.setAttribute("error", "data_request_not_found");
 			span.end();
 			this.stop();
@@ -290,7 +288,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error("Invariant found, data request task uses an identity that does not exist", {
 				id: this.name,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// CRITICAL: Invariant in state, could mess up the node
 			span.setAttribute("error", "identity_not_found");
 			span.end();
 			this.stop();
@@ -310,10 +308,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (vmResult.isErr) {
 			this.retries += 1;
-			logger.error(`Error while executing: ${vmResult.error}`, {
+			logger.warn(`Error while executing: ${vmResult.error}`, {
 				id: this.name,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			span.recordException(vmResult.error);
 			span.setAttribute("error", "execution_failed");
 			span.end();
@@ -339,10 +336,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			exitCode = EXECUTION_EXIT_CODE_RESULT_TOO_LARGE;
 			stderr = `${errMsg}\n${stderr}`;
 
-			logger.error(errMsg, {
+			logger.warn(errMsg, {
 				id: this.name,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			span.setAttribute("error", "reveal_too_large");
 			span.setAttribute("reveal_size", revealSize);
 			span.setAttribute("max_size", maxRevealSize);
@@ -386,7 +382,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: Case that should not be possible
 			span.setAttribute("error", "no_execution_result");
 			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
@@ -446,10 +442,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				return;
 			}
 
-			logger.error(`Failed to commit: ${result.error}`, {
+			logger.warn(`Failed to commit: ${result.error}`, {
 				id: this.name,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			span.recordException(result.error);
 			span.setAttribute("error", "commit_failed");
 			const sleepSpan = this.drTracer.startSpan(
@@ -520,7 +515,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to reveal, switching status back to initial");
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: Something is going wrong internally..
 			span.setAttribute("error", "no_execution_result");
 			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
@@ -552,7 +547,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error(
 					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
 				);
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+				// CRITICAL: Most probably two nodes with the same mnemonic.
 				span.setAttribute("error", "reveal_mismatch");
 				span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
 				span.setAttribute("chain_commit_hash", result.error.commitmentHash.toString("hex"));

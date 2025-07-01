@@ -39,11 +39,9 @@ export const validateCmd = populateWithCommonOptions(new Command("validate"))
 			logger.info("Overlay configuration is valid ✅");
 		} else if (!config.isOk) {
 			logger.error("Error while parsing config:");
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 
 			for (const error of config.error) {
 				logger.error(error);
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			}
 			process.exit(1);
 		}

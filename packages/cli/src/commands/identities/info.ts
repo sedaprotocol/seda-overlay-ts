@@ -29,7 +29,6 @@ export const info = populateWithCommonOptions(new Command("info"))
 
 			if (config.isErr) {
 				logger.error(`Could not load config: ${config.error}`);
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 				process.exit(1);
 			}
 
@@ -53,7 +52,6 @@ export const info = populateWithCommonOptions(new Command("info"))
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -68,7 +66,6 @@ export const info = populateWithCommonOptions(new Command("info"))
 
 			if (response.isErr) {
 				logger.error(`Could not fetch info for ${identityId} (index: ${index}): ${response.error}`);
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 				continue;
 			}
 

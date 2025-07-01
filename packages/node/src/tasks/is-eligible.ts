@@ -106,7 +106,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
 						id: traceId,
 					});
-					// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+					// CRITICAL: Identity tried to sign with non existent key. Something is serious wrong (This should never happen)
 					return Result.err(messageSignature.error);
 				}
 
@@ -126,7 +126,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.error(`Could not fetch eligibility status for data request: ${response.error}`, {
 				id: traceId,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: RPC connectivity
 			span.recordException(response.error);
 			span.setAttribute("error", "query_failed");
 			span.end();
@@ -154,7 +154,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`, {
 				id: traceId,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: RPC connectivity
 			span.recordException(drFromChain.error);
 			span.setAttribute("error", "dr_fetch_failed");
 			span.end();
@@ -245,7 +245,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Could not fetch information about dr: ${error}`, {
 						id: traceId,
 					});
-					// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+					// HIGH: RPC connectivity
 					span.recordException(error);
 					span.setAttribute("error", "refresh_failed");
 					return false;
@@ -292,7 +292,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				logger.error(`Identity ${identityInfo.identityId} is not enabled, skipping eligibility check`, {
 					id: traceId,
 				});
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+				// HIGH: Means there is no stake..
 				continue;
 			}
 

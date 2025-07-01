@@ -26,7 +26,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 
 		if (identityId.isNothing) {
 			logger.error(`Identity with index "${index}" does not exist`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -34,7 +33,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 
 		if (privateKey.isNothing) {
 			logger.error(`Identity with index "${index}" does not exist`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -43,13 +41,11 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 
 		if (stakerInfo.isErr) {
 			logger.error(`Could not fetch sequence: ${stakerInfo.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
 		if (stakerInfo.value.staker.isNothing) {
 			logger.error(`Cannot unstake because identity is not registered (index ${index}).`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -61,7 +57,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 		logger.info(`Identity ${identityId.value} (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`);
 		if (BigInt(staker.tokens_pending_withdrawal) === 0n) {
 			logger.error(`Cannot withdraw because identity has no pending withdraw (index ${index}).`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -92,7 +87,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 
 		if (response.isErr) {
 			logger.error(`Unstaking failed: ${response.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

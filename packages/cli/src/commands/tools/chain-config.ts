@@ -22,7 +22,6 @@ export const chainConfig = populateWithCommonOptions(new Command("chain-config")
 
 		if (response.isErr) {
 			logger.error(`Failed fetching dr config: ${response.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -32,7 +31,6 @@ export const chainConfig = populateWithCommonOptions(new Command("chain-config")
 
 		if (stakingConfig.isErr) {
 			logger.error(`Failed fetching staking config: ${stakingConfig.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
