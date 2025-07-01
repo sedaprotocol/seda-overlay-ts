@@ -266,15 +266,25 @@ export class EventProcessor {
     try {
       const msgValue = message.value;
       
+      // 🚨 DEBUGGING: Log reveal message processing
+      logger.info(`🔍 DEBUGGING REVEAL EXTRACTION: Processing reveal message in tx ${txHash}`);
+      logger.info(`🔍 DEBUGGING: Message value keys: ${msgValue ? Object.keys(msgValue).join(', ') : 'null'}`);
+      logger.info(`🔍 DEBUGGING: SEDA context: ${JSON.stringify(message.sedaContext)}`);
+      
       if (!msgValue || typeof msgValue !== 'object') {
+        logger.warn(`🔍 DEBUGGING: Invalid message value for reveal in tx ${txHash}`);
         return Result.err(new Error("Invalid message value: expected object"));
       }
       
       // Enhanced data extraction with multiple strategies
       const extractionResult = this.extractSmartContractEventData(msgValue, message.sedaContext, 'reveal');
       
+      // 🚨 DEBUGGING: Log extraction result
+      logger.info(`🔍 DEBUGGING REVEAL EXTRACTION: Result - success: ${extractionResult.success}, drId: ${extractionResult.drId}, publicKey: ${extractionResult.publicKey}, reason: ${extractionResult.reason}`);
+      
       if (!extractionResult.success) {
         logger.warn(`Failed to extract reveal data: ${extractionResult.reason}. Message value keys: ${Object.keys(msgValue).join(', ')}`);
+        logger.warn(`🔍 DEBUGGING: Raw message value: ${JSON.stringify(msgValue, null, 2)}`);
         return Result.err(new Error(`Missing reveal data: ${extractionResult.reason}`));
       }
 
@@ -292,10 +302,11 @@ export class EventProcessor {
         data: revealData,
       };
 
-      logger.debug(`Extracted reveal_data_result event: ${revealData.dataRequestId} by ${revealData.publicKey} in tx ${txHash}`);
+      logger.info(`🎉 DEBUGGING: Successfully extracted reveal_data_result event: ${revealData.dataRequestId} by ${revealData.publicKey} in tx ${txHash}`);
       return Result.ok(event);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(`🔍 DEBUGGING: Error extracting reveal from tx ${txHash}: ${err.message}`);
       return Result.err(new Error(`Failed to extract reveal_data_result: ${err.message}`));
     }
   }
@@ -375,4 +386,6 @@ export class EventProcessor {
       revealData
     };
   }
+
+
 } 

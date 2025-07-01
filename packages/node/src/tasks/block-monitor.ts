@@ -336,7 +336,12 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
   private async handleDataRequestRevealed(event: DataRequestEvent, height: bigint): Promise<void> {
     const { drId, data } = event;
     
-    logger.debug(`🔍 Processing reveal event for DR ${drId}. Event type: ${typeof data}, structure: ${this.getDataStructureInfo(data)}`, {
+    logger.info(`🔍 DEBUGGING REVEAL: Processing reveal event for DR ${drId}. Event type: ${typeof data}, structure: ${this.getDataStructureInfo(data)}`, {
+      id: `${drId}_reveal`,
+    });
+
+    // 🚨 ENHANCED DEBUG: Log the raw data
+    logger.info(`🔍 DEBUGGING REVEAL: Raw reveal data for DR ${drId}: ${JSON.stringify(this.sanitizeDataForLogging(data), null, 2)}`, {
       id: `${drId}_reveal`,
     });
 
@@ -345,6 +350,34 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
     if (!revealData) {
       logger.warn(`❌ Failed to extract reveal data for DR ${drId}. Trying diagnostic extraction...`);
       this.logDiagnosticInfo(data, 'reveal', drId);
+      
+      // 🚨 TEMPORARY: Don't return early - let's see what happens with manual extraction
+      logger.warn(`🔍 DEBUGGING: Attempting manual reveal data extraction for DR ${drId}...`);
+      
+      // Try to manually extract what we can
+      const manualExtraction = this.attemptManualRevealExtraction(data);
+      if (manualExtraction) {
+        logger.info(`✅ Manual extraction successful for DR ${drId}: executor=${manualExtraction.executorAddress}`, {
+          id: `${drId}_reveal`,
+        });
+        // Use the manually extracted data
+        const trackedRequest = this.stateManager.getTrackedRequest(drId);
+        if (trackedRequest) {
+          logger.info(`📊 DEBUGGING: DR ${drId} current state - commits: ${trackedRequest.successfulCommits.size}/${trackedRequest.replicationFactor}, reveals: ${trackedRequest.successfulReveals.size}/${trackedRequest.replicationFactor}`, {
+            id: `${drId}_reveal`,
+          });
+          
+          // Just record the reveal with whatever executor address we found
+          this.stateManager.addReveal(drId, manualExtraction.executorAddress, height);
+          
+          // Log completion check
+          if (trackedRequest.successfulReveals.size >= trackedRequest.replicationFactor) {
+            logger.info(`🏁 DR ${drId} should now be complete with ${trackedRequest.successfulReveals.size} reveals!`, {
+              id: `${drId}_complete`,
+            });
+          }
+        }
+      }
       return;
     }
 
@@ -358,8 +391,21 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
     // Check if this is our reveal - if so, mark our identity as revealed
     const trackedRequest = this.stateManager.getTrackedRequest(drId);
     if (trackedRequest) {
+      logger.info(`📊 DEBUGGING: DR ${drId} state after reveal - commits: ${trackedRequest.successfulCommits.size}/${trackedRequest.replicationFactor}, reveals: ${trackedRequest.successfulReveals.size}/${trackedRequest.replicationFactor}`, {
+        id: `${drId}_reveal`,
+      });
+      
+      // 🚨 DEBUGGING: Log identity matching attempts
+      logger.info(`🔍 DEBUGGING: Checking identity matches for DR ${drId}. Our committed identities: [${Array.from(trackedRequest.commitHashes.keys()).join(', ')}], Reveal executor: ${revealData.executorAddress}`, {
+        id: `${drId}_reveal`,
+      });
+      
       // Process all committed identities in parallel instead of sequentially
       const identityMatchPromises = Array.from(trackedRequest.commitHashes.keys()).map(async (identityId) => {
+        logger.debug(`🔍 DEBUGGING: Comparing identityId="${identityId}" with executorAddress="${revealData.executorAddress}"`, {
+          id: `${drId}_reveal`,
+        });
+        
         if (identityId === revealData.executorAddress) {
           logger.info(`🎉 Our reveal confirmed on-chain for DR ${drId}: ${identityId}`, {
             id: `${drId}_reveal`,
@@ -384,6 +430,8 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
       
       if (hasMatch) {
         logger.debug(`✅ Processed reveal identity match for DR ${drId} in parallel`);
+      } else {
+        logger.warn(`⚠️ DEBUGGING: No identity matches found for DR ${drId}. This might be a reveal from another node.`);
       }
 
       // Check if DR is complete (enough reveals)
@@ -396,6 +444,45 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
         this.stateManager.removeTrackedRequest(drId);
         this.pool.deleteDataRequest(drId);
       }
+    }
+  }
+
+  /**
+   * 🚨 TEMPORARY DEBUG: Manual reveal extraction attempt
+   */
+  private attemptManualRevealExtraction(data: any): { executorAddress: string } | null {
+    try {
+      // Try different common field names for executor/public key
+      const possibleFields = [
+        'public_key', 'pubkey', 'executor', 'sender', 'signer',
+        'publicKey', 'executorAddress', 'executor_address'
+      ];
+      
+      for (const field of possibleFields) {
+        if (data[field]) {
+          logger.info(`🔍 MANUAL EXTRACTION: Found executor in field "${field}": ${data[field]}`);
+          return { executorAddress: data[field] };
+        }
+      }
+      
+      // Try looking in nested objects
+      if (typeof data === 'object') {
+        for (const [key, value] of Object.entries(data)) {
+          if (typeof value === 'object' && value) {
+            for (const field of possibleFields) {
+              if ((value as any)[field]) {
+                logger.info(`🔍 MANUAL EXTRACTION: Found executor in nested field "${key}.${field}": ${(value as any)[field]}`);
+                return { executorAddress: (value as any)[field] };
+              }
+            }
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error(`Error in manual reveal extraction: ${error}`);
+      return null;
     }
   }
 
@@ -733,4 +820,74 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
     // Log all sample info in batch
     sampleInfo.forEach(info => logger.info(info));
   }
+
+  	/**
+	 * 🚀 NEW: Record execution start for timing tracking
+	 */
+	recordExecutionStarted(drId: string, identityId: string): void {
+		this.stateManager.recordExecutionStarted(drId, identityId);
+	}
+
+	/**
+	 * 🚀 NEW: Get performance statistics for a specific DR
+	 */
+	getPerformanceStats(drId: string) {
+		return this.stateManager.getPerformanceStats(drId);
+	}
+
+	/**
+	 * 🚀 NEW: Get performance summary for all tracked DRs
+	 */
+	getPerformanceSummary() {
+		return this.stateManager.getPerformanceSummary();
+	}
+
+	/**
+	 * 🚀 NEW: Log current performance summary (useful for debugging)
+	 */
+	logPerformanceSummary(): void {
+		const summary = this.getPerformanceSummary();
+		if (summary.length === 0) {
+			logger.info("📊 No DRs currently being tracked");
+			return;
+		}
+
+		logger.info(`📊 PERFORMANCE SUMMARY (${summary.length} tracked DRs):`);
+		for (const dr of summary) {
+			const status = dr.isCompleted ? '✅' : '🔄';
+			const totalTime = dr.totalTime ? `${(dr.totalTime / 1000).toFixed(1)}s` : 'ongoing';
+			logger.info(`  ${status} ${dr.drId.slice(0, 16)}: ${dr.status} (${dr.identityCount} identities, ${totalTime})`);
+		}
+	}
+
+	/**
+	 * 🚨 DEBUGGING: Force performance summary logging (call this manually for debugging)
+	 */
+	debugShowCurrentState(): void {
+		logger.info("🔍 DEBUGGING: Current block monitor state:");
+		logger.info(`  - Running: ${this.isRunning}`);
+		logger.info(`  - Last processed height: ${this.lastProcessedHeight}`);
+		logger.info(`  - Block monitor healthy: ${this.blockMonitor.isHealthy()}`);
+		
+		this.logPerformanceSummary();
+		
+		// Show detailed stats for active DRs
+		const activeRequests = this.stateManager.getRequestsByStatus('executing');
+		const committedRequests = this.stateManager.getRequestsByStatus('committed');
+		const revealingRequests = this.stateManager.getRequestsByStatus('revealing');
+		
+		logger.info(`🔍 DEBUGGING: Active DRs by status:`);
+		logger.info(`  - Executing: ${activeRequests.length}`);
+		logger.info(`  - Committed: ${committedRequests.length}`);
+		logger.info(`  - Revealing: ${revealingRequests.length}`);
+		
+		// Show specific DR details
+		const allStatuses = ['posted', 'executing', 'committed', 'revealing', 'revealed', 'completed'];
+		for (const status of allStatuses) {
+			const requests = this.stateManager.getRequestsByStatus(status as any);
+			for (const req of requests) {
+				logger.info(`  🔸 DR ${req.drId.slice(0, 16)}: ${status} (${req.successfulCommits.size}/${req.replicationFactor} commits, ${req.successfulReveals.size}/${req.replicationFactor} reveals)`);
+			}
+		}
+	}
 } 

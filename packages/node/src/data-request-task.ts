@@ -287,6 +287,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 		span.setAttribute("status", this.status);
+		
 		span.setAttribute("retries", this.retries);
 
 		try {
@@ -327,6 +328,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			}
 
 			if (this.status === IdentityDataRequestStatus.EligibleForExecution) {
+				// 🚀 TIMING: Record execution start in state manager
+				if (this.blockMonitor) {
+					this.blockMonitor.recordExecutionStarted(this.drId, this.identityId);
+				}
 				await this.handleExecution(dataRequest.value);
 			} else if (this.status === IdentityDataRequestStatus.Executed) {
 				await this.handleCommit(dataRequest.value);
@@ -544,6 +549,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			},
 		});
 
+		// 🚀 TIMING: Record execution completion in state manager  
+		if (this.blockMonitor && this.executionResult.isJust) {
+			const stateManager = (this.blockMonitor as any).stateManager;  
+			if (stateManager && typeof stateManager.addExecutionResult === 'function') {
+				stateManager.addExecutionResult(this.drId, this.identityId, this.executionResult.value);
+			}
+		}
+
 		span.setAttribute("gas_used", vmResult.value.gasUsed.toString());
 		span.setAttribute("exit_code", exitCode);
 		span.setAttribute("reveal_size", reveal.byteLength);
@@ -649,15 +662,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.transitionStatus(IdentityDataRequestStatus.Committed);
 		this.commitHash = result.value;
 		
-		// Notify block monitor about our commit if available
+		// 🚀 TIMING: Record commit submission in state manager
 		if (this.blockMonitor) {
-			this.blockMonitor.addCommitHash(this.drId, this.identityId, result.value.toString("hex"));
-			logger.info(`📝 Notified block monitor of our commit for DR ${this.drId}`, {
-				id: this.name,
-			});
+			const stateManager = (this.blockMonitor as any).stateManager;
+			if (stateManager && typeof stateManager.addCommitHash === 'function') {
+				stateManager.addCommitHash(this.drId, this.identityId, this.commitHash.toString('hex'));
+			}
 		}
-		
-		span.setAttribute("commit_hash", result.value.toString("hex"));
+
 		logger.info("📩 Committed", {
 			id: this.name,
 		});
@@ -802,6 +814,12 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.info(`📝 Notified block monitor of our reveal transaction for DR ${this.drId}`, {
 				id: this.name,
 			});
+			
+			// 🚀 TIMING: Record reveal submission in state manager
+			const stateManager = (this.blockMonitor as any).stateManager;
+			if (stateManager && typeof stateManager.addRevealHash === 'function') {
+				stateManager.addRevealHash(this.drId, this.identityId, result.value.toString("hex"));
+			}
 			
 			// Mark that we've submitted the reveal to avoid duplicate submissions
 			this.revealSubmitted = true;
