@@ -31,7 +31,6 @@ export const runCmd = populateWithCommonOptions(new Command("run"))
 			});
 		} else {
 			logger.error("Error while parsing config:");
-			// CRITICAL: The node cannot boot because of this.
 
 			for (const error of config.error) {
 				logger.error(error);

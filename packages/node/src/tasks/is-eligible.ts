@@ -105,7 +105,6 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
 						id: traceId,
 					});
-					// CRITICAL: Identity tried to sign with non existent key. Something is serious wrong (This should never happen)
 					return Result.err(messageSignature.error);
 				}
 

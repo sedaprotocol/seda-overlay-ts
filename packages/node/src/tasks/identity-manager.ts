@@ -21,7 +21,6 @@ export class IdentityManagerTask {
 			logger.error(`Could not fetch staker info: ${staker.error}`, {
 				id: `identity_${identity}`,
 			});
-			//HIGH: RPC connectivity
 
 			return Result.err(staker.error);
 		}
@@ -30,7 +29,6 @@ export class IdentityManagerTask {
 			logger.error("Could not find staker info, did you register it?", {
 				id: `identity_${identity}`,
 			});
-			// CRITICAL: Staker is kicked out
 
 			return Result.err(new Error("Staker info was empty"));
 		}
