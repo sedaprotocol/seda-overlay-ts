@@ -133,7 +133,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 				logger.error(`Error getting current block height: ${currentBlockHeight.error}`, {
 					id: txHash,
 				});
-				// HIGH: If we don't get it after x times it means we don't have an RPC connection
 
 				return Result.ok(Maybe.nothing());
 			}
@@ -144,8 +143,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 				logger.error(`Error getting block for current height ${currentBlockHeight.value}: ${block.error}`, {
 					id: txHash,
 				});
-				// HIGH: If we don't get it after x times it means we don't have an RPC connection
-				
+
 				// We only want to return an error on transaction level, not on the block level
 				return Result.ok(Maybe.nothing());
 			}
@@ -198,7 +196,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 					id: txHash,
 				},
 			);
-			// HIGH: If we don't get it after x times it means we don't have an RPC connection
 
 			// We only want to return an error on transaction level, not on the block level
 			return Result.ok(Maybe.nothing());
@@ -572,7 +569,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 					logger.error(`Transaction could not be received for ${transactionHash.value}: ${transactionResult.error}`, {
 						id: traceId,
 					});
-					// HIGH: Most probably RPC connectivity issue.
 
 					const error = narrowDownError(transactionResult.error);
 					clearInterval(checkTransactionInterval);

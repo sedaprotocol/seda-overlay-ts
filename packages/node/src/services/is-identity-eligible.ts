@@ -96,7 +96,6 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (stakingConfig.isErr) {
 		logger.error(`Error while fetching staking config: ${stakingConfig.error}`);
-		// HIGH: RPC connectivity
 		span.end();
 		return Result.err(stakingConfig.error);
 	}
@@ -107,7 +106,6 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (currentBlockHeight.isErr) {
 		logger.error(`Error while fetching current block height: ${currentBlockHeight.error}`);
-		// HIGH: RPC connectivity.
 		span.end();
 		return Result.err(currentBlockHeight.error);
 	}
@@ -118,7 +116,6 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (stakers.isErr) {
 		logger.error(`Error while fetching stakers: ${stakers.error}`);
-		// HIGH: RPC connectivity.
 		span.end();
 		return Result.err(stakers.error);
 	}
@@ -129,7 +126,6 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (drConfig.isErr) {
 		logger.error(`Error while fetching DR config: ${drConfig.error}`);
-		// HIGH: RPC connectivity
 		span.end();
 		return Result.err(drConfig.error);
 	}
