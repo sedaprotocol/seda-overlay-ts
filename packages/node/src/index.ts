@@ -20,7 +20,6 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 
 	if (sedaChain.isErr) {
 		logger.error(`SedaChain creation error: ${sedaChain.error}`);
-		// CRITICAL: Node is not able to boot.
 		process.exit(1);
 	}
 

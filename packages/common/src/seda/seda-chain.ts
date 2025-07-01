@@ -465,7 +465,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`, {
 				id: txMessage.value.traceId,
 			});
-			//HIGH: There is something weird and fishy going on in the node, this is not supposed to happen but it will not interfere with execution.
 			return;
 		}
 

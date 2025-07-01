@@ -285,7 +285,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error("Invariant found, data request task uses an identity that does not exist", {
 				id: this.name,
 			});
-			// CRITICAL: Invariant in state, could mess up the node
 			span.setAttribute("error", "identity_not_found");
 			span.end();
 			this.stop();
@@ -542,7 +541,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error(
 					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
 				);
-				// CRITICAL: Most probably two nodes with the same mnemonic.
 				span.setAttribute("error", "reveal_mismatch");
 				span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
 				span.setAttribute("chain_commit_hash", result.error.commitmentHash.toString("hex"));
