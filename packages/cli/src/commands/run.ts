@@ -31,11 +31,10 @@ export const runCmd = populateWithCommonOptions(new Command("run"))
 			});
 		} else {
 			logger.error("Error while parsing config:");
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// CRITICAL: The node cannot boot because of this.
 
 			for (const error of config.error) {
 				logger.error(error);
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			}
 		}
 	});

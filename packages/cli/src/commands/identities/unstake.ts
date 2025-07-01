@@ -25,7 +25,6 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		if (identityId.isNothing) {
 			logger.error(`Identity with index "${index}" does not exist`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -33,7 +32,6 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		if (privateKey.isNothing) {
 			logger.error(`Identity with index "${index}" does not exist`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -42,13 +40,11 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		if (stakerInfo.isErr) {
 			logger.error(`Could not fetch sequence: ${stakerInfo.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
 		if (stakerInfo.value.staker.isNothing) {
 			logger.error(`Cannot unstake because identity is not registered (index ${index}).`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
@@ -83,7 +79,6 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		if (response.isErr) {
 			logger.error(`Unstaking failed: ${response.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

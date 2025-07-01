@@ -12,7 +12,6 @@ export const init = populateWithCommonOptions(new Command("init"))
 
 		if (createdConfig.isErr) {
 			logger.error(createdConfig.error.message);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 

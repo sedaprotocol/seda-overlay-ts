@@ -21,7 +21,7 @@ export class IdentityManagerTask {
 			logger.error(`Could not fetch staker info: ${staker.error}`, {
 				id: `identity_${identity}`,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			//HIGH: RPC connectivity
 
 			return Result.err(staker.error);
 		}
@@ -30,7 +30,7 @@ export class IdentityManagerTask {
 			logger.error("Could not find staker info, did you register it?", {
 				id: `identity_${identity}`,
 			});
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// CRITICAL: Staker is kicked out
 
 			return Result.err(new Error("Staker info was empty"));
 		}
@@ -39,7 +39,7 @@ export class IdentityManagerTask {
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+			// HIGH: RPC connectivity.
 			return Result.err(stakingConfig.error);
 		}
 
@@ -70,7 +70,7 @@ export class IdentityManagerTask {
 				logger.error("Identity could not be found in pool", {
 					id: `identity_${identity}`,
 				});
-				// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+				// HIGH: RPC connectivity
 			},
 		});
 
@@ -136,7 +136,7 @@ export class IdentityManagerTask {
 					logger.error(
 						`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
 					);
-					// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
+					// HIGH: RPC connectivity or not enough SEDA to send
 				}
 
 				logger.info(

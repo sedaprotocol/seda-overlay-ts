@@ -32,7 +32,6 @@ export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allo
 
 		if (response.isErr) {
 			logger.error(`Adding failed: ${response.error}`);
-			// TODO: Discuss how do we handle this ERROR for alerting & monitoring.
 			process.exit(1);
 		}
 
