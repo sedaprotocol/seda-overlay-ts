@@ -157,7 +157,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error("Exceeded maximum retry attempts, marking data request as failed", {
 					id: this.name,
 				});
-				// HIGH: RPC connectivity
 				this.status = IdentityDataRequestStatus.Failed;
 				span.setAttribute("final_status", "failed");
 				span.setAttribute("failure_reason", "max_retries_exceeded");
@@ -195,7 +194,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while processing data request: ${error}`, {
 				id: this.name,
 			});
-			// HIGH: RPC connectivity
 			span.recordException(error as Error);
 			span.setAttribute("final_status", "error");
 			span.setAttribute("error_reason", "uncaught_exception");
@@ -221,7 +219,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while fetching status of data request: ${statusResult.error}`, {
 				id: this.drId,
 			});
-			// HIGH: RPC connectivity
 			span.recordException(statusResult.error);
 			span.setAttribute("error", "fetch_failed");
 
@@ -373,7 +370,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
-			// HIGH: Case that should not be possible
 			span.setAttribute("error", "no_execution_result");
 			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
@@ -506,7 +502,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to reveal, switching status back to initial");
-			// HIGH: Something is going wrong internally..
 			span.setAttribute("error", "no_execution_result");
 			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);

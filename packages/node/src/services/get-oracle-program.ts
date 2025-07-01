@@ -43,7 +43,6 @@ export async function getOracleProgram(
 
 	if (writeResult.isErr) {
 		logger.error(`Could not cache WASM file. Will use memory: ${writeResult.error}`);
-		// HIGH: It could not write to disk
 	}
 
 	return Result.ok(Maybe.just({ bytes: binaryBuffer.value, fromCache: false }));

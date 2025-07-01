@@ -125,7 +125,6 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.error(`Could not fetch eligibility status for data request: ${response.error}`, {
 				id: traceId,
 			});
-			// HIGH: RPC connectivity
 			span.recordException(response.error);
 			span.setAttribute("error", "query_failed");
 			span.end();
@@ -153,7 +152,6 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`, {
 				id: traceId,
 			});
-			// HIGH: RPC connectivity
 			span.recordException(drFromChain.error);
 			span.setAttribute("error", "dr_fetch_failed");
 			span.end();
@@ -244,7 +242,6 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Could not fetch information about dr: ${error}`, {
 						id: traceId,
 					});
-					// HIGH: RPC connectivity
 					span.recordException(error);
 					span.setAttribute("error", "refresh_failed");
 					return false;
@@ -291,7 +288,6 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				logger.error(`Identity ${identityInfo.identityId} is not enabled, skipping eligibility check`, {
 					id: traceId,
 				});
-				// HIGH: Means there is no stake..
 				continue;
 			}
 

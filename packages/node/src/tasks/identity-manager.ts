@@ -39,7 +39,6 @@ export class IdentityManagerTask {
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
-			// HIGH: RPC connectivity.
 			return Result.err(stakingConfig.error);
 		}
 
@@ -70,7 +69,6 @@ export class IdentityManagerTask {
 				logger.error("Identity could not be found in pool", {
 					id: `identity_${identity}`,
 				});
-				// HIGH: RPC connectivity
 			},
 		});
 
@@ -136,7 +134,6 @@ export class IdentityManagerTask {
 					logger.error(
 						`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
 					);
-					// HIGH: RPC connectivity or not enough SEDA to send
 				}
 
 				logger.info(
