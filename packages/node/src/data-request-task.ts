@@ -48,7 +48,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		private identitityPool: IdentityPool,
 		private appConfig: AppConfig,
 		private sedaChain: SedaChain,
-		private drId: string,
+		public drId: string,
 		private identityId: string,
 		private eligibilityHeight: bigint,
 		private executeWorkerPool: Maybe<WorkerPool>,

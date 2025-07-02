@@ -125,10 +125,42 @@ export class MainTask {
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);
 	}
 
+	/**
+	 * Finds the next data request with the highest gas price. These data requests tasks are already eligible.
+	 * This is used to prioritize data requests that have a higher gas price.
+	 *
+	 * @returns The data request task with the highest gas price.
+	 */
+	private findHighestGasPriceRequest(): Maybe<DataRequestTask> {
+		if (this.dataRequestsToProcess.length === 0) return Maybe.nothing();
+
+		let highestGasPrice = 0n;
+		let highestGasPriceDataRequest: Maybe<DataRequestTask> = Maybe.nothing();
+		let highestGasPriceIndex = 0;
+
+		for (let index = 0; index < this.dataRequestsToProcess.length; index++) {
+			const dataRequestTask = this.dataRequestsToProcess[index];
+			const dataRequest = this.pool.getDataRequest(dataRequestTask.drId);
+			if (dataRequest.isNothing) continue;
+
+			if (dataRequest.value.gasPrice > highestGasPrice) {
+				highestGasPrice = dataRequest.value.gasPrice;
+				highestGasPriceDataRequest = Maybe.just(dataRequestTask);
+				highestGasPriceIndex = index;
+			}
+		}
+
+		// Remove the data request task with the highest gas price from the list
+		// Otherwise we will process the same data request task multiple times
+		this.dataRequestsToProcess.splice(highestGasPriceIndex, 1);
+
+		return highestGasPriceDataRequest;
+	}
+
 	private processNextDr() {
 		if (this.activeDataRequestTasks >= this.config.node.maxConcurrentRequests) return;
 
-		const dataRequest = Maybe.of(this.dataRequestsToProcess.shift());
+		const dataRequest = this.findHighestGasPriceRequest();
 		if (dataRequest.isNothing) return;
 
 		dataRequest.value.on("done", () => {
@@ -170,6 +202,7 @@ export class MainTask {
 				this.compilerWorkerPool,
 				this.syncExecuteWorker,
 			);
+
 			this.dataRequestsToProcess.push(drTask);
 			eligibleSpan.end();
 			this.processNextDr();
