@@ -137,3 +137,5 @@ config.*.json
 config.*.jsonc
 config.jsonc
 build
+
+packages/common/src/telemetry/README.md
