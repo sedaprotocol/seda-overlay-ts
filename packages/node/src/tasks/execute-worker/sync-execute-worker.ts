@@ -47,7 +47,7 @@ function startWorker() {
 					coreContractAddress: await sedaChain.value.getCoreContractAddress(),
 					dataRequestId: message.dataRequest.id,
 					eligibilityHeight: BigInt(message.eligibilityHeight),
-					gasPrice: message.dataRequest.gasPrice,
+					gasPrice: message.dataRequest.postedGasPrice,
 					identityPrivateKey: message.identityPrivateKey,
 					totalHttpTimeLimit: message.appConfig.node.totalHttpTimeLimit,
 				},

@@ -143,8 +143,8 @@ export class MainTask {
 			const dataRequest = this.pool.getDataRequest(dataRequestTask.drId);
 			if (dataRequest.isNothing) continue;
 
-			if (dataRequest.value.gasPrice > highestGasPrice) {
-				highestGasPrice = dataRequest.value.gasPrice;
+			if (dataRequest.value.postedGasPrice > highestGasPrice) {
+				highestGasPrice = dataRequest.value.postedGasPrice;
 				highestGasPriceDataRequest = Maybe.just(dataRequestTask);
 				highestGasPriceIndex = index;
 			}

@@ -62,6 +62,7 @@ function calculateDataRequestSize(dataRequest: DataRequest): number {
 		replication_factor: dataRequest.replicationFactor, // u16 -> number
 		consensus_filter: dataRequest.consensusFilter, // Bytes (Uint8Array)
 		gas_price: dataRequest.gasPrice.toString(), // U128 -> string
+		posted_gas_price: dataRequest.postedGasPrice.toString(), // U128 -> string
 		memo: dataRequest.memo, // Bytes (Uint8Array)
 		payback_address: dataRequest.paybackAddress, // Bytes (Uint8Array)
 		seda_payload: dataRequest.sedaPayload, // Bytes (Uint8Array)
