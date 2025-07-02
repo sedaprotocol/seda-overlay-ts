@@ -1,5 +1,6 @@
 import "./telemetry";
 export { isBrowser } from "./services/is-browser";
+export * from "./telemetry";
 export * from "./services/try-async";
 export * from "./services/timer";
 export * from "./services/hex-utils";

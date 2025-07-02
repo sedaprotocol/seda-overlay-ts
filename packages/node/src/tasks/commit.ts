@@ -4,7 +4,7 @@ import {
 	createRevealBodyHash,
 	createRevealMessageHash,
 } from "@sedaprotocol/core-contract-schema/src/commit";
-import { RevealStarted, type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
+import { RevealStarted, customMetrics, type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyCommitted, DataRequestExpired, DataRequestNotFound } from "@sedaprotocol/overlay-ts-common";
 import type { GasOptions } from "@sedaprotocol/overlay-ts-common/src/seda/gas-options";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -40,7 +40,17 @@ export async function commitDr(
 	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
 	const revealMessageHash = createRevealMessageHash(revealBodyHash, chainId, contractAddr);
 	const revealProof = identityPool.sign(identityId, revealMessageHash);
-	if (revealProof.isErr) return Result.err(revealProof.error);
+	if (revealProof.isErr) {
+		// CRITICAL-005: Identity Signing Failure - Missing keys for reveal proof
+		customMetrics.identitySigningFailures.add(1, {
+			type: 'reveal_proof_signing',
+			identity_id: identityId,
+			dr_id: dataRequest.id,
+			error_type: revealProof.error.constructor.name,
+		});
+		
+		return Result.err(revealProof.error);
+	}
 
 	const commitment = createCommitment(
 		revealBodyHash,
@@ -57,7 +67,17 @@ export async function commitDr(
 		contractAddr,
 	);
 	const commitProof = identityPool.sign(identityId, commitMessageHash);
-	if (commitProof.isErr) return Result.err(commitProof.error);
+	if (commitProof.isErr) {
+		// CRITICAL-005: Identity Signing Failure - Missing keys for commit proof
+		customMetrics.identitySigningFailures.add(1, {
+			type: 'commit_proof_signing',
+			identity_id: identityId,
+			dr_id: dataRequest.id,
+			error_type: commitProof.error.constructor.name,
+		});
+		
+		return Result.err(commitProof.error);
+	}
 
 	logger.trace("Waiting for commit transaction to be processed", {
 		id: traceId,
