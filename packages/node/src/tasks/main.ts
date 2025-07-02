@@ -221,6 +221,10 @@ export class MainTask {
 		span.setAttribute("max_concurrent_requests", this.config.node.maxConcurrentRequests);
 		span.setAttribute("process_dr_interval", this.config.node.processDrInterval);
 
+		// 🚀 CRITICAL: Start SedaChain transaction processing (was accidentally removed)
+		this.sedaChain.start();
+		logger.info("🔥 SedaChain transaction processing started - commits/reveals will now be processed");
+
 		await this.identityManagerTask.start();
 		
 		// Determine which monitoring system to use
@@ -377,6 +381,10 @@ export class MainTask {
 		span.setAttribute("active_tasks", this.activeDataRequestTasks);
 		span.setAttribute("completed_requests", this.completedDataRequests);
 		
+		// 🚀 CRITICAL: Stop SedaChain transaction processing
+		this.sedaChain.stop();
+		logger.info("SedaChain transaction processing stopped");
+		
 		// Stop legacy polling tasks if they exist
 		if (this.fetchTask) {
 			this.fetchTask.stop();
@@ -397,4 +405,6 @@ export class MainTask {
 	isFetchTaskHealthy() {
 		return this.fetchTask?.isFetchTaskHealthy ?? false;
 	}
+
+
 }

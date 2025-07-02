@@ -387,15 +387,32 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 			this.isProcessing = false;
 		} catch (error) {
-			logger.error(`Error while processing data request: ${error}`, {
+			this.retries++;
+			const err = error instanceof Error ? error : new Error(String(error));
+			logger.warn(`Processing error for DR ${this.drId} (attempt ${this.retries}): ${err.message}`, {
 				id: this.name,
 			});
-			span.recordException(error as Error);
-			span.setAttribute("final_status", "error");
-			span.setAttribute("error_reason", "uncaught_exception");
+
+			if (this.retries >= (this.appConfig.sedaChain?.maxRetries || 3)) {
+				logger.error(`Max retries reached for DR ${this.drId}, marking as failed`, {
+					id: this.name,
+				});
+				this.stop();
+				return;
+			}
+
+			// 🚀 PERFORMANCE: Fast retry with minimal backoff
+			const backoffDelay = Math.min(100 * Math.pow(1.5, this.retries - 1), 2000); // Cap at 2 seconds
+			await sleep(backoffDelay);
 		} finally {
 			this.isProcessing = false;
 			span.end();
+		}
+
+		// Continue processing if we haven't finished
+		if (this.status !== IdentityDataRequestStatus.Revealed) {
+			// 🚀 PERFORMANCE: Use setTimeout(0) to prevent stack overflow while maintaining responsiveness
+			setTimeout(() => this.process(), 0);
 		}
 	}
 

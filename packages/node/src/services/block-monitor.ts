@@ -421,4 +421,6 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
   getLastProcessedHeight(): bigint {
     return this.lastProcessedHeight;
   }
+
+
 } 

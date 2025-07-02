@@ -231,13 +231,13 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
       // Record first commit globally
       if (!request.timestamps.firstCommit) {
         request.timestamps.firstCommit = new Date();
-        logger.info(`📝 First commit submitted for DR ${drId} by identity ${identityId}`);
+        logger.info(`🔥 First commit submitted for DR ${drId} by identity ${identityId}`);
       }
       
       // Calculate time from execution to commit
       if (identityMetrics.executionCompleted) {
         const commitTime = identityMetrics.commitSubmitted.getTime() - identityMetrics.executionCompleted.getTime();
-        logger.info(`📨 Commit submitted for DR ${drId}, identity ${identityId}: ${commitTime}ms after execution`);
+        logger.info(`⚡ Commit submitted for DR ${drId}, identity ${identityId}: ${commitTime}ms after execution`);
       }
     }
 
@@ -245,9 +245,9 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
     if (request.status === 'executing') {
       this.updateStatus(request, 'committed');
       
-      // Now that we're committed, check if we should reveal
+      // 🚀 PERFORMANCE: Force immediate reveal check
       // (replication factor might have been met while we were executing)
-      this.checkReadyForReveal(request);
+      setTimeout(() => this.checkReadyForReveal(request), 0);
     }
 
     logger.debug(`Added commit hash for DR ${drId}, identity ${identityId}: ${commitHash.slice(0, 16)}...`);
@@ -302,14 +302,14 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
       if (identityId === publicKey && metrics.commitSubmitted && !metrics.commitConfirmed) {
         metrics.commitConfirmed = new Date();
         const confirmationTime = metrics.commitConfirmed.getTime() - metrics.commitSubmitted.getTime();
-        logger.info(`✅ Commit confirmed on-chain for DR ${drId}, identity ${identityId}: ${confirmationTime}ms after submission`);
+        logger.info(`🎯 Commit confirmed on-chain for DR ${drId}, identity ${identityId}: ${confirmationTime}ms after submission`);
       }
     }
 
-    logger.info(`📊 DR ${drId} commit stats: ${request.successfulCommits.size}/${request.replicationFactor} commits received (replication factor: ${request.replicationFactor})`);
+    logger.info(`🔥 DR ${drId} commit stats: ${request.successfulCommits.size}/${request.replicationFactor} commits received (replication factor: ${request.replicationFactor})`);
     logger.debug(`Recorded commit for DR ${drId} by ${publicKey}. Total commits: ${request.successfulCommits.size}/${request.replicationFactor}`);
 
-    // Check if we should transition to revealing state
+    // 🚀 PERFORMANCE: Check immediately if we should transition to revealing state
     if (request.successfulCommits.size >= request.replicationFactor) {
       // 🚀 TIMING: Record when all commits are received
       if (!request.timestamps.allCommitsReceived) {
@@ -322,7 +322,8 @@ export class DataRequestStateManager extends EventEmitter<EventMap> {
         }
       }
       
-      this.checkReadyForReveal(request);
+      // 🚀 PERFORMANCE: Force immediate reveal processing
+      setTimeout(() => this.checkReadyForReveal(request), 0);
     }
   }
 

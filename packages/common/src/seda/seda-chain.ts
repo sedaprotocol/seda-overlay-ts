@@ -381,11 +381,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 	start() {
 		this.stop();
 
-		// Use a single interval to process all account queues in parallel with much faster processing
+		// 🚀 PERFORMANCE: Use extremely fast processing interval for immediate transaction processing
+		// Reduced from default queueInterval to maximum 10ms for ultra-responsive commit/reveal processing
 		this.intervalIds.push(
 			debouncedInterval(async () => {
 				await this.processAllQueues();
-			}, Math.min(this.config.sedaChain.queueInterval, 100)), // Max 100ms for rapid processing
+			}, Math.min(this.config.sedaChain.queueInterval, 10)), // Max 10ms for ultra-fast processing
 		);
 	}
 
