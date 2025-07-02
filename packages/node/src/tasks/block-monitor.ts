@@ -110,105 +110,94 @@ export class BlockMonitorTask extends EventEmitter<EventMap> {
     const height = blockEvent.height;
     this.lastProcessedHeight = height;
 
-    // Process block in background without blocking ongoing operations
-    setImmediate(async () => {
-      try {
-        logger.debug(`Processing block ${height} with ${blockEvent.transactions.length} transactions`);
-        
-        // Extract all DR events from the block  
-        const events = await this.eventProcessor.processBlockTransactions(blockEvent);
-        
-        if (events.length === 0) {
-          logger.debug(`No DR events found in block ${height}`);
-          return;
-        }
-
-        logger.debug(`Found ${events.length} DR events in block ${height}`);
-
-        // Group events by type for batch processing
-        const postEvents = events.filter(e => e.type === 'posted');
-        const commitEvents = events.filter(e => e.type === 'committed');  
-        const revealEvents = events.filter(e => e.type === 'revealed');
-
-        // Process all events in parallel WITHOUT blocking other processes
-        const processingPromises: Promise<void>[] = [];
-
-        // Process all posted DRs in parallel
-        if (postEvents.length > 0) {
-          logger.info(`📬 Processing ${postEvents.length} posted DR events from block ${height} (non-blocking)`);
-          for (const event of postEvents) {
-            // Use setImmediate for each event to ensure no blocking
-            processingPromises.push(
-              new Promise<void>((resolve) => {
-                setImmediate(async () => {
-                  try {
-                    await this.handleDataRequestPosted(event, height);
-                    resolve();
-                  } catch (error) {
-                    logger.error(`Error processing posted DR event: ${error}`);
-                    resolve(); // Continue processing other events
-                  }
-                });
-              })
-            );
-          }
-        }
-
-        // Process all commits in parallel  
-        if (commitEvents.length > 0) {
-          logger.info(`📝 Processing ${commitEvents.length} commit events from block ${height} (non-blocking)`);
-          for (const event of commitEvents) {
-            processingPromises.push(
-              new Promise<void>((resolve) => {
-                setImmediate(async () => {
-                  try {
-                    await this.handleDataRequestCommitted(event, height);
-                    resolve();
-                  } catch (error) {
-                    logger.error(`Error processing commit event: ${error}`);
-                    resolve(); // Continue processing other events
-                  }
-                });
-              })
-            );
-          }
-        }
-
-        // Process all reveals in parallel
-        if (revealEvents.length > 0) {
-          logger.info(`🎯 Processing ${revealEvents.length} reveal events from block ${height} (non-blocking)`);
-          for (const event of revealEvents) {
-            processingPromises.push(
-              new Promise<void>((resolve) => {
-                setImmediate(async () => {
-                  try {
-                    await this.handleDataRequestRevealed(event, height);
-                    resolve();
-                  } catch (error) {
-                    logger.error(`Error processing reveal event: ${error}`);
-                    resolve(); // Continue processing other events
-                  }
-                });
-              })
-            );
-          }
-        }
-
-        // Process all events in background - don't block other operations
-        Promise.all(processingPromises).then(() => {
-          logger.debug(`✅ Completed processing block ${height} - ${postEvents.length} posts, ${commitEvents.length} commits, ${revealEvents.length} reveals`);
-        }).catch((error) => {
-          logger.error(`Error in block ${height} processing: ${error}`);
+    // 🚀 COMPLETELY NON-BLOCKING: Process block events without any interference to DR processes
+    setImmediate(() => {
+      this.processBlockEventsInBackground(blockEvent, height)
+        .catch(error => {
+          logger.warn(`Background block processing error for block ${height}: ${error.message}`);
+          // Continue - block processing errors don't affect DR processes
         });
-
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        logger.error(`Failed to process block ${height}: ${err.message}`);
-      }
     });
 
     // Return immediately without waiting for processing to complete
-    logger.debug(`📦 Block ${height} queued for background processing, ongoing operations continue`);
+    logger.debug(`📦 Block ${height} queued for ultra-fast background processing, DR processes continue uninterrupted`);
+  }
+
+  /**
+   * 🚀 NEW: Completely isolated background block event processing
+   */
+  private async processBlockEventsInBackground(blockEvent: BlockEvent, height: bigint): Promise<void> {
+    try {
+      logger.debug(`Processing block ${height} with ${blockEvent.transactions.length} transactions in background`);
+      
+      // Extract all DR events from the block  
+      const events = await this.eventProcessor.processBlockTransactions(blockEvent);
+      
+      if (events.length === 0) {
+        logger.debug(`No DR events found in block ${height}`);
+        return;
+      }
+
+      logger.debug(`Found ${events.length} DR events in block ${height} - processing in parallel`);
+
+      // Group events by type for batch processing
+      const postEvents = events.filter(e => e.type === 'posted');
+      const commitEvents = events.filter(e => e.type === 'committed');  
+      const revealEvents = events.filter(e => e.type === 'revealed');
+
+      // 🚀 ULTRA-PARALLEL: Process ALL events simultaneously with maximum concurrency
+      const allProcessingPromises: Promise<void>[] = [];
+
+      // Process all posted DRs in parallel
+      if (postEvents.length > 0) {
+        logger.info(`📬 Processing ${postEvents.length} posted DR events from block ${height} (ultra-parallel)`);
+        allProcessingPromises.push(
+          ...postEvents.map(event => 
+            this.handleDataRequestPosted(event, height).catch(error => {
+              logger.warn(`Posted DR processing error: ${error.message}`);
+              // Continue with other events
+            })
+          )
+        );
+      }
+
+      // Process all commits in parallel  
+      if (commitEvents.length > 0) {
+        logger.info(`📝 Processing ${commitEvents.length} commit events from block ${height} (ultra-parallel)`);
+        allProcessingPromises.push(
+          ...commitEvents.map(event => 
+            this.handleDataRequestCommitted(event, height).catch(error => {
+              logger.warn(`Commit processing error: ${error.message}`);
+              // Continue with other events
+            })
+          )
+        );
+      }
+
+      // Process all reveals in parallel
+      if (revealEvents.length > 0) {
+        logger.info(`🎯 Processing ${revealEvents.length} reveal events from block ${height} (ultra-parallel)`);
+        allProcessingPromises.push(
+          ...revealEvents.map(event => 
+            this.handleDataRequestRevealed(event, height).catch(error => {
+              logger.warn(`Reveal processing error: ${error.message}`);
+              // Continue with other events
+            })
+          )
+        );
+      }
+
+      // Process all events simultaneously with maximum parallelism
+      if (allProcessingPromises.length > 0) {
+        await Promise.allSettled(allProcessingPromises);
+        logger.debug(`✅ Completed parallel processing block ${height} - ${postEvents.length} posts, ${commitEvents.length} commits, ${revealEvents.length} reveals`);
+      }
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.warn(`Background block processing failed for block ${height}: ${err.message}`);
+      // Continue - don't let block processing errors affect DR processes
+    }
   }
 
   /**

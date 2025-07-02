@@ -100,19 +100,21 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       this.isMonitoring = true;
 
       // Start polling for new blocks every second
+      // 🚀 ISOLATION: Block polling never stops DR processes
       this.intervalId = setInterval(() => {
         this.pollForNewBlocks().catch((error) => {
-          logger.error("Error polling for new blocks");
-          this.emit('error', error);
+          logger.debug(`[${this.instanceId}] Block polling error (continuing): ${error.message}`);
+          // Don't emit error - this would stop monitoring. Continue running instead.
         });
       }, this.pollInterval);
 
-      // 🚀 NEW: Start retry system for failed blocks
+      // 🚀 INDEPENDENT: Retry system runs independently without affecting main monitoring
       this.retryIntervalId = setInterval(() => {
         this.retryFailedBlocks().catch((error) => {
-          logger.error("Error retrying failed blocks");
+          logger.debug(`[${this.instanceId}] Retry system error (continuing): ${error.message}`);
+          // Continue - retry errors don't affect main monitoring or DR processes
         });
-      }, this.retryBaseDelay);
+      }, Math.min(this.retryBaseDelay, 5000)); // Retry more frequently (max 5s)
 
       logger.info(`Block monitoring started with retry system - max retries: ${this.maxRetryAttempts}, base delay: ${this.retryBaseDelay}ms [${this.instanceId}]`);
       return Result.ok(undefined);
@@ -211,62 +213,101 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     }
   }
 
-  // 🚀 NEW: Enhanced pollForNewBlocks with proper retry handling
+  // 🚀 COMPLETELY NON-BLOCKING: Enhanced pollForNewBlocks that never interferes with DR processes
   private async pollForNewBlocks(): Promise<void> {
     if (!this.isMonitoring) return;
 
-    const currentHeight = await this.getCurrentHeight();
-    if (currentHeight.isErr) {
-      logger.error("Failed to get current block height");
-      return;
-    }
-
-    // Process all blocks since last processed height (only if we're not already processing them)
-    const blocksToProcess: bigint[] = [];
-    for (let height = this.lastProcessedHeight + 1n; height <= currentHeight.value; height++) {
-      if (!this.processingBlocks.has(height) && !this.failedBlocks.has(height)) {
-        blocksToProcess.push(height);
+    try {
+      // 🚀 PERFORMANCE: Get current height without blocking
+      const currentHeight = await this.getCurrentHeight();
+      if (currentHeight.isErr) {
+        logger.warn(`[${this.instanceId}] Failed to get current block height: ${currentHeight.error.message}`);
+        return; // Continue running, don't block DR processes
       }
-    }
 
-    if (blocksToProcess.length > 0) {
-      logger.info(`🔄 [${this.instanceId}] Processing ${blocksToProcess.length} new blocks: ${blocksToProcess[0]} to ${blocksToProcess[blocksToProcess.length - 1]}`);
-    }
+      // Process all blocks since last processed height (only if we're not already processing them)
+      const blocksToProcess: bigint[] = [];
+      for (let height = this.lastProcessedHeight + 1n; height <= currentHeight.value; height++) {
+        if (!this.processingBlocks.has(height) && !this.failedBlocks.has(height)) {
+          blocksToProcess.push(height);
+        }
+      }
 
-    // Process all new blocks in parallel
-    const blockPromises = blocksToProcess.map(height => this.processBlockSafely(height));
-    
-    if (blockPromises.length > 0) {
-      await Promise.allSettled(blockPromises);
-    }
+      if (blocksToProcess.length > 0) {
+        logger.info(`🔄 [${this.instanceId}] Processing ${blocksToProcess.length} new blocks: ${blocksToProcess[0]} to ${blocksToProcess[blocksToProcess.length - 1]}`);
+      }
 
-    // Update lastProcessedHeight to the highest height we've attempted (not necessarily succeeded)
-    // This prevents re-processing the same new blocks, while failed blocks are handled by retry system
-    if (blocksToProcess.length > 0) {
-      this.lastProcessedHeight = currentHeight.value;
+      // 🚀 CRITICAL: Process blocks in background with ZERO blocking of DR processes
+      if (blocksToProcess.length > 0) {
+        // Fire and forget - never await block processing to avoid blocking DR processes
+        setImmediate(() => {
+          this.processBlocksInBackground(blocksToProcess, currentHeight.value)
+            .catch(error => {
+              logger.warn(`[${this.instanceId}] Background block processing error: ${error.message}`);
+              // Continue running - don't let block fetch failures affect DR processes
+            });
+        });
+      }
+    } catch (error) {
+      // 🚀 ISOLATION: Block fetching errors never affect DR processes
+      logger.warn(`[${this.instanceId}] Poll error (continuing): ${error}`);
+      // Continue running - DR processes are unaffected
     }
   }
 
-  // 🚀 NEW: Safe block processing with error handling and retry tracking
+  // 🚀 NEW: Background block processing that never blocks the main thread
+  private async processBlocksInBackground(blocksToProcess: bigint[], highestHeight: bigint): Promise<void> {
+    // Process all new blocks in parallel without any awaiting on the main thread
+    const blockPromises = blocksToProcess.map(height => 
+      this.processBlockSafely(height).catch(error => {
+        // Individual block failures don't stop other blocks from processing
+        logger.debug(`[${this.instanceId}] Block ${height} processing failed: ${error.message}`);
+      })
+    );
+    
+    // Process in background without blocking any other operations
+    await Promise.allSettled(blockPromises);
+
+    // Update lastProcessedHeight to the highest height we've attempted (not necessarily succeeded)
+    // This prevents re-processing the same new blocks, while failed blocks are handled by retry system
+    this.lastProcessedHeight = highestHeight;
+    
+    logger.debug(`[${this.instanceId}] Background processing completed for ${blocksToProcess.length} blocks`);
+  }
+
+  // 🚀 COMPLETELY ISOLATED: Safe block processing that never affects DR processes
   private async processBlockSafely(height: bigint): Promise<void> {
     // Mark block as being processed
     this.processingBlocks.add(height);
     
     try {
-      const blockEvent = await this.getBlockAtHeight(height);
+      // 🚀 TIMEOUT PROTECTION: Add timeout to prevent hanging
+      const blockEvent = await Promise.race([
+        this.getBlockAtHeight(height),
+        new Promise<Result<BlockEvent, Error>>((_, reject) => 
+          setTimeout(() => reject(new Error(`Block fetch timeout after 30s`)), 30000)
+        )
+      ]);
       
       if (blockEvent.isOk) {
         const txCount = blockEvent.value.transactions.length;
-                 const sedaTxCount = blockEvent.value.transactions.filter((tx: ParsedTransaction) => 
-           tx.messages.some((msg: ParsedMessage) => msg.sedaContext !== undefined)
-         ).length;
+        const sedaTxCount = blockEvent.value.transactions.filter((tx: ParsedTransaction) => 
+          tx.messages.some((msg: ParsedMessage) => msg.sedaContext !== undefined)
+        ).length;
         
         if (sedaTxCount > 0) {
           logger.info(`✅ [${this.instanceId}] Block ${height}: ${txCount} transactions (${sedaTxCount} SEDA)`);
         }
         
-        // Emit the block event
-        this.emit('newBlock', blockEvent.value);
+        // 🚀 NON-BLOCKING: Emit event in next tick to avoid blocking DR processes
+        setImmediate(() => {
+          try {
+            this.emit('newBlock', blockEvent.value);
+          } catch (emitError) {
+            logger.warn(`[${this.instanceId}] Event emission error for block ${height}: ${emitError}`);
+            // Continue - don't let event handling issues affect block processing
+          }
+        });
         
         // Remove from failed blocks if it was previously failed
         this.failedBlocks.delete(height);
@@ -276,6 +317,7 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
+      logger.debug(`[${this.instanceId}] Block ${height} fetch error: ${err.message}`);
       this.addToFailedBlocks(height, err.message);
     } finally {
       // Remove from processing set
@@ -283,13 +325,21 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     }
   }
 
-  // 🚀 NEW: Add block to failed blocks with exponential backoff
+  // 🚀 ENHANCED: Smart retry with circuit breaker pattern
   private addToFailedBlocks(height: bigint, errorMessage: string): void {
     const existing = this.failedBlocks.get(height);
     const attempts = existing ? existing.attempts + 1 : 1;
     
-    // Exponential backoff: 2s, 4s, 8s, 16s, 32s, then cap at 60s
-    const backoffMs = Math.min(this.retryBaseDelay * Math.pow(2, attempts - 1), 60000);
+    // 🚀 SMART BACKOFF: Faster initial retries, longer delays for persistent failures
+    let backoffMs: number;
+    if (attempts <= 3) {
+      // Quick retries for transient issues: 1s, 2s, 4s
+      backoffMs = 1000 * Math.pow(2, attempts - 1);
+    } else {
+      // Longer delays for persistent issues: 10s, 20s, 40s, max 60s
+      backoffMs = Math.min(10000 * Math.pow(2, attempts - 4), 60000);
+    }
+    
     const nextRetry = new Date(Date.now() + backoffMs);
     
     const failedBlock: FailedBlock = {
@@ -302,36 +352,70 @@ export class BlockMonitorService extends EventEmitter<EventMap> {
     
     this.failedBlocks.set(height, failedBlock);
     
-    logger.warn(`❌ [${this.instanceId}] Block ${height} failed (attempt ${attempts}/${this.maxRetryAttempts}): ${errorMessage}. Next retry in ${backoffMs}ms`);
+    // Different log levels based on failure type
+    if (attempts <= 3) {
+      logger.debug(`🔄 [${this.instanceId}] Block ${height} failed (attempt ${attempts}/${this.maxRetryAttempts}): ${errorMessage}. Retry in ${backoffMs}ms`);
+    } else {
+      logger.warn(`❌ [${this.instanceId}] Block ${height} persistent failure (attempt ${attempts}/${this.maxRetryAttempts}): ${errorMessage}. Retry in ${backoffMs}ms`);
+    }
     
-    // Remove from failed blocks if max attempts exceeded
+    // 🚀 GRACEFUL DEGRADATION: Remove from failed blocks if max attempts exceeded
     if (attempts >= this.maxRetryAttempts) {
-      logger.error(`💀 [${this.instanceId}] Block ${height} permanently failed after ${attempts} attempts. Last error: ${errorMessage}`);
+      logger.error(`💀 [${this.instanceId}] Block ${height} permanently failed after ${attempts} attempts. Skipping. Last error: ${errorMessage}`);
       this.failedBlocks.delete(height);
+      
+      // 🚀 RESILIENCE: Don't stop monitoring - continue with next blocks
+      logger.info(`[${this.instanceId}] Continuing block monitoring despite failed block ${height}`);
     }
   }
 
-  // 🚀 NEW: Retry failed blocks independently
+  // 🚀 COMPLETELY NON-BLOCKING: Retry failed blocks without affecting DR processes
   private async retryFailedBlocks(): Promise<void> {
     if (!this.isMonitoring || this.failedBlocks.size === 0) return;
 
-    const now = new Date();
-    const blocksToRetry: bigint[] = [];
-    
-    // Find blocks ready for retry
-    for (const [height, failedBlock] of this.failedBlocks) {
-      if (now >= failedBlock.nextRetry && !this.processingBlocks.has(height)) {
-        blocksToRetry.push(height);
+    try {
+      const now = new Date();
+      const blocksToRetry: bigint[] = [];
+      
+      // Find blocks ready for retry
+      for (const [height, failedBlock] of this.failedBlocks) {
+        if (now >= failedBlock.nextRetry && !this.processingBlocks.has(height)) {
+          blocksToRetry.push(height);
+        }
       }
+      
+      if (blocksToRetry.length === 0) return;
+      
+      logger.debug(`🔄 [${this.instanceId}] Retrying ${blocksToRetry.length} failed blocks: [${blocksToRetry.join(', ')}]`);
+      
+      // 🚀 FIRE-AND-FORGET: Retry blocks in complete background without blocking
+      setImmediate(() => {
+        this.retryBlocksInBackground(blocksToRetry)
+          .catch(error => {
+            logger.debug(`[${this.instanceId}] Background retry error: ${error.message}`);
+            // Continue - retry failures don't affect DR processes
+          });
+      });
+    } catch (error) {
+      // 🚀 ISOLATION: Retry system errors never affect DR processes
+      logger.debug(`[${this.instanceId}] Retry system error (continuing): ${error}`);
     }
+  }
+
+  // 🚀 NEW: Background retry processing
+  private async retryBlocksInBackground(blocksToRetry: bigint[]): Promise<void> {
+    // Retry blocks in parallel with individual error handling
+    const retryPromises = blocksToRetry.map(height => 
+      this.processBlockSafely(height).catch(error => {
+        logger.debug(`[${this.instanceId}] Retry failed for block ${height}: ${error.message}`);
+        // Individual retry failures don't affect other retries
+      })
+    );
     
-    if (blocksToRetry.length === 0) return;
-    
-    logger.info(`🔄 [${this.instanceId}] Retrying ${blocksToRetry.length} failed blocks: [${blocksToRetry.join(', ')}]`);
-    
-    // Retry blocks in parallel
-    const retryPromises = blocksToRetry.map(height => this.processBlockSafely(height));
+    // Process all retries without blocking
     await Promise.allSettled(retryPromises);
+    
+    logger.debug(`[${this.instanceId}] Background retry completed for ${blocksToRetry.length} blocks`);
   }
 
   private async getBlockAtHeight(height: bigint): Promise<Result<BlockEvent, Error>> {

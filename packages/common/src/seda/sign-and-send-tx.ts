@@ -33,6 +33,14 @@ export async function signAndSendTxSync(
 	const gasInput = gasOptions.gas ?? config.gas;
 	let gas: bigint;
 
+	// 🚀 SEQUENCE FIX: Log sequence state before transaction
+	const sequenceStats = (signingClient as any).getSequenceStats ? (signingClient as any).getSequenceStats() : null;
+	if (sequenceStats) {
+		logger.debug(`🔢 Transaction sequence state: cached=${sequenceStats.hasCachedSequence}, sequence=${sequenceStats.currentSequence}, resets=${sequenceStats.resetCount}`, {
+			id: traceId,
+		});
+	}
+
 	if (gasInput === "auto") {
 		const simulationSpan = tracer.startSpan("simulateGas", undefined, ctx);
 		const simulatedGas = await tryAsync(async () => signingClient.simulate(address, messages, memo));
@@ -42,8 +50,18 @@ export async function signAndSendTxSync(
 			});
 
 			if (IncorrectAccountSquence.isError(simulatedGas.error)) {
-				// Reset sequence number when we get a mismatch
-				signingClient.accountInfo = Maybe.nothing();
+				// 🚀 SEQUENCE FIX: Use the enhanced reset method if available
+				if (typeof (signingClient as any).resetSequenceNumber === 'function') {
+					await (signingClient as any).resetSequenceNumber("simulation error");
+				} else {
+					// Fallback for older clients
+					signingClient.accountInfo = Maybe.nothing();
+				}
+				
+				logger.warn(`🚨 Sequence mismatch during simulation: ${simulatedGas.error.message}`, {
+					id: traceId,
+				});
+				
 				simulationSpan.recordException(simulatedGas.error);
 				simulationSpan.end();
 				parentSpan.recordException(simulatedGas.error);
@@ -115,8 +133,18 @@ export async function signAndSendTxSync(
 	const txResult = await tryAsync(async () => signingClient.signAndBroadcastSync(address, messages, fee, memo));
 	if (txResult.isErr) {
 		if (IncorrectAccountSquence.isError(txResult.error)) {
-			// Reset sequence number when we get a mismatch
-			signingClient.accountInfo = Maybe.nothing();
+			// 🚀 SEQUENCE FIX: Use the enhanced reset method if available
+			if (typeof (signingClient as any).resetSequenceNumber === 'function') {
+				await (signingClient as any).resetSequenceNumber("broadcast error");
+			} else {
+				// Fallback for older clients
+				signingClient.accountInfo = Maybe.nothing();
+			}
+			
+			logger.warn(`🚨 Sequence mismatch during broadcast: ${txResult.error.message}`, {
+				id: traceId,
+			});
+			
 			broadcastSpan.recordException(txResult.error);
 			broadcastSpan.end();
 			parentSpan.recordException(txResult.error);
@@ -134,6 +162,12 @@ export async function signAndSendTxSync(
 	broadcastSpan.setAttribute("transactionHash", txResult.value);
 	broadcastSpan.end();
 	parentSpan.end();
+	
+	// 🚀 SEQUENCE FIX: Log successful transaction with sequence info
+	logger.debug(`✅ Transaction broadcast successful: ${txResult.value}`, {
+		id: traceId,
+	});
+	
 	return Result.ok(txResult.value);
 }
 

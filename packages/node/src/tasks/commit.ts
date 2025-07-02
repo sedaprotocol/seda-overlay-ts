@@ -61,6 +61,12 @@ export async function commitDr(
 		id: traceId,
 	});
 
+	// 🚀 SEQUENCE FIX: Log transaction stats before commit submission
+	const txStats = sedaChain.getTransactionStats();
+	logger.debug(`🔢 Pre-commit tx stats: pending=${txStats.pendingCount}, retries=${txStats.retryCount}, sequence_resets=${txStats.sequenceStats.reduce((sum, s) => sum + (s?.resetCount || 0), 0)}`, {
+		id: traceId,
+	});
+
 	const commitResponse = await sedaChain.queueSmartContractMessage(
 		{
 			commit_data_result: {

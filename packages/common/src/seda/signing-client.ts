@@ -21,6 +21,10 @@ type Mutable<T> = { -readonly [P in keyof T]: T[P] };
 export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 	accountInfo: Maybe<Mutable<SequenceResponse>> = Maybe.nothing();
 	cacheSequenceNumber = true;
+	
+	// 🚀 SEQUENCE FIX: Add synchronization to prevent race conditions
+	private sequenceUpdateLock: boolean = false;
+	private sequenceResetCount: number = 0;
 
 	/**
 	 * Exact same as queryContractSmart, but uses the big int encoding for numbers that are too big for the JSON standard.
@@ -57,20 +61,53 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 	incrementSequence(): boolean {
 		if (this.accountInfo.isJust) {
 			this.accountInfo.value.sequence += 1;
+			logger.debug(`🔢 Sequence incremented to ${this.accountInfo.value.sequence}`);
 			return true;
 		}
 		return false;
 	}
 
+	// 🚀 SEQUENCE FIX: Enhanced sequence management with race condition protection
 	async getSequence(address: string): Promise<SequenceResponse> {
+		// If we're in the middle of a sequence update, wait for it to complete
+		if (this.sequenceUpdateLock) {
+			logger.debug("🔒 Waiting for sequence update lock to be released");
+			await new Promise(resolve => setTimeout(resolve, 10));
+			return this.getSequence(address); // Retry after lock is released
+		}
+
 		if (this.cacheSequenceNumber && this.accountInfo.isJust) {
+			logger.debug(`🔢 Using cached sequence: ${this.accountInfo.value.sequence}`);
 			return this.accountInfo.value;
 		}
 
+		logger.debug("🔄 Fetching fresh sequence from chain");
 		const result = await super.getSequence(address);
 		this.accountInfo = Maybe.just(result);
+		logger.info(`🔢 Fresh sequence fetched: ${result.sequence}`);
 
 		return result;
+	}
+
+	// 🚀 SEQUENCE FIX: Synchronized sequence reset to prevent inconsistent state
+	async resetSequenceNumber(reason: string): Promise<void> {
+		if (this.sequenceUpdateLock) {
+			logger.debug("🔒 Sequence reset already in progress, skipping duplicate reset");
+			return;
+		}
+
+		this.sequenceUpdateLock = true;
+		this.sequenceResetCount++;
+		
+		try {
+			logger.warn(`🔄 Resetting sequence number (reason: ${reason}, reset #${this.sequenceResetCount})`);
+			this.accountInfo = Maybe.nothing();
+			
+			// Small delay to prevent rapid reset loops
+			await new Promise(resolve => setTimeout(resolve, 50));
+		} finally {
+			this.sequenceUpdateLock = false;
+		}
 	}
 
 	async broadcastTx(tx: Uint8Array, timeoutMs?: number, pollIntervalMs?: number): Promise<DeliverTxResponse> {
@@ -81,8 +118,7 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 		} catch (error) {
 			const errorMsg = `${error}`;
 			if (errorMsg.includes("incorrect account sequence")) {
-				logger.warn("Resetting sequence number");
-				this.accountInfo = Maybe.nothing();
+				await this.resetSequenceNumber("broadcastTx error");
 			}
 			throw error;
 		}
@@ -96,11 +132,20 @@ export class SedaSigningCosmWasmClient extends SigningCosmWasmClient {
 		} catch (error) {
 			const errorMsg = `${error}`;
 			if (errorMsg.includes("incorrect account sequence")) {
-				logger.warn("Resetting sequence number");
-				this.accountInfo = Maybe.nothing();
+				await this.resetSequenceNumber("broadcastTxSync error");
 			}
 			throw error;
 		}
+	}
+
+	// 🚀 SEQUENCE FIX: Add method to get sequence statistics for debugging
+	getSequenceStats() {
+		return {
+			hasCachedSequence: this.accountInfo.isJust,
+			currentSequence: this.accountInfo.isJust ? this.accountInfo.value.sequence : null,
+			resetCount: this.sequenceResetCount,
+			isLocked: this.sequenceUpdateLock,
+		};
 	}
 }
 

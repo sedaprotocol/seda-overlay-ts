@@ -41,6 +41,12 @@ export async function revealDr(
 		id: traceId,
 	});
 
+	// 🚀 SEQUENCE FIX: Log transaction stats before reveal submission  
+	const txStats = sedaChain.getTransactionStats();
+	logger.debug(`🔢 Pre-reveal tx stats: pending=${txStats.pendingCount}, retries=${txStats.retryCount}, sequence_resets=${txStats.sequenceStats.reduce((sum, s) => sum + (s?.resetCount || 0), 0)}`, {
+		id: traceId,
+	});
+
 	const revealResponse = await sedaChain.queueSmartContractMessage(
 		{
 			reveal_data_result: {

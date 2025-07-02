@@ -145,11 +145,21 @@ export class SedaChain extends EventEmitter<EventMap> {
 		const pendingCount = Array.from(this.accountSequenceQueues.values())
 			.reduce((total, queue) => total + queue.length, 0);
 		
+		// 🚀 SEQUENCE FIX: Add sequence-related statistics
+		const sequenceStats = this.signerClients.map((client, index) => {
+			const stats = (client as any).getSequenceStats ? (client as any).getSequenceStats() : null;
+			return {
+				accountIndex: index,
+				...stats
+			};
+		});
+		
 		return {
 			successCount: this.txSuccessCount,
 			failureCount: this.txFailureCount,
 			pendingCount,
 			retryCount: this.txRetryCount,
+			sequenceStats,
 		};
 	}
 
@@ -307,6 +317,21 @@ export class SedaChain extends EventEmitter<EventMap> {
 			const cosmosMessage = transaction.message;
 			const gasOption = transaction.gasOptions ?? { gas: this.config.sedaChain.gas };
 
+			// 🚀 SEQUENCE FIX: Log transaction type and priority for sequence debugging
+			const txType = transaction.type === "contract" ? this.extractContractMessageType(cosmosMessage) : transaction.type;
+			logger.debug(`🔄 Processing ${transaction.priority} priority ${txType} transaction (queue: ${accountQueue.length} remaining)`, {
+				id: transaction.traceId,
+			});
+
+			// 🚀 SEQUENCE FIX: Get sequence stats before transaction
+			const client = this.signerClients[transaction.accountIndex];
+			const sequenceStats = (client as any).getSequenceStats ? (client as any).getSequenceStats() : null;
+			if (sequenceStats) {
+				logger.debug(`🔢 Pre-transaction sequence: cached=${sequenceStats.hasCachedSequence}, seq=${sequenceStats.currentSequence}, resets=${sequenceStats.resetCount}`, {
+					id: transaction.traceId,
+				});
+			}
+
 			const result = await signAndSendTxSync(
 				this.config.sedaChain,
 				this.signerClients[transaction.accountIndex],
@@ -319,17 +344,51 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 			if (result.isErr) {
 				if (result.error instanceof IncorrectAccountSquence) {
-					logger.warn(`Incorrect account sequence, adding tx back to front of queue: ${result.error}`, {
+					logger.warn(`🚨 Sequence mismatch for ${txType} (${transaction.priority} priority), retry attempt #${this.txRetryCount + 1}`, {
 						id: transaction.traceId,
 					});
 
 					this.txRetryCount++;
 
-					// Put the transaction back at the front of the queue for retry
-					accountQueue.unshift(transaction);
+					// 🚀 SEQUENCE FIX: Limit retry attempts to prevent infinite loops
+					const maxRetries = 5;
+					const currentRetries = (transaction as any).retryCount || 0;
+					
+					if (currentRetries < maxRetries) {
+						(transaction as any).retryCount = currentRetries + 1;
+						
+						// 🚀 SEQUENCE FIX: Add progressive delay for retries
+						const delayMs = Math.min(100 * Math.pow(2, currentRetries), 1000); // Exponential backoff, max 1s
+						
+						setTimeout(() => {
+							// Put the transaction back at the front of the queue for retry
+							accountQueue.unshift(transaction);
+							// Continue processing this account's queue
+							setImmediate(() => this.processAccountQueue(accountIndex));
+						}, delayMs);
+						
+						logger.debug(`🔄 Retrying ${txType} in ${delayMs}ms (attempt ${currentRetries + 1}/${maxRetries})`, {
+							id: transaction.traceId,
+						});
+						return; // Don't process more transactions until retry completes
+					} else {
+						// Max retries exceeded - treat as permanent failure
+						logger.error(`❌ ${txType} failed after ${maxRetries} sequence retry attempts`, {
+							id: transaction.traceId,
+						});
+						
+						this.txFailureCount++;
+						
+						// Notify the callback of the failure
+						const callback = this.queueCallbacks.get(transaction.id);
+						if (callback) {
+							callback(Result.err(new Error(`Transaction failed after ${maxRetries} sequence retry attempts: ${result.error.message}`)));
+							this.queueCallbacks.delete(transaction.id);
+						}
+					}
 				} else {
 					this.txFailureCount++;
-					logger.error(`Transaction failed: ${result.error}`, {
+					logger.error(`❌ ${txType} transaction failed: ${result.error}`, {
 						id: transaction.traceId,
 					});
 
@@ -342,6 +401,9 @@ export class SedaChain extends EventEmitter<EventMap> {
 				}
 			} else {
 				this.txSuccessCount++;
+				logger.debug(`✅ ${txType} transaction successful: ${result.value}`, {
+					id: transaction.traceId,
+				});
 
 				// Notify the callback of success
 				const callback = this.queueCallbacks.get(transaction.id);
@@ -362,6 +424,29 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 
 	/**
+	 * Extract transaction type from contract message for better logging
+	 */
+	private extractContractMessageType(message: EncodeObject): string {
+		try {
+			if (message.typeUrl === "/cosmwasm.wasm.v1.MsgExecuteContract" && message.value) {
+				const msgValue = message.value as any;
+				if (msgValue.msg) {
+					const msgBuffer = Buffer.isBuffer(msgValue.msg) ? msgValue.msg : Buffer.from(msgValue.msg);
+					const msgObj = JSON.parse(msgBuffer.toString());
+					const keys = Object.keys(msgObj);
+					if (keys.length > 0) {
+						// Return the first key which is typically the contract method name
+						return keys[0];
+					}
+				}
+			}
+		} catch (error) {
+			// If parsing fails, fall back to generic type
+		}
+		return "contract";
+	}
+
+	/**
 	 * Process all account queues in parallel.
 	 * Each account processes its transactions sequentially to maintain sequence order.
 	 */
@@ -370,6 +455,28 @@ export class SedaChain extends EventEmitter<EventMap> {
 			this.processAccountQueue(accountIndex)
 		);
 		await Promise.all(accountPromises);
+	}
+
+	// 🚀 SEQUENCE FIX: Health check for sequence coordination system
+	getSequenceHealth() {
+		const stats = this.getTransactionStats();
+		const totalResets = stats.sequenceStats.reduce((sum, s) => sum + (s?.resetCount || 0), 0);
+		const hasLockedSequences = stats.sequenceStats.some(s => s?.isLocked);
+		const retryRate = stats.retryCount / Math.max(stats.successCount + stats.failureCount, 1);
+		
+		return {
+			isHealthy: totalResets < 10 && !hasLockedSequences && retryRate < 0.1, // Less than 10 resets, no locked sequences, <10% retry rate
+			totalSequenceResets: totalResets,
+			hasLockedSequences,
+			retryRate: Math.round(retryRate * 100) / 100, // Round to 2 decimal places
+			pendingTransactions: stats.pendingCount,
+			recommendations: {
+				...(totalResets >= 10 && { highSequenceResets: "Consider reducing transaction concurrency or checking network stability" }),
+				...(hasLockedSequences && { lockedSequences: "Sequence locks detected - may indicate network issues" }),
+				...(retryRate >= 0.1 && { highRetryRate: "High retry rate indicates sequence coordination issues" }),
+				...(stats.pendingCount > 50 && { highPendingCount: "Large transaction backlog - consider increasing processing capacity" })
+			}
+		};
 	}
 
 	stop() {
