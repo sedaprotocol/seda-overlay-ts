@@ -72,6 +72,10 @@ export interface DataRequestResponse {
    */
   payback_address: Binary;
   /**
+   * The actual gas price derived from the funds sent (funds / total_gas_limit). This may be higher than the minimum gas_price.
+   */
+  posted_gas_price: Uint128;
+  /**
    * Amount of required DR executors
    */
   replication_factor: number;

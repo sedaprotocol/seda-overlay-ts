@@ -14,6 +14,7 @@ export interface DataRequest {
 	replicationFactor: number;
 	consensusFilter: Buffer;
 	gasPrice: bigint;
+	postedGasPrice: bigint;
 	memo: Buffer;
 	paybackAddress: Buffer;
 	sedaPayload: Buffer;
@@ -36,6 +37,7 @@ export function transformDataRequestFromContract(request: DataRequestFromContrac
 		replicationFactor: request.replication_factor,
 		consensusFilter: Buffer.from(request.consensus_filter, "base64"),
 		gasPrice: BigInt(request.gas_price),
+		postedGasPrice: BigInt(request.posted_gas_price),
 		memo: Buffer.from(request.memo, "base64"),
 		paybackAddress: Buffer.from(request.payback_address, "base64"),
 		sedaPayload: Buffer.from(request.seda_payload, "base64"),

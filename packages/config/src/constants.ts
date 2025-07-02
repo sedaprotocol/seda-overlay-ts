@@ -69,7 +69,7 @@ export const TESTNET_APP_CONFIG: DeepPartial<AppConfig> = {
 
 export const MAINNET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
-		rpc: "https://rpc.seda.xyz",
+		rpc: "https://overlay-rpc.seda.xyz",
 		chainId: "seda-1",
 		mnemonic: "YOUR SEDA MNEMONIC HERE",
 	},

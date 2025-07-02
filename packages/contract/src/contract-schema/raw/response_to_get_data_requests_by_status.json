@@ -55,6 +55,7 @@
 				"id",
 				"memo",
 				"payback_address",
+				"posted_gas_price",
 				"replication_factor",
 				"reveals",
 				"seda_payload",
@@ -126,6 +127,14 @@
 					"allOf": [
 						{
 							"$ref": "#/definitions/Binary"
+						}
+					]
+				},
+				"posted_gas_price": {
+					"description": "The actual gas price derived from the funds sent (funds / total_gas_limit). This may be higher than the minimum gas_price.",
+					"allOf": [
+						{
+							"$ref": "#/definitions/Uint128"
 						}
 					]
 				},

@@ -25,7 +25,7 @@ export const addToAllowlist = populateWithCommonOptions(new Command("add-to-allo
 			},
 			TransactionPriority.LOW,
 			undefined,
-			undefined,
+			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
 			"add-to-allowlist",
 		);

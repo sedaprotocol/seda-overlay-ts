@@ -1,6 +1,6 @@
 {
 	"contract_name": "seda-contract",
-	"contract_version": "1.0.13",
+	"contract_version": "1.0.15",
 	"idl_version": "1.0.0",
 	"instantiate": {
 		"$schema": "http://json-schema.org/draft-07/schema#",
@@ -1305,6 +1305,7 @@
 						"id",
 						"memo",
 						"payback_address",
+						"posted_gas_price",
 						"replication_factor",
 						"reveals",
 						"seda_payload",
@@ -1376,6 +1377,14 @@
 							"allOf": [
 								{
 									"$ref": "#/definitions/Binary"
+								}
+							]
+						},
+						"posted_gas_price": {
+							"description": "The actual gas price derived from the funds sent (funds / total_gas_limit). This may be higher than the minimum gas_price.",
+							"allOf": [
+								{
+									"$ref": "#/definitions/Uint128"
 								}
 							]
 						},
@@ -1633,6 +1642,7 @@
 						"id",
 						"memo",
 						"payback_address",
+						"posted_gas_price",
 						"replication_factor",
 						"reveals",
 						"seda_payload",
@@ -1704,6 +1714,14 @@
 							"allOf": [
 								{
 									"$ref": "#/definitions/Binary"
+								}
+							]
+						},
+						"posted_gas_price": {
+							"description": "The actual gas price derived from the funds sent (funds / total_gas_limit). This may be higher than the minimum gas_price.",
+							"allOf": [
+								{
+									"$ref": "#/definitions/Uint128"
 								}
 							]
 						},
