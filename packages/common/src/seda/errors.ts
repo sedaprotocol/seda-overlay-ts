@@ -1,69 +1,63 @@
-export class AlreadyCommitted extends Error {
-	constructor(message?: string) {
-		super(`AlreadyCommitted: ${message ?? "Data request already committed"}`);
-	}
+export class AlreadyCommitted {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("AlreadyCommitted");
+	constructor(message?: string) {
+		this.message = message ?? "Data request already committed";
 	}
 }
 
-export class RevealMismatch extends Error {
-	constructor(message?: string) {
-		super(`RevealMismatch: ${message ?? "Reveal mismatch"}`);
-	}
+export class RevealMismatch {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("RevealMismatch");
+	constructor(message?: string) {
+		this.message = message ?? "Reveal mismatch";
 	}
 }
 
-export class AlreadyRevealed extends Error {
-	constructor(message?: string) {
-		super(`AlreadyRevealed: ${message ?? "Data request already revealed"}`);
-	}
+export class AlreadyRevealed {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("AlreadyRevealed");
+	constructor(message?: string) {
+		this.message = message ?? "Data request already revealed";
 	}
 }
 
-export class IncorrectAccountSquence extends Error {
-	constructor(message?: string) {
-		super(`IncorrectAccountSquence: ${message ?? "Account sequence mismatch"}`);
-	}
+export class IncorrectAccountSquence {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("account sequence mismatch");
+	constructor(message?: string) {
+		this.message = message ?? "Account sequence mismatch";
 	}
 }
 
-export class DataRequestNotFound extends Error {
-	constructor(message?: string) {
-		super(`DataRequestNotFound: ${message ?? "Data request not found"}`);
-	}
+export class DataRequestNotFound {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("not found: execute wasm contract failed");
+	constructor(message?: string) {
+		this.message = message ?? "Data request not found";
 	}
 }
 
-export class DataRequestExpired extends Error {
-	constructor(message?: string) {
-		super(`DataRequestExpired: ${message ?? "Data request expired"}`);
-	}
+export class DataRequestExpired {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("DataRequestExpired");
+	constructor(message?: string) {
+		this.message = message ?? "Data request expired";
 	}
 }
 
-export class RevealStarted extends Error {
-	constructor(message?: string) {
-		super(`RevealStarted: ${message ?? "Reveal started"}`);
-	}
+export class RevealStarted {
+	message: string;
 
-	static isError(error: Error): boolean {
-		return error.message.includes("RevealStarted");
+	constructor(message?: string) {
+		this.message = message ?? "Reveal started";
+	}
+}
+
+export class UnknownError {
+	message: string;
+
+	constructor(message?: string) {
+		this.message = message ?? "Unknown error";
 	}
 }

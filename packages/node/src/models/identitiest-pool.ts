@@ -25,13 +25,13 @@ export class IdentityPool {
 		this.pool = pool;
 	}
 
-	sign(identityId: string, message: Buffer): Result<Buffer, Error> {
+	sign(identityId: string, message: Buffer) {
 		return Maybe.of(this.config.sedaChain.identities.get(identityId)).match({
 			Just: (secret) => {
 				const proof = vrfProve(secret, message);
 				return Result.ok(proof);
 			},
-			Nothing() {
+			Nothing: () => {
 				return Result.err(new Error(`Could not find identity ${identityId}`));
 			},
 		});

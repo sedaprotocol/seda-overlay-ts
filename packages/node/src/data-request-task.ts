@@ -25,6 +25,7 @@ import { getDataRequestStatuses } from "./services/get-data-requests";
 import { commitDr } from "./tasks/commit";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
+import { Effect, Exit, Cause } from "effect";
 
 type EventMap = {
 	done: [];
@@ -375,39 +376,40 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		const result = await commitDr(
+		const result = await Effect.runPromiseExit(commitDr(
 			this.identityId,
 			dataRequest,
 			this.executionResult.value,
 			this.identitityPool,
 			this.sedaChain,
 			this.appConfig,
-		);
+		));
 
-		if (result.isErr) {
-			if (result.error instanceof AlreadyCommitted) {
+
+		if (Exit.isFailure(result) && Cause.isFailType(result.cause)) {
+			if (result.cause.error instanceof AlreadyCommitted) {
 				logger.warn("RPC returned AlreadyCommitted. Moving to next stage with possibility of failing..", {
 					id: this.name,
 				});
 				span.setAttribute("status", "already_committed");
-				span.recordException(result.error);
+				span.recordException(result.cause);
 				span.end();
 				this.transitionStatus(IdentityDataRequestStatus.Committed);
 				return;
 			}
 
-			if (result.error instanceof DataRequestExpired) {
+			if (result.cause instanceof DataRequestExpired) {
 				logger.warn("Data request was expired", {
 					id: this.name,
 				});
 				span.setAttribute("error", "data_request_expired");
-				span.recordException(result.error);
+				span.recordException(result.cause);
 				span.end();
 				this.stop();
 				return;
 			}
 
-			if (result.error instanceof DataRequestNotFound) {
+			if (result.cause instanceof DataRequestNotFound) {
 				logger.warn("Data request was not found while committing", {
 					id: this.name,
 				});
@@ -417,21 +419,21 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				return;
 			}
 
-			if (result.error instanceof RevealStarted) {
+			if (result.cause instanceof RevealStarted) {
 				logger.warn("Reveal stage has started, cannot commit", {
 					id: this.name,
 				});
 				span.setAttribute("error", "reveal_started");
-				span.recordException(result.error);
+				span.recordException(result.cause);
 				span.end();
 				this.stop();
 				return;
 			}
 
-			logger.error(`Failed to commit: ${result.error}`, {
+			logger.error(`Failed to commit: ${result.cause}`, {
 				id: this.name,
 			});
-			span.recordException(result.error);
+			span.recordException(new Error(result.cause.error.message));
 			span.setAttribute("error", "commit_failed");
 			const sleepSpan = this.drTracer.startSpan(
 				"sleep-between-retries",
@@ -442,6 +444,17 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
 			sleepSpan.end();
 			this.retries += 1;
+			span.end();
+			return;
+		}
+
+		if (Exit.isSuccess(result)) {
+			this.transitionStatus(IdentityDataRequestStatus.Committed);
+			this.commitHash = result.value;
+			span.setAttribute("commit_hash", result.value.toString("hex"));
+			logger.info("📩 Committed", {
+				id: this.name,
+			});
 			span.end();
 			return;
 		}
