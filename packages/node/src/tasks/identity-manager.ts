@@ -1,5 +1,4 @@
-import { TransactionPriority, debouncedInterval, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { TransactionPriority, debouncedInterval, formatTokenUnits, type SedaChain, metricsHelpers } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result, type Unit } from "true-myth";
@@ -22,12 +21,25 @@ export class IdentityManagerTask {
 				id: `identity_${identity}`,
 			});
 
+			// Record RPC connectivity error for staker fetch failure
+			metricsHelpers.recordRpcError("general", "getStaker", staker.error, {
+				identity,
+				operation: "fetch_staker_info",
+			});
+
 			return Result.err(staker.error);
 		}
 
 		if (staker.value.isNothing) {
 			logger.error("Could not find staker info, did you register it?", {
 				id: `identity_${identity}`,
+			});
+
+			// CRITICAL: Staker removal - unexpected staker disappearance
+			const stakerError = new Error(`Staker info not found for identity: ${identity}`);
+			metricsHelpers.recordCriticalError("staker_removed", stakerError, {
+				identity,
+				reason: "staker_info_empty",
 			});
 
 			return Result.err(new Error("Staker info was empty"));
@@ -37,6 +49,12 @@ export class IdentityManagerTask {
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
+
+			// Record RPC connectivity error for staking config fetch failure
+			metricsHelpers.recordRpcError("general", "getStakingConfig", stakingConfig.error, {
+				operation: "fetch_staking_config",
+			});
+
 			return Result.err(stakingConfig.error);
 		}
 
@@ -66,6 +84,18 @@ export class IdentityManagerTask {
 			Nothing: () => {
 				logger.error("Identity could not be found in pool", {
 					id: `identity_${identity}`,
+				});
+
+				// Record RPC connectivity error for identity lookup failure
+				metricsHelpers.recordRpcError("general", "identityPoolLookup", new Error("Identity not found in pool"), {
+					identity,
+					operation: "identity_pool_lookup",
+				});
+
+				// Also record no stake error
+				metricsHelpers.recordHighPriorityError("no_stake", new Error(`No stake available for identity: ${identity}`), {
+					identity,
+					reason: "identity_not_in_pool",
 				});
 			},
 		});
@@ -132,11 +162,18 @@ export class IdentityManagerTask {
 					logger.error(
 						`${accountIndex}: Failed to send SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}: ${response.error}`,
 					);
-				}
 
-				logger.info(
-					`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
-				);
+					// HIGH: SEDA transfer failure - RPC connectivity or insufficient balance
+					metricsHelpers.recordHighPriorityError("seda_transfer", response.error, {
+						account_index: accountIndex.toString(),
+						recipient: this.sedaChain.getSignerAddress(accountIndex),
+						reason: "seda_transfer_failed",
+					});
+				} else {
+					logger.info(
+						`${accountIndex}: Sent ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA to ${this.sedaChain.getSignerAddress(accountIndex)}`,
+					);
+				}
 			} else {
 				logger.info(
 					`${accountIndex}: ${this.sedaChain.getSignerAddress(accountIndex)} has enough SEDA (min: ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA, current: ${formatTokenUnits(balance.amount)} SEDA)`,

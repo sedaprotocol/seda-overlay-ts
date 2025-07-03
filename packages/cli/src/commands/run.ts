@@ -20,17 +20,27 @@ export const runCmd = populateWithCommonOptions(new Command("run"))
 		});
 
 		if (config.isOk) {
-			const exitController = new AbortController();
-
 			runNode(config.value, {
-				exitController,
+				skipIdentityInitialization: false,
 			});
 
 			listenForExit(async () => {
-				exitController.abort();
+				// Graceful shutdown handled by telemetry system
 			});
 		} else {
 			logger.error("Error while parsing config:");
+
+			// Record critical boot failure for config errors
+			try {
+				const { metricsHelpers } = await import("@sedaprotocol/overlay-ts-common");
+				const configError = new Error(`Config parsing failed: ${config.error.join(", ")}`);
+				metricsHelpers.recordCriticalError("node_boot", configError, {
+					reason: "config_parsing_failure",
+					boot_phase: "config_validation",
+				});
+			} catch (e) {
+				// Ignore if telemetry is not available
+			}
 
 			for (const error of config.error) {
 				logger.error(error);

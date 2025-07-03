@@ -1,0 +1,44 @@
+services:
+  # Jaeger all-in-one for development/testing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      # Jaeger UI
+      - "16686:16686"
+      # OTLP gRPC receiver
+      - "4317:4317"
+      # OTLP HTTP receiver
+      - "4318:4318"
+      # Jaeger thrift
+      - "14250:14250"
+      # Jaeger thrift HTTP
+      - "14268:14268"
+      # Zipkin compatible endpoint
+      - "9411:9411"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=debug
+    command:
+      - "--memory.max-traces=10000"
+      - "--query.base-path=/jaeger/ui"
+      - "--prometheus.server-url=http://prometheus:9090"
+      - "--prometheus.query.support-spanmetrics-connector=true"
+
+  # Optional: Prometheus for metrics (can be removed if only testing traces)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+networks:
+  default:
+    name: seda-otel-network 

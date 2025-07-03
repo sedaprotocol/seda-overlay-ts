@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+
+  # This is for scraping metrics from your application if it exposes a /metrics endpoint
+  # Uncomment and adjust the target if your seda-overlay application exposes Prometheus metrics
+  # - job_name: 'seda-overlay'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8080']  # Adjust port as needed 

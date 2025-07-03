@@ -4,7 +4,11 @@ import {
 	createEligibilityHash,
 	createEligibilityMessageData,
 } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, debouncedInterval } from "@sedaprotocol/overlay-ts-common";
+import {
+	type SedaChain,
+	debouncedInterval,
+	metricsHelpers,
+} from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
@@ -105,6 +109,15 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Failed signing message for eligibility: ${messageSignature.error}`, {
 						id: traceId,
 					});
+
+					// CRITICAL: Identity signing failure with non-existent key
+					metricsHelpers.recordCriticalError("identity_signing", messageSignature.error, {
+						identity_id: identityId,
+						trace_id: traceId,
+						operation: "eligibility_message_signing",
+						reason: "missing_private_key",
+					});
+
 					return Result.err(messageSignature.error);
 				}
 
@@ -124,6 +137,14 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.error(`Could not fetch eligibility status for data request: ${response.error}`, {
 				id: traceId,
 			});
+
+			// Record RPC connectivity error for eligibility check failure
+			metricsHelpers.recordRpcError("eligibility", "checkEligibility", response.error, {
+				dr_id: dataRequest.id,
+				trace_id: traceId,
+				operation: "eligibility_check",
+			});
+
 			span.recordException(response.error);
 			span.setAttribute("error", "query_failed");
 			span.end();
@@ -151,6 +172,14 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			logger.error(`Could not fetch data request from chain: ${drFromChain.error}`, {
 				id: traceId,
 			});
+
+			// Record RPC connectivity error for data request fetch failure
+			metricsHelpers.recordRpcError("eligibility", "fetchDataRequest", drFromChain.error, {
+				dr_id: dataRequest.id,
+				trace_id: traceId,
+				operation: "fetch_dr_from_chain",
+			});
+
 			span.recordException(drFromChain.error);
 			span.setAttribute("error", "dr_fetch_failed");
 			span.end();
@@ -241,6 +270,14 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					logger.error(`Could not fetch information about dr: ${error}`, {
 						id: traceId,
 					});
+
+					// Record RPC connectivity error for DR refresh failure
+					metricsHelpers.recordRpcError("eligibility", "refreshDataRequest", error, {
+						dr_id: dataRequest.id,
+						trace_id: traceId,
+						operation: "refresh_dr_info",
+					});
+
 					span.recordException(error);
 					span.setAttribute("error", "refresh_failed");
 					return false;
@@ -287,6 +324,15 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				logger.error(`Identity ${identityInfo.identityId} is not enabled, skipping eligibility check`, {
 					id: traceId,
 				});
+
+				// HIGH: No stake available - identity is disabled
+				const noStakeError = new Error(`Identity ${identityInfo.identityId} is not enabled (no stake)`);
+				metricsHelpers.recordHighPriorityError("no_stake", noStakeError, {
+					identity_id: identityInfo.identityId,
+					trace_id: traceId,
+					reason: "identity_disabled",
+				});
+
 				continue;
 			}
 
