@@ -4,11 +4,7 @@ import {
 	createEligibilityHash,
 	createEligibilityMessageData,
 } from "@sedaprotocol/core-contract-schema";
-import {
-	type SedaChain,
-	debouncedInterval,
-	metricsHelpers,
-} from "@sedaprotocol/overlay-ts-common";
+import { type SedaChain, debouncedInterval, metricsHelpers } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { tryAsync, metricsHelpers } from "@sedaprotocol/overlay-ts-common";
+import { metricsHelpers, tryAsync } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -32,7 +32,9 @@ export async function getOracleProgram(
 		return Result.err(new Error(binary.error.toString()));
 	}
 
-	const binaryBuffer = Maybe.of((binary.value as any)?.oracleProgram?.bytecode).map((byteCode) => Buffer.from(byteCode));
+	const binaryBuffer = Maybe.of((binary.value as any)?.oracleProgram?.bytecode).map((byteCode) =>
+		Buffer.from(byteCode),
+	);
 
 	if (binaryBuffer.isNothing) {
 		return Result.ok(Maybe.nothing());
