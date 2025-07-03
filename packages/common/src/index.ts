@@ -1,4 +1,17 @@
 import "./telemetry";
+
+// Enhanced telemetry exports
+export {
+	initializeTelemetry,
+	shutdownTelemetry,
+	telemetryInitialized,
+} from "./telemetry";
+
+export {
+	sedaMetrics,
+	metricsHelpers,
+} from "./telemetry/metrics";
+
 export { isBrowser } from "./services/is-browser";
 export * from "./services/try-async";
 export * from "./services/timer";

@@ -1,6 +1,5 @@
 import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
-import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { type SedaChain, debouncedInterval, metricsHelpers } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
@@ -123,6 +122,12 @@ export class FetchTask extends EventEmitter<EventMap> {
 			debouncedInterval(async () => {
 				(await this.fetch()).mapErr((error) => {
 					logger.error(`FetchTask: ${error}`);
+
+					// Record RPC connectivity error for fetch task failure
+					metricsHelpers.recordRpcError("fetch", "fetchDataRequests", error, {
+						operation: "fetch_data_requests",
+						interval: this.config.intervals.fetchTask.toString(),
+					});
 				});
 			}, this.config.intervals.fetchTask),
 		);
