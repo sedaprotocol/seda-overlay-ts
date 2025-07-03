@@ -5,6 +5,7 @@ import { chainConfig } from "./chain-config";
 import { executeOracleProgram } from "./execute-oracle-program";
 import { multiSend } from "./multi-send";
 import { removeFromAllowlist } from "./remove-from-allowlist";
+import { send } from "./send";
 
 export const tools = new Command("tools")
 	.description("Commands for internal tools")
@@ -13,4 +14,5 @@ export const tools = new Command("tools")
 	.addCommand(availableExecutors)
 	.addCommand(removeFromAllowlist)
 	.addCommand(executeOracleProgram)
+	.addCommand(send)
 	.addCommand(chainConfig);
