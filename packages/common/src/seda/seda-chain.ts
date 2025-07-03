@@ -9,6 +9,7 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
+import { metricsHelpers } from "../index";
 import {
 	AlreadyCommitted,
 	AlreadyRevealed,
@@ -23,11 +24,6 @@ import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
 import { type ISigner, Signer } from "./signer";
 import { type SedaSigningCosmWasmClient, createSigningClient } from "./signing-client";
-import {
-	JSONStringify,
-	metricsHelpers,
-	sleep,
-} from "../index";
 
 type EventMap = {
 	"tx-error": [string, TransactionMessage | undefined];

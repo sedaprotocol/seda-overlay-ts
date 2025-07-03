@@ -1,4 +1,4 @@
-import { trace, type Span, SpanStatusCode, SpanKind } from "@opentelemetry/api";
+import { type Span, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("seda-overlay-decorators", "1.0.0");
 
@@ -9,7 +9,7 @@ export interface TracedOptions {
 }
 
 export function Traced(options: TracedOptions = {}) {
-	return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+	return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
 		if (!descriptor.value) {
 			throw new Error("@Traced can only be applied to methods");
 		}
@@ -70,7 +70,7 @@ export function MonitorRPC(options: TracedOptions & { endpoint?: string } = {}) 
 	const rpcAttributes: Record<string, string | number | boolean> = {
 		...options.attributes,
 	};
-	
+
 	if (options.endpoint) {
 		rpcAttributes.rpc_endpoint = options.endpoint;
 	}
@@ -84,12 +84,12 @@ export function MonitorRPC(options: TracedOptions & { endpoint?: string } = {}) 
 }
 
 export function TraceClass(options: { prefix?: string } = {}) {
-	return function (constructor: any) {
+	return (constructor: any) => {
 		const methodNames = Object.getOwnPropertyNames(constructor.prototype);
-		
+
 		for (const methodName of methodNames) {
 			if (methodName === "constructor") continue;
-			
+
 			const descriptor = Object.getOwnPropertyDescriptor(constructor.prototype, methodName);
 			if (descriptor && typeof descriptor.value === "function") {
 				const spanName = options.prefix ? `${options.prefix}.${methodName}` : `${constructor.name}.${methodName}`;
@@ -97,15 +97,12 @@ export function TraceClass(options: { prefix?: string } = {}) {
 				Object.defineProperty(constructor.prototype, methodName, descriptor);
 			}
 		}
-		
+
 		return constructor;
 	};
 }
 
-export async function withSpan<T>(
-	name: string,
-	fn: (span: Span) => Promise<T> | T
-): Promise<T> {
+export async function withSpan<T>(name: string, fn: (span: Span) => Promise<T> | T): Promise<T> {
 	return tracer.startActiveSpan(name, async (span: Span) => {
 		try {
 			const result = await fn(span);
@@ -133,4 +130,4 @@ export function addSpanEvent(name: string, attributes?: Record<string, string | 
 	if (activeSpan) {
 		activeSpan.addEvent(name, attributes);
 	}
-} 
+}

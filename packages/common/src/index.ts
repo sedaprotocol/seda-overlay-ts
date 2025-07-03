@@ -1,5 +1,3 @@
-import "./telemetry";
-
 // Enhanced telemetry exports
 export {
 	initializeTelemetry,

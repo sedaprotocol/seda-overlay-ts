@@ -7,8 +7,8 @@ import {
 	JSONStringify,
 	RevealMismatch,
 	RevealStarted,
-	metricsHelpers,
 	debouncedInterval,
+	metricsHelpers,
 	sleep,
 } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
@@ -158,7 +158,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error("Exceeded maximum retry attempts, marking data request as failed", {
 					id: this.name,
 				});
-				
+
 				// Record high-priority RPC connectivity error
 				const retryError = new Error(`Exceeded maximum retry attempts: ${this.retries}`);
 				metricsHelpers.recordRpcError("data_request", "max_retries_exceeded", retryError, {
@@ -166,7 +166,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 					identity_id: this.identityId,
 					retries: this.retries.toString(),
 				});
-				
+
 				this.status = IdentityDataRequestStatus.Failed;
 				span.setAttribute("final_status", "failed");
 				span.setAttribute("failure_reason", "max_retries_exceeded");
@@ -204,7 +204,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while processing data request: ${error}`, {
 				id: this.name,
 			});
-			
+
 			// Record high-priority RPC connectivity error
 			metricsHelpers.recordRpcError("data_request", "uncaught_exception", error as Error, {
 				dr_id: this.drId,
@@ -212,7 +212,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				status: this.status,
 				retries: this.retries.toString(),
 			});
-			
+
 			span.recordException(error as Error);
 			span.setAttribute("final_status", "error");
 			span.setAttribute("error_reason", "uncaught_exception");
@@ -238,14 +238,14 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error(`Error while fetching status of data request: ${statusResult.error}`, {
 				id: this.drId,
 			});
-			
+
 			// Record high-priority RPC connectivity error
 			metricsHelpers.recordRpcError("data_request", "status_fetch", statusResult.error, {
 				dr_id: this.drId,
 				identity_id: this.identityId,
 				retries: this.retries.toString(),
 			});
-			
+
 			span.recordException(statusResult.error);
 			span.setAttribute("error", "fetch_failed");
 
@@ -293,7 +293,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error("Invariant found, data request task uses a data request that does not exist", {
 				id: this.name,
 			});
-			
+
 			// CRITICAL: State Invariant Violation - Missing Data Request
 			const stateError = new Error("Data request task references non-existent data request");
 			metricsHelpers.recordCriticalError("state_invariant", stateError, {
@@ -301,7 +301,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				dr_id: this.drId,
 				identity_id: this.identityId,
 			});
-			
+
 			span.setAttribute("error", "data_request_not_found");
 			span.end();
 			this.stop();
@@ -312,7 +312,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			logger.error("Invariant found, data request task uses an identity that does not exist", {
 				id: this.name,
 			});
-			
+
 			// CRITICAL: State Invariant Violation - Missing Identity
 			const stateError = new Error("Data request task references non-existent identity");
 			metricsHelpers.recordCriticalError("state_invariant", stateError, {
@@ -320,7 +320,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				dr_id: this.drId,
 				identity_id: this.identityId,
 			});
-			
+
 			span.setAttribute("error", "identity_not_found");
 			span.end();
 			this.stop();
@@ -414,7 +414,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
-			
+
 			// HIGH: Execution result missing - should not be possible
 			const missingResultError = new Error("Execution result missing during commit phase");
 			metricsHelpers.recordHighPriorityError("execution_result_missing", missingResultError, {
@@ -422,7 +422,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				dr_id: this.drId,
 				identity_id: this.identityId,
 			});
-			
+
 			span.setAttribute("error", "no_execution_result");
 			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
@@ -555,7 +555,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to reveal, switching status back to initial");
-			
+
 			// HIGH: Execution result missing - should not be possible
 			const missingResultError = new Error("Execution result missing during reveal phase");
 			metricsHelpers.recordHighPriorityError("execution_result_missing", missingResultError, {
@@ -563,7 +563,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				dr_id: this.drId,
 				identity_id: this.identityId,
 			});
-			
+
 			span.setAttribute("error", "no_execution_result");
 			span.end();
 			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
@@ -595,7 +595,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				logger.error(
 					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
 				);
-				
+
 				// CRITICAL: Duplicate Node Detection - Reveal hash mismatch indicates duplicate nodes
 				const duplicateError = new Error("Reveal hash mismatch - possible duplicate nodes");
 				metricsHelpers.recordCriticalError("duplicate_node", duplicateError, {
@@ -605,7 +605,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 					our_commit_hash: this.commitHash.toString("hex"),
 					chain_commit_hash: result.error.commitmentHash.toString("hex"),
 				});
-				
+
 				span.setAttribute("error", "reveal_mismatch");
 				span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
 				span.setAttribute("chain_commit_hash", result.error.commitmentHash.toString("hex"));

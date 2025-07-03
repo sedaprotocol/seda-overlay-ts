@@ -1,6 +1,6 @@
+import { SedaChain, initializeTelemetry, metricsHelpers, telemetryInitialized } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { SedaChain, initializeTelemetry, telemetryInitialized, metricsHelpers } from "@sedaprotocol/overlay-ts-common";
 import { MainTask } from "./tasks/main";
 
 export interface RunOptions {
