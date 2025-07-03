@@ -8,6 +8,7 @@ import { Maybe, Result, type Unit } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
 import type { DataRequestPool } from "../models/data-request-pool";
 import { getDataRequests } from "../services/get-data-requests";
+import { protocolPauseState } from "../services/is-protocol-paused";
 
 type EventMap = {
 	"data-request": [DataRequest];
@@ -60,6 +61,8 @@ export class FetchTask extends EventEmitter<EventMap> {
 			this.failedFetchCount++;
 			return Result.err(result.error);
 		}
+
+		protocolPauseState.setPaused(result.value.isPaused);
 
 		logger.debug(
 			`Fetched ${result.value.dataRequests.length} Data Requests in committing status (total: ${result.value.total})`,

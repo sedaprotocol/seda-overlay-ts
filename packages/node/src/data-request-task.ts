@@ -22,6 +22,7 @@ import { type DataRequestPool, IdentityDataRequestStatus } from "./models/data-r
 import type { ExecutionResult } from "./models/execution-result";
 import type { IdentityPool } from "./models/identitiest-pool";
 import { getDataRequestStatuses } from "./services/get-data-requests";
+import { protocolPauseState } from "./services/is-protocol-paused";
 import { commitDr } from "./tasks/commit";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
@@ -122,6 +123,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	}
 
 	async process(): Promise<void> {
+		if (protocolPauseState.isPaused()) {
+			return;
+		}
+
 		const span = this.drTracer.startSpan("process-data-request", undefined, this.rootContext);
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
@@ -204,6 +209,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	}
 
 	async handleRefreshDataRequestData(drId: string) {
+		if (protocolPauseState.isPaused()) {
+			return;
+		}
+
 		const span = this.drTracer.startSpan("refresh-data-request", undefined, this.rootContext);
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);

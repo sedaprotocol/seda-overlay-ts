@@ -4,6 +4,7 @@ import { availableExecutors } from "./available-executors";
 import { chainConfig } from "./chain-config";
 import { executeOracleProgram } from "./execute-oracle-program";
 import { multiSend } from "./multi-send";
+import { pauseContract } from "./pause-contract";
 import { removeFromAllowlist } from "./remove-from-allowlist";
 import { send } from "./send";
 
@@ -15,4 +16,5 @@ export const tools = new Command("tools")
 	.addCommand(removeFromAllowlist)
 	.addCommand(executeOracleProgram)
 	.addCommand(send)
-	.addCommand(chainConfig);
+	.addCommand(chainConfig)
+	.addCommand(pauseContract);

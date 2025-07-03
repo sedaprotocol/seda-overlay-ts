@@ -15,6 +15,7 @@ import { type DataRequestPool, IdentityDataRequestStatus } from "../models/data-
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getDataRequest } from "../services/get-data-requests";
 import { isIdentityEligibleForDataRequest } from "../services/is-identity-eligible";
+import { protocolPauseState } from "../services/is-protocol-paused";
 
 type EventMap = {
 	eligible: [drId: DataRequestId, eligibilityHeight: bigint, identityId: string];
@@ -316,6 +317,10 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 	}
 
 	async process() {
+		if (protocolPauseState.isPaused()) {
+			return;
+		}
+
 		if (this.isProcessing) return;
 		this.isProcessing = true;
 
