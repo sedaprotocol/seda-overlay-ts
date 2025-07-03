@@ -1,4 +1,4 @@
-import { SedaChain, customMetrics, getRuntime } from "@sedaprotocol/overlay-ts-common";
+import { SedaChain, customMetrics, metricsHelpers, getRuntime } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import semver from "semver";
@@ -22,11 +22,16 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 		logger.error(`SedaChain creation error: ${sedaChain.error}`);
 		
 		// CRITICAL-001: Node Boot Failure - SedaChain initialization failed
-		customMetrics.nodeBootFailures.add(1, {
-			type: 'seda_chain_init_failure',
-			error_type: (sedaChain.error as Error).constructor.name,
-			reason: 'chain_config_error',
-		});
+		metricsHelpers.incrementCounter(
+			customMetrics.nodeBootFailures,
+			'overlay_node_boot_failures_total',
+			1,
+			{
+				type: 'seda_chain_init_failure',
+				error_type: (sedaChain.error as Error).constructor.name,
+				reason: 'chain_config_error',
+			}
+		);
 		
 		process.exit(1);
 	}

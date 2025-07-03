@@ -8,6 +8,12 @@ import { metrics } from '@opentelemetry/api';
 // Get meter for custom metrics  
 const meter = metrics.getMeter('seda-overlay-custom', '1.0.0');
 
+// Logging helper for metric operations
+const logMetric = (metricName: string, value: number, attributes?: Record<string, string>) => {
+  const attrStr = attributes ? ` with attributes: ${JSON.stringify(attributes)}` : '';
+  console.log(`[Metrics] 📊 ${metricName}: ${value}${attrStr}`);
+};
+
 /**
  * Custom metrics for SEDA Overlay observability
  * Based on error categorization analysis from todos_to_actionable_errors
@@ -113,6 +119,12 @@ export const customMetrics = {
   // OPERATIONAL HEALTH METRICS
   // =================================================================
 
+  // Heartbeat metric for testing/debugging telemetry
+  heartbeat: meter.createCounter('overlay_heartbeat_total', {
+    description: 'Heartbeat counter - increments every 5 seconds for telemetry testing',
+    unit: '1',
+  }),
+
   // General application health
   errorTotal: meter.createCounter('overlay_errors_total', {
     description: 'Total application errors by type and severity',
@@ -154,39 +166,64 @@ export const customMetrics = {
 };
 
 /**
- * Utility functions for incrementing metrics with consistent labeling
+ * Utility functions for incrementing metrics with consistent labeling and logging
  */
 export const metricsHelpers = {
   /**
-   * Increment error counter with consistent labeling
+   * Increment error counter with consistent labeling and logging
    */
   incrementError(metric: ReturnType<typeof meter.createCounter>, error: Error, context?: Record<string, string>) {
-    metric.add(1, {
+    const attributes = {
       error_type: error.constructor.name,
       error_message: error.message.substring(0, 100), // Limit message length
       ...context,
-    });
+    };
+    
+    // Log the metric before sending
+    logMetric('incrementError', 1, attributes);
+    
+    metric.add(1, attributes);
   },
 
   /**
-   * Record operation duration with context
+   * Record operation duration with context and logging
    */
   recordDuration(operation: string, durationMs: number, success: boolean, context?: Record<string, string>) {
-    customMetrics.operationDuration.record(durationMs, {
+    const attributes = {
       operation,
       success: success.toString(),
       ...context,
-    });
+    };
+    
+    // Log the metric before sending
+    logMetric('operationDuration', durationMs, attributes);
+    
+    customMetrics.operationDuration.record(durationMs, attributes);
   },
 
   /**
-   * Increment RPC error with endpoint context
+   * Increment RPC error with endpoint context and logging
    */
   incrementRpcError(endpoint: string, error: Error) {
-    customMetrics.rpcConnectionErrors.add(1, {
+    const attributes = {
       endpoint,
       error_type: error.constructor.name,
-    });
+    };
+    
+    // Log the metric before sending
+    logMetric('rpcConnectionErrors', 1, attributes);
+    
+    customMetrics.rpcConnectionErrors.add(1, attributes);
+  },
+
+  /**
+   * Enhanced counter increment with logging
+   */
+  incrementCounter(metric: ReturnType<typeof meter.createCounter>, metricName: string, value: number = 1, attributes?: Record<string, string>) {
+    // Log the metric before sending
+    logMetric(metricName, value, attributes);
+    
+    metric.add(value, attributes);
   },
 };
 

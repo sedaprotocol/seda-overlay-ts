@@ -13,6 +13,7 @@ import { Traced, MonitorCritical, MonitorRPC, TraceClass } from './decorators.js
  * Global telemetry state
  */
 let isInitialized = false;
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Initialize the complete telemetry infrastructure
@@ -35,9 +36,12 @@ export function initializeTelemetry(): void {
 		// Initialize OpenTelemetry providers
 		initializeProviders(config);
 		
-		// Set up graceful shutdown
+				// Set up graceful shutdown
 		setupGracefulShutdown();
-		
+
+		// Start heartbeat for telemetry testing
+		startHeartbeat();
+
 		isInitialized = true;
 		console.log('[Telemetry] 🚀 SEDA Overlay telemetry initialized successfully!');
 		
@@ -90,6 +94,48 @@ export async function flushTelemetry(): Promise<void> {
 		await flushProviders();
 	} catch (error) {
 		console.error('[Telemetry] Error flushing telemetry:', error);
+	}
+}
+
+/**
+ * Start heartbeat metric for telemetry testing
+ * Increments every 5 seconds so you can verify metrics are being exported
+ */
+function startHeartbeat(): void {
+	if (heartbeatInterval) {
+		clearInterval(heartbeatInterval);
+	}
+
+	let heartbeatCount = 0;
+	
+	heartbeatInterval = setInterval(() => {
+		heartbeatCount++;
+		console.log(`[Telemetry] 💗 Heartbeat #${heartbeatCount} - sending test metric`);
+		
+		// Use the enhanced helper for logging
+		metricsHelpers.incrementCounter(
+			customMetrics.heartbeat, 
+			'overlay_heartbeat_total', 
+			1, 
+			{ 
+				heartbeat_id: heartbeatCount.toString(),
+				service_name: 'seda-overlay',
+				timestamp: new Date().toISOString()
+			}
+		);
+	}, 5000); // Every 5 seconds
+
+	console.log('[Telemetry] ⏰ Heartbeat started - will emit test metric every 5 seconds');
+}
+
+/**
+ * Stop heartbeat (for cleanup)
+ */
+function stopHeartbeat(): void {
+	if (heartbeatInterval) {
+		clearInterval(heartbeatInterval);
+		heartbeatInterval = null;
+		console.log('[Telemetry] ⏰ Heartbeat stopped');
 	}
 }
 

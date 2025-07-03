@@ -8,6 +8,7 @@ import {
 	RevealMismatch,
 	RevealStarted,
 	customMetrics,
+	metricsHelpers,
 	debouncedInterval,
 	sleep,
 } from "@sedaprotocol/overlay-ts-common";
@@ -278,11 +279,16 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			});
 			
 			// CRITICAL-002: State Invariant Violation - Missing Data Request
-			customMetrics.stateInvariantViolations.add(1, {
-				type: 'missing_data_request',
-				dr_id: this.drId,
-				identity_id: this.identityId,
-			});
+			metricsHelpers.incrementCounter(
+				customMetrics.stateInvariantViolations,
+				'overlay_state_invariant_violations_total',
+				1,
+				{
+					type: 'missing_data_request',
+					dr_id: this.drId,
+					identity_id: this.identityId,
+				}
+			);
 			
 			span.setAttribute("error", "data_request_not_found");
 			span.end();
@@ -296,11 +302,16 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			});
 			
 			// CRITICAL-002: State Invariant Violation - Missing Identity
-			customMetrics.stateInvariantViolations.add(1, {
-				type: 'missing_identity',
-				dr_id: this.drId,
-				identity_id: this.identityId,
-			});
+			metricsHelpers.incrementCounter(
+				customMetrics.stateInvariantViolations,
+				'overlay_state_invariant_violations_total',
+				1,
+				{
+					type: 'missing_identity',
+					dr_id: this.drId,
+					identity_id: this.identityId,
+				}
+			);
 			
 			span.setAttribute("error", "identity_not_found");
 			span.end();
@@ -560,13 +571,18 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				);
 				
 				// CRITICAL-003: Duplicate Node Detection - Reveal hash mismatch indicates duplicate nodes
-				customMetrics.duplicateNodeErrors.add(1, {
-					type: 'reveal_hash_mismatch',
-					dr_id: this.drId,
-					identity_id: this.identityId,
-					our_commit_hash: this.commitHash.toString("hex"),
-					chain_commit_hash: result.error.commitmentHash.toString("hex"),
-				});
+				metricsHelpers.incrementCounter(
+					customMetrics.duplicateNodeErrors,
+					'overlay_duplicate_node_errors_total',
+					1,
+					{
+						type: 'reveal_hash_mismatch',
+						dr_id: this.drId,
+						identity_id: this.identityId,
+						our_commit_hash: this.commitHash.toString("hex"),
+						chain_commit_hash: result.error.commitmentHash.toString("hex"),
+					}
+				);
 				
 				span.setAttribute("error", "reveal_mismatch");
 				span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
