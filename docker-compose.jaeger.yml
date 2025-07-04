@@ -1,7 +1,5 @@
-version: '3.8'
-
+# Temporary - just for testing traces/metrics before switching to mimir collector
 services:
-  # Jaeger all-in-one for development/testing
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
@@ -23,7 +21,6 @@ services:
     command:
       - "--memory.max-traces=10000"
 
-  # Optional: Prometheus for metrics (can be removed if only testing traces)
   prometheus:
     image: prom/prometheus:latest
     ports:

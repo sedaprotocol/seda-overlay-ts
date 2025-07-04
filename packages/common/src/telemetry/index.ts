@@ -7,15 +7,11 @@ import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk
 import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 
-// Global state
 let telemetryInitialized = false;
 let metricsCollectionCleanup: (() => void) | null = null;
 let tracerProvider: NodeTracerProvider;
 let meterProvider: MeterProvider;
 
-/**
- * Create metrics readers based on configuration
- */
 function createMetricReaders(config: {
 	metricsExporter: string;
 	prometheusPort: number;
@@ -62,7 +58,6 @@ export function initializeTelemetry(): boolean {
 		return true;
 	}
 
-	// Read configuration from environment variables at runtime
 	const config = {
 		otlpEndpoint: process.env.OTLP_ENDPOINT || "http://localhost:4318",
 		serviceName: process.env.OTEL_SERVICE_NAME || "seda-overlay",
@@ -137,9 +132,6 @@ export function initializeTelemetry(): boolean {
 	}
 }
 
-/**
- * Setup graceful shutdown handlers
- */
 function setupGracefulShutdown(): void {
 	const shutdown = async () => {
 		if (!telemetryInitialized) {
@@ -170,9 +162,6 @@ function setupGracefulShutdown(): void {
 	process.on("SIGINT", shutdown);
 }
 
-/**
- * Gracefully shutdown telemetry
- */
 export async function shutdownTelemetry() {
 	if (!telemetryInitialized) {
 		return;
