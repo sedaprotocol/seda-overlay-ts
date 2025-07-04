@@ -452,7 +452,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			}
 
 			this.txFailureCount++;
-			logger.error(`Transaction failed: ${result.error}`, {
+			logger.warn(`Transaction failed: ${result.error}`, {
 				id: txMessage.value.traceId,
 			});
 		} else {

@@ -1,4 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
+import { customMetrics } from "@sedaprotocol/overlay-ts-common";
 import { loadConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { runNode } from "@sedaprotocol/overlay-ts-node";
@@ -31,6 +32,13 @@ export const runCmd = populateWithCommonOptions(new Command("run"))
 			});
 		} else {
 			logger.error("Error while parsing config:");
+
+			// CRITICAL-001: Node Boot Failure - Config parsing failed
+			customMetrics.nodeBootFailures.add(1, {
+				type: 'config_parsing_failure',
+				error_count: config.error.length.toString(),
+				reason: 'invalid_config',
+			});
 
 			for (const error of config.error) {
 				logger.error(error);

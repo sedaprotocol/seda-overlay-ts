@@ -1,4 +1,4 @@
-import { TransactionPriority, debouncedInterval, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { TransactionPriority, customMetrics, debouncedInterval, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -30,6 +30,13 @@ export class IdentityManagerTask {
 				id: `identity_${identity}`,
 			});
 
+			// CRITICAL-004: Staker Removal - Staker not found in registry
+			customMetrics.stakerRemovedErrors.add(1, {
+				type: 'staker_not_found',
+				identity_id: identity,
+				reason: 'not_registered',
+			});
+
 			return Result.err(new Error("Staker info was empty"));
 		}
 
@@ -54,6 +61,13 @@ export class IdentityManagerTask {
 				if (info.enabled && !isEnabled) {
 					logger.warn("🟡 Identity inactive - Stake below required threshold", {
 						id: `identity_${info.identityId}`,
+					});
+					
+					// CRITICAL-004: Staker Removal - Stake below minimum threshold
+					customMetrics.stakerRemovedErrors.add(1, {
+						type: 'insufficient_stake',
+						identity_id: info.identityId,
+						reason: 'below_threshold',
 					});
 				}
 

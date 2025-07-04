@@ -1,6 +1,6 @@
 import { createRevealBodyHash, createRevealMessageHash } from "@sedaprotocol/core-contract-schema/src/commit";
 // import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
+import { customMetrics, type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import type { AlreadyRevealed, DataRequestExpired, RevealMismatch } from "@sedaprotocol/overlay-ts-common";
 import type { GasOptions } from "@sedaprotocol/overlay-ts-common/src/seda/gas-options";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
@@ -37,7 +37,17 @@ export async function revealDr(
 	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
 	const revealMessageHash = createRevealMessageHash(revealBodyHash, appConfig.sedaChain.chainId, contractAddr);
 	const revealProof = identityPool.sign(identityId, revealMessageHash);
-	if (revealProof.isErr) return Result.err(new EnchancedRevealError(revealProof.error, revealBodyHash));
+	if (revealProof.isErr) {
+		// CRITICAL-005: Identity Signing Failure - Missing keys for reveal
+		customMetrics.identitySigningFailures.add(1, {
+			type: 'reveal_signing',
+			identity_id: identityId,
+			dr_id: dataRequest.id,
+			error_type: revealProof.error.constructor.name,
+		});
+		
+		return Result.err(new EnchancedRevealError(revealProof.error, revealBodyHash));
+	}
 
 	logger.trace("Waiting for reveal transaction to be processed", {
 		id: traceId,
