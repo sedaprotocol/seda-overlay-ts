@@ -1,6 +1,6 @@
 import { type Context, type Span, type Tracer, trace } from "@opentelemetry/api";
 import type { GetExecutorEligibilityResponse } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, getCurrentBlockHeight, keccak256 } from "@sedaprotocol/overlay-ts-common";
+import { type SedaChain, getCurrentBlockHeight, keccak256, metricsHelpers } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
@@ -96,6 +96,14 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (stakingConfig.isErr) {
 		logger.error(`Error while fetching staking config: ${stakingConfig.error}`);
+
+		// Record RPC connectivity error for staking config fetch failure
+		metricsHelpers.recordRpcError("eligibility", "getStakingConfig", stakingConfig.error, {
+			dr_id: dataRequest.id,
+			identity_id: identityId,
+			operation: "fetch_staking_config",
+		});
+
 		span.end();
 		return Result.err(stakingConfig.error);
 	}
@@ -106,6 +114,14 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (currentBlockHeight.isErr) {
 		logger.error(`Error while fetching current block height: ${currentBlockHeight.error}`);
+
+		// Record RPC connectivity error for block height fetch failure
+		metricsHelpers.recordRpcError("eligibility", "getCurrentBlockHeight", currentBlockHeight.error, {
+			dr_id: dataRequest.id,
+			identity_id: identityId,
+			operation: "fetch_current_block_height",
+		});
+
 		span.end();
 		return Result.err(currentBlockHeight.error);
 	}
@@ -116,6 +132,14 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (stakers.isErr) {
 		logger.error(`Error while fetching stakers: ${stakers.error}`);
+
+		// Record RPC connectivity error for stakers fetch failure
+		metricsHelpers.recordRpcError("eligibility", "getStakers", stakers.error, {
+			dr_id: dataRequest.id,
+			identity_id: identityId,
+			operation: "fetch_stakers",
+		});
+
 		span.end();
 		return Result.err(stakers.error);
 	}
@@ -126,6 +150,14 @@ export async function isIdentityEligibleForDataRequest(
 
 	if (drConfig.isErr) {
 		logger.error(`Error while fetching DR config: ${drConfig.error}`);
+
+		// Record RPC connectivity error for DR config fetch failure
+		metricsHelpers.recordRpcError("eligibility", "getDrConfig", drConfig.error, {
+			dr_id: dataRequest.id,
+			identity_id: identityId,
+			operation: "fetch_dr_config",
+		});
+
 		span.end();
 		return Result.err(drConfig.error);
 	}

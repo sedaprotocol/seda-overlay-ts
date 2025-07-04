@@ -9,6 +9,7 @@ import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
+import { metricsHelpers } from "../index";
 import {
 	AlreadyCommitted,
 	AlreadyRevealed,
@@ -134,6 +135,12 @@ export class SedaChain extends EventEmitter<EventMap> {
 					id: txHash,
 				});
 
+				// Record RPC connectivity error
+				metricsHelpers.recordRpcError("general", "getCurrentBlockHeight", currentBlockHeight.error, {
+					tx_hash: txHash,
+					operation: "get_current_block_height",
+				});
+
 				return Result.ok(Maybe.nothing());
 			}
 
@@ -142,6 +149,13 @@ export class SedaChain extends EventEmitter<EventMap> {
 			if (block.isErr) {
 				logger.error(`Error getting block for current height ${currentBlockHeight.value}: ${block.error}`, {
 					id: txHash,
+				});
+
+				// Record RPC connectivity error
+				metricsHelpers.recordRpcError("general", "getBlock", block.error, {
+					tx_hash: txHash,
+					block_height: currentBlockHeight.value.toString(),
+					operation: "get_block",
 				});
 
 				// We only want to return an error on transaction level, not on the block level
@@ -465,6 +479,15 @@ export class SedaChain extends EventEmitter<EventMap> {
 			logger.error(`Could not find callback for message id: ${txMessage.value.id}: ${txMessage.value}`, {
 				id: txMessage.value.traceId,
 			});
+
+			// HIGH: Callback lookup failure - fishy behavior detected
+			const callbackError = new Error(`Callback not found for message id: ${txMessage.value.id}`);
+			metricsHelpers.recordHighPriorityError("callback_lookup", callbackError, {
+				message_id: txMessage.value.id,
+				trace_id: txMessage.value.traceId ?? "unknown",
+				operation: "callback_lookup",
+			});
+
 			return;
 		}
 
@@ -567,6 +590,13 @@ export class SedaChain extends EventEmitter<EventMap> {
 				if (transactionResult.isErr) {
 					logger.error(`Transaction could not be received for ${transactionHash.value}: ${transactionResult.error}`, {
 						id: traceId,
+					});
+
+					// Record RPC connectivity error for transaction fetch failure
+					metricsHelpers.recordRpcError("general", "getTransaction", transactionResult.error, {
+						tx_hash: transactionHash.value,
+						trace_id: traceId ?? "unknown",
+						operation: "get_transaction",
 					});
 
 					const error = narrowDownError(transactionResult.error);
