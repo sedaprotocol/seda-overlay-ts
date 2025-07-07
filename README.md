@@ -205,6 +205,49 @@ seda-overlay identities withdraw --network devnet
 
 You have now successfully unstaked your node and withdrawn your tokens.
 
+## Validating your config
+
+Validates your current configuration and outputs the complete configuration with all default values applied.
+Safely redacts sensitive information like mnemonics and private keys from the output, making it safe to share for debugging or support purposes.
+
+```bash
+seda-overlay validate --network <mainnet | testnet | devnet | planet>
+```
+
+This will output your configuration:
+
+```bash
+seda-overlay validate --network testnet
+
+2025-07-07 10:45:22.112 info: Config: {
+  "node": {
+    "debug": false,
+    "forceSyncVm": true,
+    "terminateAfterCompletion": false,
+    "maxConcurrentRequests": 20,
+    "maxGasLimit": "300000000000000",
+    "maxVmLogsSizeBytes": 1024,
+
+    ...
+  },
+  "httpServer": {
+    "port": 3000,
+    "enableAutoPortDiscovery": true
+  },
+  "wasmCacheDir": "/Users/seda/.seda/testnet/wasm_cache",
+  "logsDir": "/Users/seda/.seda/testnet/logs",
+  "workersDir": "/Users/seda/.seda/workers"
+}
+2025-07-07 10:45:22.114 info: Overlay configuration is valid ✅
+```
+
+You can also use the optional `--silent | -s` flag which just validates your configuration without any output:
+
+```bash
+seda-overlay validate --network testnet --silent
+```
+
+
 ## Running with Docker
 
 This project includes a Docker setup managed via a `Makefile` for easier environment management.

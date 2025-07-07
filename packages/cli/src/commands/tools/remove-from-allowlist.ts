@@ -25,7 +25,7 @@ export const removeFromAllowlist = populateWithCommonOptions(new Command("remove
 			},
 			TransactionPriority.LOW,
 			undefined,
-			undefined,
+			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
 			"remove-from-allowlist",
 		);
