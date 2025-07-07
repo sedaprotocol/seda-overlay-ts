@@ -163,6 +163,10 @@ export class MainTask {
 		const dataRequest = this.findHighestGasPriceRequest();
 		if (dataRequest.isNothing) return;
 
+		logger.info("🤖 Processing Data Request", {
+			id: dataRequest.value.drId,
+		});
+
 		dataRequest.value.on("done", () => {
 			this.activeDataRequestTasks -= 1;
 			this.completedDataRequests += 1;
@@ -208,6 +212,7 @@ export class MainTask {
 			this.processNextDr();
 		});
 
+		logger.info("Overlay node started and running");
 		span.end();
 	}
 

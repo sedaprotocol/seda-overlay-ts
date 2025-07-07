@@ -135,9 +135,15 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			};
 		}
 
-		logger.debug(response.value.status === "eligible" ? "🟢 Eligible" : `🔴 Not eligible: ${response.value.status}`, {
-			id: traceId,
-		});
+		if (response.value.status === "eligible") {
+			logger.info("🟢 Eligible", {
+				id: traceId,
+			});
+		} else {
+			logger.debug(`🔴 Not eligible: ${response.value.status}`, {
+				id: traceId,
+			});
+		}
 
 		// Check if the data request is still in Commit Stage on chain
 		const drCheckSpan = this.eligibilityTracer.startSpan(

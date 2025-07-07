@@ -43,7 +43,7 @@ export async function executeDataRequest(
 	syncExecuteWorker: Maybe<WorkerPool>,
 ): Promise<Result<VmResultOverlay, Error>> {
 	return executionResultCache.getOrFetch(`${dataRequest.id}_${dataRequest.height}`, async () => {
-		logger.info("📦 Downloading Oracle Program...", {
+		logger.debug("📦 Downloading Oracle Program...", {
 			id: dataRequest.id,
 		});
 		const binary = await getOracleProgram(dataRequest.execProgramId, appConfig, sedaChain);
@@ -57,11 +57,11 @@ export async function executeDataRequest(
 		}
 
 		if (binary.value.value.fromCache) {
-			logger.info("📦 Got Oracle Program from cache", {
+			logger.debug("📦 Got Oracle Program from cache", {
 				id: dataRequest.id,
 			});
 		} else {
-			logger.info("📦 Downloaded Oracle Program", {
+			logger.debug("📦 Downloaded Oracle Program", {
 				id: dataRequest.id,
 			});
 		}

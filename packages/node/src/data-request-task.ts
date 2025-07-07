@@ -264,7 +264,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 
-		logger.info("💫 Executing..", {
+		logger.debug("💫 Executing..", {
 			id: this.name,
 		});
 
@@ -361,7 +361,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("stdout", vmResult.value.stdout);
 
 		this.transitionStatus(IdentityDataRequestStatus.Executed);
-		logger.info("💫 Executed Data Request", {
+		logger.debug("💫 Executed Data Request", {
 			id: this.name,
 		});
 		span.end();
@@ -372,7 +372,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 
-		logger.info("📩 Committing...", {
+		logger.debug("📩 Committing...", {
 			id: this.name,
 		});
 
@@ -458,7 +458,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		this.transitionStatus(IdentityDataRequestStatus.Committed);
 		this.commitHash = result.value;
 		span.setAttribute("commit_hash", result.value.toString("hex"));
-		logger.info("📩 Committed", {
+		logger.debug("📩 Committed", {
 			id: this.name,
 		});
 		span.end();
@@ -504,7 +504,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 
-		logger.info("📨 Revealing...", {
+		logger.debug("📨 Revealing...", {
 			id: this.name,
 		});
 
@@ -586,7 +586,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		this.transitionStatus(IdentityDataRequestStatus.Revealed);
 		span.setAttribute("status", "revealed");
-		logger.info("📨 Revealed", {
+		logger.debug("📨 Revealed", {
 			id: this.name,
 		});
 		span.end();

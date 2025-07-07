@@ -52,7 +52,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 		this.addFetchCount();
 
-		logger.info("🔎 Looking for Data Requests...");
+		logger.debug("🔎 Looking for Data Requests...");
 		const result = await getDataRequests(this.sedaChain, this.config.node.drFetchLimit);
 
 		if (result.isErr) {
