@@ -10,23 +10,10 @@ import { version } from "../../../../package.json";
 import { DataRequestTask } from "../data-request-task";
 import { DataRequestPool } from "../models/data-request-pool";
 import { IdentityPool } from "../models/identitiest-pool";
-import {
-	getEmbeddedCompileWorkerCode,
-	getEmbeddedSyncExecuteWorkerCode,
-	getEmbeddedVmWorkerCode,
-} from "./execute-worker/worker-macro" with { type: "macro" };
+import { getEmbeddedSyncExecuteWorkerCode } from "./execute-worker/worker-macro" with { type: "macro" };
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
-
-// Embed worker code so we can ouput a single binary
-const executeWorkerCode = getEmbeddedVmWorkerCode();
-const executeBlob = new Blob([executeWorkerCode]);
-const executeWorkerSrc = URL.createObjectURL(executeBlob);
-
-const compilerWorkerCode = getEmbeddedCompileWorkerCode();
-const compilerBlob = new Blob([compilerWorkerCode]);
-const compilerWorkerSrc = URL.createObjectURL(compilerBlob);
 
 const syncExecuteWorkerCode = getEmbeddedSyncExecuteWorkerCode();
 const syncExecuteWorkerBlob = new Blob([syncExecuteWorkerCode]);
@@ -37,23 +24,14 @@ const syncExecuteWorkerSrc = URL.createObjectURL(syncExecuteWorkerBlob);
 function writeWorkersToDisk(workersDir: string) {
 	if (typeof Bun !== "undefined") {
 		return {
-			executeWorkerSrc,
-			compilerWorkerSrc,
 			syncExecuteWorkerSrc,
 		};
 	}
 
-	const compilerWorkerPath = path.join(workersDir, `compile-worker-${version}.js`);
-	const executeWorkerPath = path.join(workersDir, `execute-worker-${version}.js`);
 	const syncExecuteWorkerPath = path.join(workersDir, `sync-execute-worker-${version}.js`);
-
-	writeFileSync(compilerWorkerPath, compilerWorkerCode);
-	writeFileSync(executeWorkerPath, executeWorkerCode);
 	writeFileSync(syncExecuteWorkerPath, syncExecuteWorkerCode);
 
 	return {
-		executeWorkerSrc: executeWorkerPath,
-		compilerWorkerSrc: compilerWorkerPath,
 		syncExecuteWorkerSrc: syncExecuteWorkerPath,
 	};
 }
@@ -64,9 +42,7 @@ export class MainTask {
 	private identityManagerTask: IdentityManagerTask;
 	public identityPool: IdentityPool;
 	private eligibilityTask: EligibilityTask;
-	private executeWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
-	private compilerWorkerPool: Maybe<WorkerPool> = Maybe.nothing();
-	private syncExecuteWorker: Maybe<WorkerPool> = Maybe.nothing();
+	private syncExecuteWorker: WorkerPool;
 	private mainTracer: Tracer;
 
 	// These are the actual data requests we are currently processing and need to be completed before we move on
@@ -90,37 +66,22 @@ export class MainTask {
 		this.identityManagerTask = new IdentityManagerTask(this.identityPool, config, sedaChain);
 		this.eligibilityTask = new EligibilityTask(this.pool, this.identityPool, config, sedaChain);
 
-		let threadsAvailable = availableParallelism();
-
+		const threadsAvailable = availableParallelism();
 		const workersPaths = writeWorkersToDisk(config.workersDir);
 
-		if (!config.node.forceSyncVm && threadsAvailable >= 2) {
-			logger.debug(
-				`Parallel execution mode activated. (Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`,
-			);
-			threadsAvailable = threadsAvailable - 1;
+		logger.debug(
+			`Threads available: ${threadsAvailable}. Terminate after completion: ${config.node.terminateAfterCompletion}`,
+		);
 
-			this.compilerWorkerPool = Maybe.just(new WorkerPool(workersPaths.compilerWorkerSrc, threadsAvailable));
-			this.executeWorkerPool = Maybe.just(
-				new WorkerPool(workersPaths.executeWorkerSrc, threadsAvailable, config.node.terminateAfterCompletion),
-			);
-		} else {
-			logger.debug(
-				`Synchronous execution mode activated. (Threads available: ${threadsAvailable}). Terminate after completion: ${config.node.terminateAfterCompletion}`,
-			);
-
-			if (config.node.threadAmount) {
-				logger.debug(`Using configured thread amount: ${config.node.threadAmount}`);
-			}
-
-			this.syncExecuteWorker = Maybe.just(
-				new WorkerPool(
-					workersPaths.syncExecuteWorkerSrc,
-					config.node.threadAmount ?? threadsAvailable,
-					config.node.terminateAfterCompletion,
-				),
-			);
+		if (config.node.threadAmount) {
+			logger.debug(`Using configured thread amount: ${config.node.threadAmount}`);
 		}
+
+		this.syncExecuteWorker = new WorkerPool(
+			workersPaths.syncExecuteWorkerSrc,
+			config.node.threadAmount ?? threadsAvailable,
+			config.node.terminateAfterCompletion,
+		);
 
 		setInterval(() => this.processNextDr(), this.config.node.processDrInterval);
 	}
@@ -202,8 +163,6 @@ export class MainTask {
 				drId,
 				identityId,
 				eligibilityHeight,
-				this.executeWorkerPool,
-				this.compilerWorkerPool,
 				this.syncExecuteWorker,
 			);
 

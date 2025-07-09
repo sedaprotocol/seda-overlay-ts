@@ -52,9 +52,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		public drId: string,
 		private identityId: string,
 		private eligibilityHeight: bigint,
-		private executeWorkerPool: Maybe<WorkerPool>,
-		private compilerWorkerPool: Maybe<WorkerPool>,
-		private syncExecuteWorker: Maybe<WorkerPool>,
+		private syncExecuteWorker: WorkerPool,
 	) {
 		super();
 
@@ -297,8 +295,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			this.eligibilityHeight,
 			this.appConfig,
 			this.sedaChain,
-			this.executeWorkerPool,
-			this.compilerWorkerPool,
 			this.syncExecuteWorker,
 		);
 

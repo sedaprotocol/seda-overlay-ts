@@ -222,7 +222,6 @@ seda-overlay validate --network testnet
 2025-07-07 10:45:22.112 info: Config: {
   "node": {
     "debug": false,
-    "forceSyncVm": true,
     "terminateAfterCompletion": false,
     "maxConcurrentRequests": 20,
     "maxGasLimit": "300000000000000",

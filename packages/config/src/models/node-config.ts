@@ -5,7 +5,6 @@ import {
 	DEFAULT_FETCH_COUNT_REFRESH_INTERVAL,
 	DEFAULT_FETCH_FAILURE_THRESHOLD,
 	DEFAULT_FETCH_LIMIT,
-	DEFAULT_FORCE_SYNC_VM,
 	DEFAULT_GAS_ESTIMATIONS_ENABLED,
 	DEFAULT_LOG_LEVEL,
 	DEFAULT_LOG_ROTATION_ENABLED,
@@ -23,7 +22,6 @@ import {
 
 export const NodeConfigSchema = v.object({
 	debug: v.optional(v.boolean(), DEFAULT_DEBUG),
-	forceSyncVm: v.optional(v.boolean(), DEFAULT_FORCE_SYNC_VM),
 	threadAmount: v.optional(v.number()),
 	terminateAfterCompletion: v.optional(v.boolean(), DEFAULT_TERMINATE_AFTER_COMPLETION),
 	maxConcurrentRequests: v.optional(v.number(), DEFAULT_MAX_CONCURRENT_REQUESTS),

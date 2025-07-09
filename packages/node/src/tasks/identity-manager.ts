@@ -100,7 +100,9 @@ export class IdentityManagerTask {
 			const balance = await this.sedaChain.getBalance(accountIndex);
 
 			if (balance.isErr) {
-				logger.error(`Could not get balance for account ${this.sedaChain.getSignerAddress(accountIndex)}: ${balance.error}`);
+				logger.error(
+					`Could not get balance for account ${this.sedaChain.getSignerAddress(accountIndex)}: ${balance.error}`,
+				);
 				continue;
 			}
 

@@ -1,15 +1,12 @@
-import { callVm, executeVm } from "@seda-protocol/vm";
 import type { VmCallData, VmResult } from "@seda-protocol/vm";
 import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import { Cache } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { type Maybe, Result } from "true-myth";
+import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
-import { OverlayVmAdapter } from "../overlay-vm-adapter";
 import { getVmVersion } from "../services/determine-vm-version" with { type: "macro" };
 import { getOracleProgram } from "../services/get-oracle-program";
-import { compile } from "./execute-worker/compile-worker";
 import { executeDataRequestInWorker } from "./execute-worker/sync-execute-worker";
 
 export interface VmResultOverlay extends VmResult {
@@ -38,9 +35,7 @@ export async function executeDataRequest(
 	eligibilityHeight: bigint,
 	appConfig: AppConfig,
 	sedaChain: SedaChain,
-	vmWorkerPool: Maybe<WorkerPool>,
-	compilerPool: Maybe<WorkerPool>,
-	syncExecuteWorker: Maybe<WorkerPool>,
+	syncExecuteWorker: WorkerPool,
 ): Promise<Result<VmResultOverlay, Error>> {
 	return executionResultCache.getOrFetch(`${dataRequest.id}_${dataRequest.height}`, async () => {
 		logger.debug("📦 Downloading Oracle Program...", {
@@ -69,42 +64,8 @@ export async function executeDataRequest(
 		const drExecGasLimit = dataRequest.execGasLimit / BigInt(dataRequest.replicationFactor);
 		// Clamp the gas limit to the maximum allowed by node config
 		const clampedGasLimit = clampGasLimit(drExecGasLimit, appConfig.node.maxGasLimit);
-
-		const vmAdapter = new OverlayVmAdapter(
-			{
-				chainId: appConfig.sedaChain.chainId,
-				coreContractAddress: await sedaChain.getCoreContractAddress(),
-				dataRequestId: dataRequest.id,
-				gasPrice: dataRequest.postedGasPrice,
-				identityPrivateKey,
-				eligibilityHeight,
-				appConfig,
-				totalHttpTimeLimit: appConfig.node.totalHttpTimeLimit,
-			},
-			sedaChain,
-			dataRequest.id,
-		);
-
 		const oracleProgramBinary = binary.value.value.bytes;
 		const cacheWasmId = `${dataRequest.execProgramId}_metered_${getVmVersion()}.wasm`;
-
-		// We can do compilation in a seperate thread only if there is enough threads available
-		// Otherwise we will not precompile the binary
-		const binaryOrModule = await compilerPool.match<Promise<Buffer | WebAssembly.Module>>({
-			Just: async (pool) => {
-				const compiledModule = await pool.executeTask(async (worker) => {
-					return compile(worker, oracleProgramBinary, {
-						dir: `${appConfig.wasmCacheDir}`,
-						id: cacheWasmId,
-					});
-				});
-
-				return compiledModule;
-			},
-			Nothing: () => {
-				return Promise.resolve(oracleProgramBinary);
-			},
-		});
 
 		const callData: VmCallData = {
 			args: [dataRequest.execInputs.toString("hex")],
@@ -127,7 +88,7 @@ export async function executeDataRequest(
 				TALLY_PROGRAM_ID: dataRequest.tallyProgramId,
 				TALLY_INPUTS: dataRequest.tallyInputs.toString("hex"),
 			},
-			binary: binaryOrModule,
+			binary: oracleProgramBinary,
 			gasLimit: clampedGasLimit,
 			stderrLimit: appConfig.node.maxVmLogsSizeBytes,
 			stdoutLimit: appConfig.node.maxVmLogsSizeBytes,
@@ -137,39 +98,22 @@ export async function executeDataRequest(
 			id: dataRequest.id,
 		});
 
-		const result = await vmWorkerPool.match({
-			Just: async (pool) => {
-				return pool.executeTask(async (worker) => {
-					return await callVm(callData, worker, vmAdapter);
-				});
-			},
-			Nothing: async () => {
-				if (syncExecuteWorker.isJust) {
-					return syncExecuteWorker.value.executeTask(async (worker) => {
-						return await executeDataRequestInWorker(
-							worker,
-							identityPrivateKey,
-							eligibilityHeight,
-							dataRequest,
-							appConfig,
-							callData,
-						);
-					});
-				}
-
-				return executeVm(callData, dataRequest.id, vmAdapter);
-			},
+		const result = await syncExecuteWorker.executeTask(async (worker) => {
+			return await executeDataRequestInWorker(
+				worker,
+				identityPrivateKey,
+				eligibilityHeight,
+				dataRequest,
+				appConfig,
+				callData,
+			);
 		});
 
 		logger.trace("Data request executed", {
 			id: dataRequest.id,
 		});
 
-		return Result.ok({
-			usedProxyPublicKeys: vmAdapter.usedProxyPublicKeys,
-			// The Sync worker will return the result with the usedProxyPublicKeys
-			...result,
-		});
+		return Result.ok(result);
 	});
 }
 
