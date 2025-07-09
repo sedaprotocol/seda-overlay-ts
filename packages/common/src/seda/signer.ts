@@ -3,6 +3,7 @@ import { DirectSecp256k1HdWallet, type OfflineSigner } from "@cosmjs/proto-signi
 import { tryAsync } from "@seda-protocol/utils";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { AUTO_CORE_CONTRACT_VALUE } from "@sedaprotocol/overlay-ts-node/src/constants";
+import { Result } from "true-myth";
 import { createWasmQueryClient } from "./query-client";
 
 const BECH32_ADDRESS_PREFIX = "seda";
@@ -28,7 +29,7 @@ export class Signer implements ISigner {
 	 *
 	 * @throws Error when initialising wallet or deriving address fails.
 	 */
-	static async fromConfig(config: AppConfig, index = 0): Promise<Signer> {
+	static async fromConfig(config: AppConfig, index = 0): Promise<Result<Signer, Error>> {
 		const wallet = await DirectSecp256k1HdWallet.fromMnemonic(config.sedaChain.mnemonic, {
 			prefix: BECH32_ADDRESS_PREFIX,
 			hdPaths: [stringToPath(`m/44'/118'/0'/0/${index}`)],
@@ -36,14 +37,18 @@ export class Signer implements ISigner {
 
 		const contract = await resolveCoreContractAddress(config);
 
+		if (contract.isErr) {
+			return Result.err(contract.error);
+		}
+
 		const accounts = await wallet.getAccounts();
 		if (accounts.length === 0) {
-			throw Error("Address for given mnemonic does not exist");
+			return Result.err(new Error("Address for given mnemonic does not exist"));
 		}
 
 		const address = accounts[0].address;
 
-		return new Signer(config.sedaChain.rpc, wallet, address, contract);
+		return Result.ok(new Signer(config.sedaChain.rpc, wallet, address, contract.value));
 	}
 
 	getSigner() {
@@ -63,17 +68,22 @@ export class Signer implements ISigner {
 	}
 }
 
-async function resolveCoreContractAddress(config: AppConfig) {
+async function resolveCoreContractAddress(config: AppConfig): Promise<Result<string, Error>> {
 	if (config.sedaChain.contract !== AUTO_CORE_CONTRACT_VALUE) {
-		return config.sedaChain.contract;
+		return Result.ok(config.sedaChain.contract);
 	}
 
-	const queryClient = await createWasmQueryClient(config.sedaChain.rpc);
-	const response = await tryAsync(async () => queryClient.CoreContractRegistry({}));
+	const queryClient = await tryAsync(createWasmQueryClient(config.sedaChain.rpc));
+
+	if (queryClient.isErr) {
+		return Result.err(new Error(`Could not create query client: ${queryClient.error}`));
+	}
+
+	const response = await tryAsync(async () => queryClient.value.CoreContractRegistry({}));
 
 	if (response.isErr) {
-		throw Error(`Could not fetch core contract from chain: ${response.error.message}`);
+		return Result.err(new Error(`Could not fetch core contract from chain: ${response.error.message}`));
 	}
 
-	return response.value.address;
+	return Result.ok(response.value.address);
 }

@@ -1,5 +1,5 @@
 import type { IndexedTx } from "@cosmjs/cosmwasm-stargate";
-import type { EncodeObject } from "@cosmjs/proto-signing";
+import type { Coin, EncodeObject } from "@cosmjs/proto-signing";
 import type { Block, ProtobufRpcClient } from "@cosmjs/stargate";
 import type { sedachain } from "@seda-protocol/proto-messages";
 import { tryAsync } from "@seda-protocol/utils";
@@ -84,6 +84,19 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	getSignerAddress(accountIndex = 0) {
 		return this.signers[accountIndex].getAddress();
+	}
+
+	async getBalance(accountIndex = 0, token = "aseda"): Promise<Result<Coin, Error>> {
+		const address = this.getSignerAddress(accountIndex);
+		const balance = await tryAsync(async () => this.signerClients[accountIndex].getBalance(address, token));
+
+		if (balance.isErr) {
+			return Result.err(
+				new Error(`Could not get balance for account ${address} (index: ${accountIndex}): ${balance.error}`),
+			);
+		}
+
+		return balance;
 	}
 
 	/**
@@ -494,13 +507,18 @@ export class SedaChain extends EventEmitter<EventMap> {
 		}
 	}
 
-	static async fromConfig(config: AppConfig, cacheSequenceNumber = true): Promise<Result<SedaChain, unknown>> {
+	static async fromConfig(config: AppConfig, cacheSequenceNumber = true): Promise<Result<SedaChain, Error>> {
 		const signerClients: SedaSigningCosmWasmClient[] = [];
 		const signers: Signer[] = [];
 
 		for (const [accountIndex] of Array(config.sedaChain.accountAmounts).entries()) {
 			const signer = await Signer.fromConfig(config, accountIndex);
-			const signingClient = await createSigningClient(signer, cacheSequenceNumber, {
+
+			if (signer.isErr) {
+				return Result.err(signer.error);
+			}
+
+			const signingClient = await createSigningClient(signer.value, cacheSequenceNumber, {
 				followRedirects: config.sedaChain.followHttpRedirects,
 				redirectTtlMs: config.sedaChain.httpRedirectTtlMs,
 			});
@@ -509,7 +527,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 				return Result.err(signingClient.error);
 			}
 
-			signers.push(signer);
+			signers.push(signer.value);
 			signerClients.push(signingClient.value.client);
 		}
 

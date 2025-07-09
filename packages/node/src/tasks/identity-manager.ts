@@ -97,12 +97,14 @@ export class IdentityManagerTask {
 		for (const [accountIndex, _] of this.sedaChain.signerClients.entries()) {
 			if (accountIndex === 0) continue;
 
-			const balance = await this.sedaChain.signerClients[0].getBalance(
-				this.sedaChain.getSignerAddress(accountIndex),
-				"aseda",
-			);
+			const balance = await this.sedaChain.getBalance(accountIndex);
 
-			if (BigInt(balance.amount) < this.config.sedaChain.minSedaPerAccount) {
+			if (balance.isErr) {
+				logger.error(`Could not get balance for account ${this.sedaChain.getSignerAddress(accountIndex)}: ${balance.error}`);
+				continue;
+			}
+
+			if (BigInt(balance.value.amount) < this.config.sedaChain.minSedaPerAccount) {
 				logger.info(
 					`${accountIndex}: Account ${this.sedaChain.getSignerAddress(accountIndex)} has less than the minimum SEDA amount. Sending ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA..`,
 				);
@@ -139,7 +141,7 @@ export class IdentityManagerTask {
 				);
 			} else {
 				logger.info(
-					`${accountIndex}: ${this.sedaChain.getSignerAddress(accountIndex)} has enough SEDA (min: ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA, current: ${formatTokenUnits(balance.amount)} SEDA)`,
+					`${accountIndex}: ${this.sedaChain.getSignerAddress(accountIndex)} has enough SEDA (min: ${formatTokenUnits(this.config.sedaChain.minSedaPerAccount)} SEDA, current: ${formatTokenUnits(balance.value.amount)} SEDA)`,
 				);
 			}
 		}

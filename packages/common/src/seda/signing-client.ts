@@ -14,6 +14,7 @@ import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import makeFetchCookie from "fetch-cookie";
 import { JSONParse, JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
+import { tryAsync } from "../services/try-async";
 import type { ISigner } from "./signer";
 
 type Mutable<T> = { -readonly [P in keyof T]: T[P] };
@@ -171,13 +172,17 @@ export async function createSigningClient(
 	signer: ISigner,
 	cacheSequenceNumber: boolean,
 	httpClientOptions: SedaHttpClientOptions,
-): Promise<Result<{ client: SedaSigningCosmWasmClient; address: string }, unknown>> {
+): Promise<Result<{ client: SedaSigningCosmWasmClient; address: string }, Error>> {
 	const httpClient = new SedaHttpClient(signer.getEndpoint(), httpClientOptions);
-	const tendermintRpc = await Comet38Client.create(httpClient);
+	const tendermintRpc = await tryAsync(async () => await Comet38Client.create(httpClient));
 
-	// @ts-ignore
+	if (tendermintRpc.isErr) {
+		return Result.err(new Error(`Could not create tendermint rpc: ${tendermintRpc.error}`));
+	}
+
+	// @ts-expect-error - ignore protected constructor error
 	const signingClientResult: SedaSigningCosmWasmClient = new SedaSigningCosmWasmClient(
-		tendermintRpc,
+		tendermintRpc.value,
 		signer.getSigner(),
 		{},
 	);
