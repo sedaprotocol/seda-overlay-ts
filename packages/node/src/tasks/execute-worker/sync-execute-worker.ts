@@ -2,7 +2,7 @@ import { type Worker, isMainThread, parentPort } from "node:worker_threads";
 import { type VmCallData, executeVm } from "@seda-protocol/vm";
 import { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
-import { Maybe } from "true-myth";
+import { Maybe, Result, Unit } from "true-myth";
 import type { DataRequest } from "../../models/data-request";
 import { OverlayVmAdapter } from "../../overlay-vm-adapter";
 import { type VmResultOverlay, createVmResultError } from "../execute";
@@ -10,6 +10,7 @@ import { type VmResultOverlay, createVmResultError } from "../execute";
 export interface ExecuteResponse {
 	result: VmResultOverlay;
 	drId: string;
+	type: "execute";
 }
 
 export interface ExecuteMessage {
@@ -18,26 +19,66 @@ export interface ExecuteMessage {
 	callData: VmCallData;
 	identityPrivateKey: Buffer;
 	eligibilityHeight: string;
+	type: "execute";
+}
+
+export interface WarmupMessage {
+	id: string;
+	appConfig: AppConfig;
+	type: "warmup";
+}
+
+interface WarmupResponse {
+	id: string;
+	error?: Error;
+	type: "warmup";
 }
 
 function startWorker() {
 	let sedaChain: Maybe<SedaChain> = Maybe.nothing();
 
-	parentPort?.on("message", async (message: ExecuteMessage) => {
+	parentPort?.on("message", async (message: ExecuteMessage | WarmupMessage) => {
 		// First time we get a message, we need to create the SedaChain instance
 		if (sedaChain.isNothing) {
 			const sedaChainInstance = await SedaChain.fromConfig(message.appConfig);
 			if (sedaChainInstance.isErr) {
-				parentPort?.postMessage({
-					result: createVmResultError(sedaChainInstance.error as Error),
-				} as ExecuteResponse);
+				if (message.type === "execute") {
+					parentPort?.postMessage({
+						type: "execute",
+						result: createVmResultError(sedaChainInstance.error as Error),
+						drId: message.dataRequest.id,
+					} as ExecuteResponse);
+				} else {
+					parentPort?.postMessage({
+						type: "warmup",
+						error: sedaChainInstance.error,
+						id: message.id,
+					} as WarmupResponse);
+				}
 				return;
 			}
 
 			sedaChain = Maybe.just(sedaChainInstance.value);
+
+			if (message.type === "warmup") {
+				parentPort?.postMessage({
+					type: "warmup",
+					id: message.id,
+				} as WarmupResponse);
+				return;
+			}
 		}
 
-		if (sedaChain.isJust) {
+		// Should never happen, warmup should only be called once
+		if (sedaChain.isJust && message.type === "warmup") {
+			parentPort?.postMessage({
+				type: "warmup",
+				id: message.id,
+			} as WarmupResponse);
+			return;
+		}
+
+		if (sedaChain.isJust && message.type === "execute") {
 			const traceId = `${message.dataRequest.id}`;
 
 			const vmAdapter = new OverlayVmAdapter(
@@ -58,6 +99,7 @@ function startWorker() {
 			const result = await executeVm(message.callData, message.dataRequest.id, vmAdapter);
 
 			parentPort?.postMessage({
+				type: "execute",
 				drId: message.dataRequest.id,
 				result: {
 					...result,
@@ -87,6 +129,7 @@ export function executeDataRequestInWorker(
 			appConfig,
 			callData,
 			eligibilityHeight: eligibilityHeight.toString(),
+			type: "execute",
 		};
 
 		function handleMessage(response: ExecuteResponse) {
@@ -98,6 +141,28 @@ export function executeDataRequestInWorker(
 
 			worker.off("message", handleMessage);
 			resolve(response.result);
+		}
+
+		worker.on("message", handleMessage);
+		worker.postMessage(message);
+	});
+}
+
+export function warmupWorker(worker: Worker, appConfig: AppConfig): Promise<Result<Unit, Error>> {
+	return new Promise((resolve) => {
+		const message: WarmupMessage = {
+			id: Math.random().toString(),
+			appConfig,
+			type: "warmup",
+		};
+
+		function handleMessage(response: WarmupResponse) {
+			if (response.id !== message.id) {
+				return;
+			}
+
+			worker.off("message", handleMessage);
+			resolve(response.error ? Result.err(response.error) : Result.ok(Unit));
 		}
 
 		worker.on("message", handleMessage);

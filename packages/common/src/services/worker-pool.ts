@@ -10,7 +10,7 @@ type Task<T = void> = (worker: Worker) => Promise<T>;
 
 export class WorkerPool {
 	private runningTasks: Map<number, Promise<unknown>> = new Map();
-	private pool: WorkerInfo[] = [];
+	public pool: WorkerInfo[] = [];
 	// Using round-robin to pick workers for parallel data request execution.
 	// More efficient than picking the first available worker since workers spend lots of time waiting on HTTP calls.
 	// TODO: Could make this smarter by picking workers that are actually free.

@@ -10,6 +10,7 @@ import { version } from "../../../../package.json";
 import { DataRequestTask } from "../data-request-task";
 import { DataRequestPool } from "../models/data-request-pool";
 import { IdentityPool } from "../models/identitiest-pool";
+import { warmupWorker } from "./execute-worker/sync-execute-worker";
 import { getEmbeddedSyncExecuteWorkerCode } from "./execute-worker/worker-macro" with { type: "macro" };
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
@@ -142,6 +143,20 @@ export class MainTask {
 		const span = this.mainTracer.startSpan("main-task-start");
 		span.setAttribute("max_concurrent_requests", this.config.node.maxConcurrentRequests);
 		span.setAttribute("process_dr_interval", this.config.node.processDrInterval);
+
+		logger.debug("Warming up workers");
+		// Warmup the workers
+		const warmupResults = await Promise.all(
+			this.syncExecuteWorker.pool.map((worker) => warmupWorker(worker.worker, this.config)),
+		);
+
+		if (warmupResults.some((result) => result.isErr)) {
+			const failedWorker = warmupResults.find((result) => result.isErr);
+			logger.error(`Failed to warmup workers: ${failedWorker?.error.message}`);
+			process.exit(1);
+		}
+
+		logger.debug("Workers warmed up successfully");
 
 		await this.identityManagerTask.start();
 		this.fetchTask.start();
