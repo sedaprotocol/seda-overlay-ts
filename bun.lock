@@ -96,7 +96,7 @@
         "@cosmjs/cosmwasm-stargate": "^0.33.0",
         "@cosmjs/crypto": "0.33.0",
         "@hono/node-server": "1.14.1",
-        "@seda-protocol/proto-messages": "0.5.0-dev.0",
+        "@seda-protocol/proto-messages": "1.0.0",
         "@seda-protocol/utils": "1.3.0",
         "@seda-protocol/vm": "1.0.14",
         "@sedaprotocol/core-contract-schema": "0.0.0",
@@ -290,7 +290,7 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.0", "", {}, "sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw=="],
 
-    "@seda-protocol/proto-messages": ["@seda-protocol/proto-messages@0.5.0-dev.0", "", { "dependencies": { "protobufjs": "^7.4.0" } }, "sha512-R+FZwzpCymi9nJv+Hbiq8+jM6uwF5HxUUxdn8YhbsUeY1y8tzwgyedfLGexsCDVCdD+9nt173wGSqLPQx8L1HA=="],
+    "@seda-protocol/proto-messages": ["@seda-protocol/proto-messages@1.0.0", "", { "dependencies": { "protobufjs": "^7.4.0" } }, "sha512-3okvhaoTsFgIKKYAvURil0VQBrNfPPq/cdQ6BeQ0eKf0irGAm9pJmSyEwNG5xxnTOLDJdhSeGY9o1x1Shfgh1w=="],
 
     "@seda-protocol/secp256k1-vrf": ["@seda-protocol/secp256k1-vrf@0.1.0", "", { "dependencies": { "@noble/hashes": "^1.7.1", "@noble/secp256k1": "^2.2.3" }, "peerDependencies": { "typescript": "^5.7.3" } }, "sha512-b0RBBFaBDzbnJfwdLcY/tFDi/1hFqnNqaOkiVyOFtyyUmFZj2O4DPWv3rr95Yx9+PBWzc7QxgSZ4xjvZLciQXg=="],
 
