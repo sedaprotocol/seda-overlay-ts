@@ -130,6 +130,10 @@ export class MainTask {
 		});
 
 		dataRequest.value.on("done", () => {
+			logger.info("✅ Data Request completed", {
+				id: dataRequest.value.drId,
+			});
+
 			this.activeDataRequestTasks -= 1;
 			this.completedDataRequests += 1;
 			this.processNextDr();
