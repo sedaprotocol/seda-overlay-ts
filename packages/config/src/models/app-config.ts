@@ -3,11 +3,11 @@ import { Maybe, Result } from "true-myth";
 import * as v from "valibot";
 import { checkFilePermissions } from "../check-permissions";
 import { createAllDataFolders } from "../home-dir";
+import { getAppVersions } from "./app-versions" with { type: "macro" };
 import { HttpServerConfigSchema } from "./http-server-config";
 import { IntervalsConfigSchema } from "./intervals-config";
 import { NodeConfigSchema } from "./node-config";
 import { type SedaChainConfig, SedaChainConfigSchema, createSedaChainConfig } from "./seda-chain-config";
-import { getAppVersions } from "./app-versions" with { type: "macro" };
 
 export const AppConfigSchema = v.object({
 	homeDir: v.optional(v.string()),
@@ -49,7 +49,7 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 	if (sedaChainConfig.isErr) {
 		return Result.err([sedaChainConfig.error.message]);
 	}
-	
+
 	const appVersions = getAppVersions();
 	const appConfig: AppConfig = {
 		...config.value,

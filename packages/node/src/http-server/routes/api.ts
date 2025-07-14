@@ -1,6 +1,6 @@
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Hono } from "hono";
 import type { MainTask } from "../../tasks/main";
-import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 
 export function createApi(appConfig: AppConfig, mainTask: MainTask) {
 	const api = new Hono();
