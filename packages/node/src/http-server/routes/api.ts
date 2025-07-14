@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { MainTask } from "../../tasks/main";
+import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 
-export function createApi(mainTask: MainTask) {
+export function createApi(appConfig: AppConfig, mainTask: MainTask) {
 	const api = new Hono();
 
 	api.get("/health", (c) => {
@@ -30,6 +31,9 @@ export function createApi(mainTask: MainTask) {
 					}),
 				),
 			},
+
+			version: appConfig.version,
+			vmVersion: appConfig.vmVersion,
 		});
 	});
 

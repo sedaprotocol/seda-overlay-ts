@@ -7,6 +7,7 @@ import { HttpServerConfigSchema } from "./http-server-config";
 import { IntervalsConfigSchema } from "./intervals-config";
 import { NodeConfigSchema } from "./node-config";
 import { type SedaChainConfig, SedaChainConfigSchema, createSedaChainConfig } from "./seda-chain-config";
+import { getAppVersions } from "./app-versions" with { type: "macro" };
 
 export const AppConfigSchema = v.object({
 	homeDir: v.optional(v.string()),
@@ -21,6 +22,8 @@ export interface AppConfig extends v.InferOutput<typeof AppConfigSchema> {
 	wasmCacheDir: string;
 	logsDir: string;
 	workersDir: string;
+	version: string;
+	vmVersion: string;
 }
 
 export async function parseAppConfig(input: unknown, network: string): Promise<Result<AppConfig, string[]>> {
@@ -46,13 +49,16 @@ export async function parseAppConfig(input: unknown, network: string): Promise<R
 	if (sedaChainConfig.isErr) {
 		return Result.err([sedaChainConfig.error.message]);
 	}
-
+	
+	const appVersions = getAppVersions();
 	const appConfig: AppConfig = {
 		...config.value,
 		wasmCacheDir: dataDirPaths.value.wasmCacheDir,
 		sedaChain: sedaChainConfig.value,
 		logsDir: dataDirPaths.value.logsDir,
 		workersDir: dataDirPaths.value.workersDir,
+		version: appVersions.overlay,
+		vmVersion: appVersions.vm,
 	};
 
 	// Do one last check to ensure all folders have the correct permissions

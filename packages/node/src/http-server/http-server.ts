@@ -13,7 +13,7 @@ export async function startHttpServer(appConfig: AppConfig, mainTask: MainTask) 
 	app.get("/healthz", (c) => c.text("ok"));
 	app.get("/readyz", (c) => c.text("ok"));
 
-	app.route("/api", createApi(mainTask));
+	app.route("/api", createApi(appConfig, mainTask));
 
 	let port = appConfig.httpServer.port;
 
