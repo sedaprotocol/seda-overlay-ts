@@ -44,14 +44,6 @@ export const DEFAULT_HTTP_REDIRECT_FOLLOW = true;
 export const DEFAULT_HTTP_REDIRECT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export const DEFAULT_DISABLE_TRANSACTION_BLOCK_SEARCH = true;
 
-export const PLANET_APP_CONFIG: DeepPartial<AppConfig> = {
-	sedaChain: {
-		rpc: "https://rpc.planet.seda.xyz/",
-		chainId: "seda-1-planet",
-		mnemonic: "YOUR SEDA MNEMONIC HERE",
-	},
-};
-
 export const DEVNET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
 		rpc: "https://rpc.devnet.seda.xyz/",

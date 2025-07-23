@@ -9,10 +9,7 @@ export function populateWithCommonOptions(command: Command) {
 		.addOption(new Option("-c, --config <string>", "Path to the config.json(c)").env("SEDA_CONFIG_PATH"))
 		.addOption(new Option("--mnemonic <string>", "The mnemonic for the SEDA chain").env("SEDA_MNEMONIC"))
 		.addOption(
-			new Option(
-				"-n, --network <string>",
-				"The network name of the SEDA chain, can be mainnet, testnet, devnet, planet or other",
-			)
+			new Option("-n, --network <string>", "SEDA Chain network: 'mainnet', 'testnet', or 'devnet'")
 				.env("SEDA_NETWORK")
 				.default("testnet"),
 		);

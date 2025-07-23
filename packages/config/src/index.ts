@@ -6,7 +6,7 @@ import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { parseJSONC } from "confbox";
 import merge from "lodash.merge";
 import { type Maybe, Result } from "true-myth";
-import { DEVNET_APP_CONFIG, MAINNET_APP_CONFIG, PLANET_APP_CONFIG, TESTNET_APP_CONFIG } from "./constants";
+import { DEVNET_APP_CONFIG, MAINNET_APP_CONFIG, TESTNET_APP_CONFIG } from "./constants";
 import { createAllDataFolders, resolveWithHomeDir } from "./home-dir";
 import { type AppConfig, parseAppConfig } from "./models/app-config";
 import type { DeepPartial } from "./types";
@@ -53,7 +53,7 @@ export async function loadConfig(
 export async function createConfig(
 	configPath: Maybe<string>,
 	homeDir: Maybe<string>,
-	network: "testnet" | "devnet" | "planet" | "mainnet" | string,
+	network: "testnet" | "devnet" | "mainnet" | string,
 ): Promise<Result<string, Error>> {
 	// Just creates a config at a given path. When the file exists it will not override it
 	let config: DeepPartial<AppConfig> = {
@@ -68,8 +68,6 @@ export async function createConfig(
 		config = TESTNET_APP_CONFIG;
 	} else if (network === "devnet") {
 		config = DEVNET_APP_CONFIG;
-	} else if (network === "planet") {
-		config = PLANET_APP_CONFIG;
 	} else if (network === "mainnet") {
 		config = MAINNET_APP_CONFIG;
 	}

@@ -61,7 +61,7 @@ To run the overlay node we have two options:
 To start using the overlay node, you must first initialize it. You can specify the network using the `--network` flag (defaults to `testnet` if not specified).
 
 ```bash
-seda-overlay init --network <mainnet | testnet | devnet | planet>
+seda-overlay init --network <mainnet | testnet | devnet>
 
 Initializing the overlay node..
 Config file has been created at: /Users/myuser/.seda/testnet/config.jsonc
@@ -85,7 +85,7 @@ You must provide an active mnemonic from the SEDA chain. Alternatively, you can 
 After initialization, you can already print your identity public key.
 
 ```bash
-seda-overlay identities info --offline --network <mainnet | testnet | devnet | planet>
+seda-overlay identities info --offline --network <mainnet | testnet | devnet>
 
 Config file: /home/bun/.seda/testnet/config.jsonc
 ┌───┬────────────────────────────────────────────────────────────────────┐
@@ -102,7 +102,7 @@ This prints your identity public keys without connecting to the network or requi
 Before running your overlay node, you must register your identity and stake SEDA tokens.
 
 ```bash
-seda-overlay identities stake <SEDA_AMOUNT> --network <mainnet | testnet | devnet | planet>
+seda-overlay identities stake <SEDA_AMOUNT> --network <mainnet | testnet | devnet>
 ```
 
 Parameters:
@@ -121,7 +121,7 @@ seda-overlay identities stake 32 --network devnet
 After registration and staking, you can start it using the `run` command to begin processing data requests:
 
 ```bash
-seda-overlay run --network <mainnet | testnet | devnet | planet>
+seda-overlay run --network <mainnet | testnet | devnet>
 
 2025-04-18 12:40:47.968 info: Node is starting..
 2025-04-18 12:40:48.219 info: Using SEDA address: seda1uea9km4nup9q7qu96ak683kc67x9jf7ste45z5
@@ -138,7 +138,7 @@ Your overlay node is now operational and ready to process data requests.
 Monitor your node's identities using the info command:
 
 ```bash
-seda-overlay identities info --network <mainnet | testnet | devnet | planet>
+seda-overlay identities info --network <mainnet | testnet | devnet>
 
 Loading..
 ┌───┬────────────────────────────────────────────────────────────────────┬──────────┬───────────┬────────────────────┬────────┐
@@ -155,7 +155,7 @@ This display shows the accrued rewards available for withdrawal ("Pending Withdr
 To withdraw all accumulated rewards, use the withdraw command:
 
 ```bash
-seda-overlay identities withdraw --network <mainnet | testnet | devnet | planet>
+seda-overlay identities withdraw --network <mainnet | testnet | devnet>
 ```
 
 ```bash
@@ -173,7 +173,7 @@ Your fees have now been successfully withdrawn.
 To deactivate your node and retrieve your staked tokens, use the unstake command:
 
 ```bash
-seda-overlay identities unstake --network <mainnet | testnet | devnet | planet>
+seda-overlay identities unstake --network <mainnet | testnet | devnet>
 ```
 
 ```bash
@@ -187,7 +187,7 @@ seda-overlay identities unstake --network devnet
 Verify the unstaking status using the `info` command:
 
 ```bash
-seda-overlay identities info --network <mainnet | testnet | devnet | planet>
+seda-overlay identities info --network <mainnet | testnet | devnet>
 
 Loading..
 ┌───┬────────────────────────────────────────────────────────────────────┬──────────┬───────────┬────────────────────┬────────────┐
@@ -211,7 +211,7 @@ Validates your current configuration and outputs the complete configuration with
 Safely redacts sensitive information like mnemonics and private keys from the output, making it safe to share for debugging or support purposes.
 
 ```bash
-seda-overlay validate --network <mainnet | testnet | devnet | planet>
+seda-overlay validate --network <mainnet | testnet | devnet>
 ```
 
 This will output your configuration:
