@@ -2,7 +2,7 @@ import type { GetStakerAndSeqResponse } from "@sedaprotocol/core-contract-schema
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Maybe, Result } from "true-myth";
 
-interface StakerAndSeq extends Omit<GetStakerAndSeqResponse, "staker" | "seq"> {
+export interface StakerAndSeq extends Omit<GetStakerAndSeqResponse, "staker" | "seq"> {
 	seq: bigint;
 	staker: Maybe<Exclude<GetStakerAndSeqResponse["staker"], null | undefined>>;
 }

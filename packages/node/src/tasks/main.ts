@@ -5,6 +5,7 @@ import { type Tracer, trace } from "@opentelemetry/api";
 import { type SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Duration, Effect, Schedule } from "effect";
 import { Maybe } from "true-myth";
 import { version } from "../../../../package.json";
 import { DataRequestTask } from "../data-request-task";
@@ -15,6 +16,7 @@ import { getEmbeddedSyncExecuteWorkerCode } from "./execute-worker/worker-macro"
 import { FetchTask } from "./fetch";
 import { IdentityManagerTask } from "./identity-manager";
 import { EligibilityTask } from "./is-eligible";
+import { withdrawRewards } from "./withdraw-rewards";
 
 const syncExecuteWorkerCode = getEmbeddedSyncExecuteWorkerCode();
 const syncExecuteWorkerBlob = new Blob([syncExecuteWorkerCode]);
@@ -161,6 +163,18 @@ export class MainTask {
 		}
 
 		logger.debug("Workers warmed up successfully");
+
+		if (this.config.sedaChain.enableRewardsWithdrawal) {
+			Effect.runPromise(
+				withdrawRewards(this.sedaChain, this.identityPool, this.config).pipe(
+					Effect.schedule(Schedule.spaced(Duration.millis(this.config.sedaChain.rewardsWithdrawalInterval))),
+				),
+			);
+		} else {
+			logger.info(
+				"Auto rewards withdrawal is disabled, set $.sedaChain.enableRewardsWithdrawal to true in the config to enable it",
+			);
+		}
 
 		await this.identityManagerTask.start();
 		this.fetchTask.start();

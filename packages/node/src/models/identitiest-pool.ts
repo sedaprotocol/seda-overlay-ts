@@ -2,7 +2,7 @@ import { vrfProve } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { Maybe, Result } from "true-myth";
 
-interface IdentityInfo {
+export interface IdentityInfo {
 	identityId: string;
 	enabled: boolean;
 	privateKey: Buffer;

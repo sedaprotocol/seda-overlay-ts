@@ -85,5 +85,9 @@ async function resolveCoreContractAddress(config: AppConfig): Promise<Result<str
 		return Result.err(new Error(`Could not fetch core contract from chain: ${response.error.message}`));
 	}
 
+	if (response.value.address === "") {
+		return Result.err(new Error("Contract address is empty, chain is not initialized with core contract"));
+	}
+
 	return Result.ok(response.value.address);
 }

@@ -9,6 +9,7 @@ import {
 	DEFAULT_ADJUSTMENT_FACTOR,
 	DEFAULT_ADJUSTMENT_FACTOR_COSMOS_MESSAGES,
 	DEFAULT_DISABLE_TRANSACTION_BLOCK_SEARCH,
+	DEFAULT_ENABLE_REWARDS_WITHDRAWAL,
 	DEFAULT_GAS,
 	DEFAULT_GAS_PRICE,
 	DEFAULT_HTTP_REDIRECT_FOLLOW,
@@ -17,6 +18,8 @@ import {
 	DEFAULT_MAX_RETRIES,
 	DEFAULT_MIN_SEDA_PER_ACCOUNT,
 	DEFAULT_QUEUE_INTERVAL,
+	DEFAULT_REWARDS_WITHDRAWAL_INTERVAL,
+	DEFAULT_REWARDS_WITHDRAWAL_MINIMUM_THRESHOLD,
 	DEFAULT_SLEEP_BETWEEN_FAILED_TX,
 	DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD,
 	DEFAULT_TRANSACTION_POLL_INTERVAL,
@@ -45,6 +48,13 @@ export const SedaChainConfigSchema = v.object({
 	// The amount of blocks to search for a transaction in the block (Through block indexing). Before switching to an immediate search. (direct getTx call)
 	transactionBlockSearchThreshold: v.optional(v.number(), DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD),
 	disableTransactionBlockSearch: v.optional(v.boolean(), DEFAULT_DISABLE_TRANSACTION_BLOCK_SEARCH),
+	rewardsWithdrawalInterval: v.optional(v.number(), DEFAULT_REWARDS_WITHDRAWAL_INTERVAL),
+	// The minimum amount of rewards that should be available before withdrawing them. (in atto SEDA)
+	rewardsWithdrawalMinimumThreshold: v.pipe(
+		v.optional(v.string(), DEFAULT_REWARDS_WITHDRAWAL_MINIMUM_THRESHOLD),
+		v.transform((input) => BigInt(input)),
+	),
+	enableRewardsWithdrawal: v.optional(v.boolean(), DEFAULT_ENABLE_REWARDS_WITHDRAWAL),
 });
 
 export interface SedaChainConfig extends v.InferOutput<typeof SedaChainConfigSchema> {

@@ -19,6 +19,7 @@ export {
 	createStakeMessageSignatureHash,
 	type GetStakerAndSeqResponse,
 	createUnstakeMessageSignatureHash,
+	createWithdrawMessageSignatureHash,
 } from "./identity";
 export type { StakingConfig } from "./result-schema/response_to_get_staking_config";
 export type { GetExecutorsResponse } from "./result-schema/response_to_get_executors";

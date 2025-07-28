@@ -3,6 +3,8 @@ import type { DeepPartial } from "./types";
 
 type LogLevel = "debug" | "info" | "warn" | "error" | "silly";
 
+const ONE_SEDA = 1_000_000_000_000_000_000n;
+
 export const DEFAULT_IDENTITIES_AMOUNT = 1;
 export const DEFAULT_DEBUG = false;
 export const DEFAULT_FETCH_TASK_INTERVAL = 1_000;
@@ -32,7 +34,7 @@ export const DEFAULT_GAS = "auto";
 export const DEFAULT_TOTAL_HTTP_TIME_LIMIT = 20_000;
 export const DEFAULT_MAX_REVEAL_SIZE = 24_000; // 24KB (should be divided by the replication factor)
 export const DEFAULT_ACCOUNT_AMOUNTS = 10;
-export const DEFAULT_MIN_SEDA_PER_ACCOUNT = 1_000_000_000_000_000_000n; // 1 SEDA
+export const DEFAULT_MIN_SEDA_PER_ACCOUNT = ONE_SEDA;
 export const DEFAULT_LOG_LEVEL: LogLevel = "info";
 export const DEFAULT_FETCH_LIMIT = 20;
 export const DEFAULT_OFFLINE_ELIGIBILITY = true;
@@ -43,6 +45,9 @@ export const DEFAULT_TRANSACTION_BLOCK_SEARCH_THRESHOLD = 2;
 export const DEFAULT_HTTP_REDIRECT_FOLLOW = true;
 export const DEFAULT_HTTP_REDIRECT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export const DEFAULT_DISABLE_TRANSACTION_BLOCK_SEARCH = true;
+export const DEFAULT_REWARDS_WITHDRAWAL_INTERVAL = 1000 * 60 * 60 * 24; // 1 day in milliseconds
+export const DEFAULT_REWARDS_WITHDRAWAL_MINIMUM_THRESHOLD = ONE_SEDA.toString();
+export const DEFAULT_ENABLE_REWARDS_WITHDRAWAL = false;
 
 export const DEVNET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
