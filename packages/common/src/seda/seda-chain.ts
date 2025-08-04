@@ -4,7 +4,7 @@ import type { Block, ProtobufRpcClient } from "@cosmjs/stargate";
 import type { sedachain } from "@seda-protocol/proto-messages";
 import { tryAsync } from "@seda-protocol/utils";
 import type { ExecuteMsg, QueryMsg } from "@sedaprotocol/core-contract-schema";
-import { debouncedInterval, getBlock, getCurrentBlockHeight } from "@sedaprotocol/overlay-ts-common";
+import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
@@ -31,8 +31,8 @@ type EventMap = {
 
 // Transactions with a high priority will be put in the front of the queue
 export enum TransactionPriority {
-	LOW = "low",
-	HIGH = "high",
+	LOW = 0,
+	HIGH = 1,
 }
 
 export interface TransactionMessage {
@@ -132,130 +132,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 	 *
 	 */
 	async getTransaction(txHash: string, accountIndex = 0) {
-		if (this.config.sedaChain.disableTransactionBlockSearch) {
-			return getTransaction(this.signerClients[accountIndex], txHash);
-		}
-
-		const lastSearchedInBlock = Maybe.of(this.txLastSearchedBlockHeight.get(txHash));
-
-		if (lastSearchedInBlock.isNothing) {
-			// First time we're searching for this transaction, so we need to check if it's in the current block
-			const currentBlockHeight = await getCurrentBlockHeight(this);
-
-			if (currentBlockHeight.isErr) {
-				logger.error(`Error getting current block height: ${currentBlockHeight.error}`, {
-					id: txHash,
-				});
-
-				return Result.ok(Maybe.nothing());
-			}
-
-			const block = await getBlock(this, Number(currentBlockHeight.value));
-
-			if (block.isErr) {
-				logger.error(`Error getting block for current height ${currentBlockHeight.value}: ${block.error}`, {
-					id: txHash,
-				});
-
-				// We only want to return an error on transaction level, not on the block level
-				return Result.ok(Maybe.nothing());
-			}
-
-			if (block.value.isNothing) {
-				logger.trace(`No block found for current height ${currentBlockHeight.value}`, {
-					id: txHash,
-				});
-
-				return Result.ok(Maybe.nothing());
-			}
-
-			const isInBlock = block.value.value.block.txIds.some((txId) => txId === txHash.toUpperCase());
-
-			if (!isInBlock) {
-				logger.trace(
-					`Transaction not found in current block ${currentBlockHeight.value}, fullyIndexed: ${block.value.value.fullyIndexed}`,
-					{
-						id: txHash,
-					},
-				);
-
-				// The block is fully indexed, so we can set the last searched block height
-				// Otherwise we need to wait for the block to be fully indexed before continuing to the next block
-				if (block.value.value.fullyIndexed) {
-					this.txLastSearchedBlockHeight.set(txHash, {
-						start: currentBlockHeight.value,
-						current: currentBlockHeight.value,
-					});
-				}
-
-				return Result.ok(Maybe.nothing());
-			}
-
-			logger.trace(`Transaction found in block ${currentBlockHeight.value}`, {
-				id: txHash,
-			});
-
-			this.txLastSearchedBlockHeight.delete(txHash);
-			return getTransaction(this.signerClients[accountIndex], txHash);
-		}
-
-		// We've already searched for this transaction in the block, so we need to check if it's in the next block
-		const blockFetchResult = await getBlock(this, Number(lastSearchedInBlock.value.current) + 1);
-
-		if (blockFetchResult.isErr) {
-			logger.error(
-				`Error getting block for height ${lastSearchedInBlock.value.current + 1}: ${blockFetchResult.error}`,
-				{
-					id: txHash,
-				},
-			);
-
-			// We only want to return an error on transaction level, not on the block level
-			return Result.ok(Maybe.nothing());
-		}
-
-		if (blockFetchResult.value.isNothing) {
-			logger.trace(`No block found for height ${lastSearchedInBlock.value.current + 1}`, {
-				id: txHash,
-			});
-
-			return Result.ok(Maybe.nothing());
-		}
-
-		const isInBlock = blockFetchResult.value.value.block.txIds.some((txId) => txId === txHash.toUpperCase());
-
-		if (!isInBlock) {
-			logger.trace(
-				`Transaction not found in block ${lastSearchedInBlock.value.current + 1}, fullyIndexed: ${blockFetchResult.value.value.fullyIndexed}`,
-				{
-					id: txHash,
-				},
-			);
-
-			// The block is fully indexed, so we can set the last searched block height
-			// Otherwise we need to wait for the block to be fully indexed before continuing to the next block
-			if (blockFetchResult.value.value.fullyIndexed) {
-				this.txLastSearchedBlockHeight.set(txHash, {
-					start: lastSearchedInBlock.value.start,
-					current: blockFetchResult.value.value.block.header.height,
-				});
-			}
-
-			// If the difference is a couple of blocks we should just fetch the transaction and see if it exists.
-			// Safety measure to prevent slow indexing of RPC nodes
-			const diff = blockFetchResult.value.value.block.header.height - lastSearchedInBlock.value.start;
-			if (diff >= this.config.sedaChain.transactionBlockSearchThreshold)
-				return getTransaction(this.signerClients[accountIndex], txHash);
-
-			return Result.ok(Maybe.nothing());
-		}
-
-		logger.trace(`Transaction found in block ${lastSearchedInBlock.value.current + 1}`, {
-			id: txHash,
-		});
-
-		this.txLastSearchedBlockHeight.delete(txHash);
-		// It's in the block so we can fetch the transaction
 		return getTransaction(this.signerClients[accountIndex], txHash);
 	}
 
@@ -611,7 +487,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 	}
 }
 
-function narrowDownError(
+export function narrowDownError(
 	error: Error,
 ):
 	| AlreadyCommitted

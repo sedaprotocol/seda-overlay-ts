@@ -4,9 +4,15 @@ import {
 	createEligibilityHash,
 	createEligibilityMessageData,
 } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, debouncedInterval } from "@sedaprotocol/overlay-ts-common";
+import {
+	type SedaChainService,
+	debouncedInterval,
+	getCoreContractAddress,
+	queryContractSmart,
+} from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import type { Layer } from "effect";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
 import { match } from "ts-pattern";
@@ -18,7 +24,7 @@ import { isIdentityEligibleForDataRequest } from "../services/is-identity-eligib
 import { protocolPauseState } from "../services/is-protocol-paused";
 
 type EventMap = {
-	eligible: [drId: DataRequestId, eligibilityHeight: bigint, identityId: string];
+	eligible: [drId: DataRequestId, drHeight: bigint, eligibilityHeight: bigint, identityId: string];
 };
 
 type EligibilityCheckResult =
@@ -44,7 +50,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		private pool: DataRequestPool,
 		private identities: IdentityPool,
 		private config: AppConfig,
-		private sedaChain: SedaChain,
+		private sedaChain: Layer.Layer<SedaChainService>,
 	) {
 		super();
 		this.eligibilityTracer = trace.getTracer("eligibility-task");
@@ -66,6 +72,13 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		coreContractAddress: string,
 		parentSpan: Span,
 	): Promise<EligibilityCheckResult> {
+		if (this.pool.isDrResolved(dataRequest.id, dataRequest.height)) {
+			return {
+				eligible: false,
+				identityId,
+			};
+		}
+
 		const traceId = `${dataRequest.id}_${identityId}`;
 		const ctx = trace.setSpan(context.active(), parentSpan);
 		const span = this.eligibilityTracer.startSpan("check-identity-eligibility", undefined, ctx);
@@ -109,7 +122,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					return Result.err(messageSignature.error);
 				}
 
-				const response = await this.sedaChain.queryContractSmart<GetExecutorEligibilityResponse>({
+				const response = await queryContractSmart<GetExecutorEligibilityResponse>(this.sedaChain, {
 					is_executor_eligible: {
 						data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
 					},
@@ -118,6 +131,13 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				return response;
 			})
 			.exhaustive();
+
+		if (this.pool.isDrResolved(dataRequest.id, dataRequest.height)) {
+			return {
+				eligible: false,
+				identityId,
+			};
+		}
 
 		querySpan.end();
 
@@ -169,7 +189,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		}
 		if (drFromChain.isOk) {
 			if (drFromChain.value.isNothing) {
-				this.pool.deleteDataRequest(dataRequest.id);
+				this.pool.deleteDataRequest(dataRequest.id, dataRequest.height);
 				logger.info("🏁 Data Request no longer exists on chain - likely resolved", {
 					id: traceId,
 				});
@@ -208,13 +228,17 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 	}
 
 	async checkEligibility(dataRequest: DataRequest, parentSpan: Span) {
-		const traceId = `${dataRequest.id}`;
+		if (this.pool.isDrResolved(dataRequest.id, dataRequest.height)) {
+			return;
+		}
+
+		const traceId = `${dataRequest.id}_${dataRequest.height}`;
 		const ctx = trace.setSpan(context.active(), parentSpan);
 		const span = this.eligibilityTracer.startSpan("check-eligibility", undefined, ctx);
 
 		span.setAttribute("dr_id", dataRequest.id);
 
-		const coreContractAddress = await this.sedaChain.getCoreContractAddress();
+		const coreContractAddress = await getCoreContractAddress(this.sedaChain);
 		// We check in parallel to speed things up
 		const eligibilityChecks: Promise<void>[] = [];
 
@@ -234,7 +258,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 			const isResolved = result.match({
 				Ok: (refreshedDr) => {
 					if (refreshedDr.isNothing) {
-						this.pool.deleteDataRequest(dataRequest.id);
+						this.pool.deleteDataRequest(dataRequest.id, dataRequest.height);
 						logger.info("✅ Data Request has been resolved on chain", {
 							id: traceId,
 						});
@@ -264,11 +288,11 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 		// other nodes will take care of it
 		if (isDrInRevealStage(dataRequest)) {
 			// If no identities are currently processing this data request, we can stop checking eligibility
-			if (!this.pool.isDrBeingProcessed(dataRequest.id)) {
+			if (!this.pool.isDrBeingProcessed(dataRequest.id, dataRequest.height)) {
 				logger.debug("Dr is in reveal stage, and no identities are processing it, deleting from pool", {
 					id: traceId,
 				});
-				this.pool.deleteDataRequest(dataRequest.id);
+				this.pool.deleteDataRequest(dataRequest.id, dataRequest.height);
 				span.setAttribute("status", "in_reveal_stage");
 				span.end();
 				return;
@@ -285,7 +309,12 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 
 		for (const identityInfo of this.identities.all()) {
 			// We already create an instance for this, no need to check eligibility
-			if (this.pool.getIdentityDataRequest(dataRequest.id, identityInfo.identityId).isJust) {
+			if (this.pool.getIdentityDataRequest(dataRequest.id, dataRequest.height, identityInfo.identityId).isJust) {
+				continue;
+			}
+
+			// If the identity has already been resolved, we can skip the check
+			if (this.pool.isIdentityDrResolved(dataRequest.id, dataRequest.height, identityInfo.identityId)) {
 				continue;
 			}
 
@@ -307,12 +336,13 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 					if (response.eligible) {
 						this.pool.insertIdentityDataRequest(
 							dataRequest.id,
+							dataRequest.height,
 							response.identityId,
 							response.height,
 							Maybe.nothing(),
 							IdentityDataRequestStatus.EligibleForExecution,
 						);
-						this.emit("eligible", dataRequest.id, response.height, response.identityId);
+						this.emit("eligible", dataRequest.id, dataRequest.height, response.height, response.identityId);
 					}
 				}),
 			);

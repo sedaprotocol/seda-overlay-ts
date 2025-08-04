@@ -14,3 +14,5 @@ export async function createWasmQueryClient(rpc: string) {
 
 	return new sedachain.wasm_storage.v1.QueryClientImpl(protoRpcClient);
 }
+
+export type OracleProgram = sedachain.wasm_storage.v1.OracleProgram;

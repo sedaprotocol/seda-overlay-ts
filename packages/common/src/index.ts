@@ -16,3 +16,5 @@ export { Cache } from "./services/cache";
 export { getCurrentBlockHeight, getBlock } from "./seda/block";
 export { DebouncedPromise } from "./services/debounce-promise";
 export { asyncToEffect, effectToAsyncResult, asyncResultToEffect, effectToSyncResult } from "./services/effect-utils";
+export * from "./seda/seda-chain-effect";
+export { SizedSet } from "./services/sized-set";

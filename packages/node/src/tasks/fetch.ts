@@ -1,8 +1,9 @@
 import { type Span, type Tracer, context, trace } from "@opentelemetry/api";
 import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import type { Layer } from "effect";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result, type Unit } from "true-myth";
 import { type DataRequest, isDrInRevealStage } from "../models/data-request";
@@ -29,7 +30,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 	constructor(
 		private pool: DataRequestPool,
 		private config: AppConfig,
-		private sedaChain: SedaChain,
+		private sedaChainService: Layer.Layer<SedaChainService>,
 	) {
 		super();
 		this.fetchTracer = trace.getTracer("fetch");
@@ -53,7 +54,7 @@ export class FetchTask extends EventEmitter<EventMap> {
 		this.addFetchCount();
 
 		logger.debug("🔎 Looking for Data Requests...");
-		const result = await getDataRequests(this.sedaChain, this.config.node.drFetchLimit);
+		const result = await getDataRequests(this.sedaChainService, this.config.node.drFetchLimit);
 
 		if (result.isErr) {
 			span.recordException(result.error);
@@ -73,7 +74,11 @@ export class FetchTask extends EventEmitter<EventMap> {
 
 		const newDataRequests: DataRequest[] = [];
 		for (const dataRequest of result.value.dataRequests) {
-			if (this.pool.hasDataRequest(dataRequest.id)) {
+			if (this.pool.isDrResolved(dataRequest.id, dataRequest.height)) {
+				continue;
+			}
+
+			if (this.pool.hasDataRequest(dataRequest.id, dataRequest.height)) {
 				// Always update the pool
 				this.pool.insertDataRequest(dataRequest);
 				continue;

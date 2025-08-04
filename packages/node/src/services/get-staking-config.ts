@@ -1,6 +1,7 @@
 import type { StakingConfig as StakingConfigFromContract } from "@sedaprotocol/core-contract-schema";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
-import { Cache } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService } from "@sedaprotocol/overlay-ts-common";
+import { Cache, queryContractSmart } from "@sedaprotocol/overlay-ts-common";
+import type { Layer } from "effect";
 import { Result } from "true-myth";
 
 export interface StakingConfig {
@@ -12,9 +13,11 @@ export interface StakingConfig {
 const STAKING_CONFIG_CACHE_TTL = 60 * 60 * 1000;
 const stakingConfigCache = new Cache<StakingConfig>(STAKING_CONFIG_CACHE_TTL);
 
-export async function getStakingConfig(sedaChain: SedaChain): Promise<Result<StakingConfig, Error>> {
+export async function getStakingConfig(
+	sedaChain: Layer.Layer<SedaChainService>,
+): Promise<Result<StakingConfig, Error>> {
 	return stakingConfigCache.getOrFetch("staking_config", async () => {
-		const response = await sedaChain.queryContractSmart<StakingConfigFromContract>({
+		const response = await queryContractSmart<StakingConfigFromContract>(sedaChain, {
 			get_staking_config: {},
 		});
 

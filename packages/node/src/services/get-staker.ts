@@ -1,6 +1,6 @@
 import type { GetExecutorsResponse, Staker as StakerFromContract } from "@sedaprotocol/core-contract-schema";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
-import { Cache } from "@sedaprotocol/overlay-ts-common";
+import { Cache, SedaChainService, queryContractSmart } from "@sedaprotocol/overlay-ts-common";
+import { Effect, type Layer, Option } from "effect";
 import { Maybe, Result } from "true-myth";
 
 export interface Staker {
@@ -19,22 +19,18 @@ function transformStakerFromContract(staker: StakerFromContract, publicKey: stri
 	};
 }
 
-export async function getStaker(sedaChain: SedaChain, publicKey: string): Promise<Result<Maybe<Staker>, Error>> {
-	const result = await sedaChain.queryContractSmart<StakerFromContract | null>({
-		get_staker: {
-			public_key: publicKey,
-		},
+export function getStaker(publicKey: string) {
+	return Effect.gen(function* () {
+		const sedaChain = yield* SedaChainService;
+
+		return Option.fromNullable(
+			yield* sedaChain.queryContractSmart<StakerFromContract | null>({
+				get_staker: {
+					public_key: publicKey,
+				},
+			}),
+		).pipe(Option.map((value) => transformStakerFromContract(value, publicKey)));
 	});
-
-	if (result.isErr) {
-		return Result.err(result.error);
-	}
-
-	if (result.value === null) {
-		return Result.ok(Maybe.nothing());
-	}
-
-	return Result.ok(Maybe.just(transformStakerFromContract(result.value, publicKey)));
 }
 
 const STAKERS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
@@ -48,13 +44,16 @@ const DEFAULT_LIMIT = 20;
  * @param limit - The number of stakers to fetch per page.
  * @returns A Result containing an array of Staker objects or an Error if the query fails.
  */
-export async function getStakers(sedaChain: SedaChain, limit = DEFAULT_LIMIT): Promise<Result<Staker[], Error>> {
+export async function getStakers(
+	sedaChain: Layer.Layer<SedaChainService>,
+	limit = DEFAULT_LIMIT,
+): Promise<Result<Staker[], Error>> {
 	return stakersCache.getOrFetch("stakers", async () => {
 		const stakers: Staker[] = [];
 		let offset = 0;
 
 		async function fetchStakers(): Promise<Result<Staker[], Error>> {
-			const result = await sedaChain.queryContractSmart<GetExecutorsResponse>({
+			const result = await queryContractSmart<GetExecutorsResponse>(sedaChain, {
 				get_executors: {
 					limit,
 					offset,

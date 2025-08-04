@@ -1,7 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
 import type { StakingConfig as StakingConfigFromContract } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect } from "effect";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 
 export const chainConfig = populateWithCommonOptions(new Command("chain-config"))
@@ -14,32 +15,40 @@ export const chainConfig = populateWithCommonOptions(new Command("chain-config")
 		});
 
 		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
-		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
 
-		const response = await sedaChain.queryContractSmart({
-			get_dr_config: {},
-		});
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sedaChain = yield* SedaChainService;
 
-		if (response.isErr) {
-			logger.error(`Failed fetching dr config: ${response.error}`);
-			process.exit(1);
-		}
+				const response = yield* sedaChain
+					.queryContractSmart({
+						get_dr_config: {},
+					})
+					.pipe(Effect.mapError((e) => new Error(`Failed fetching dr config: ${e}`)));
 
-		const stakingConfig = await sedaChain.queryContractSmart<StakingConfigFromContract>({
-			get_staking_config: {},
-		});
+				const stakingConfig = yield* sedaChain
+					.queryContractSmart<StakingConfigFromContract>({
+						get_staking_config: {},
+					})
+					.pipe(Effect.mapError((e) => new Error(`Failed fetching staking config: ${e}`)));
 
-		if (stakingConfig.isErr) {
-			logger.error(`Failed fetching staking config: ${stakingConfig.error}`);
-			process.exit(1);
-		}
+				logger.info("DR Config");
+				console.table(response);
 
-		logger.info("DR Config");
-		console.table(response.value);
+				logger.info("Staking Config");
+				stakingConfig.minimum_stake = `${formatTokenUnits(stakingConfig.minimum_stake, 18)} SEDA (or ${stakingConfig.minimum_stake} aSEDA)`;
+				console.table(stakingConfig);
 
-		logger.info("Staking Config");
-		stakingConfig.value.minimum_stake = `${formatTokenUnits(stakingConfig.value.minimum_stake, 18)} SEDA (or ${stakingConfig.value.minimum_stake} aSEDA)`;
-		console.table(stakingConfig.value);
+				process.exit(0);
+			})
+				.pipe(Effect.provide(sedaChain))
+				.pipe(
+					Effect.catchAll((error) => {
+						logger.error(`${error}`);
+						process.exit(1);
 
-		process.exit(0);
+						return Effect.succeed(void 0);
+					}),
+				),
+		);
 	});

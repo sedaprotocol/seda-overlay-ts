@@ -11,9 +11,11 @@ import { Comet38Client, HttpClient, type HttpEndpoint } from "@cosmjs/tendermint
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { QueryClientImpl } from "cosmjs-types/cosmwasm/wasm/v1/query";
 import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
+import { Effect } from "effect";
 import makeFetchCookie from "fetch-cookie";
 import { JSONParse, JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
+import { asyncResultToEffect } from "../services/effect-utils";
 import { tryAsync } from "../services/try-async";
 import type { ISigner } from "./signer";
 
@@ -195,3 +197,17 @@ export async function createSigningClient(
 		address: signer.getAddress(),
 	});
 }
+
+export class SigningClientService extends Effect.Service<SigningClientService>()("SigningClientService", {
+	// Define how to create the service
+	effect: Effect.fn(function* () {
+		const createClient = (signer: ISigner, cacheSequenceNumber: boolean, httpClientOptions: SedaHttpClientOptions) =>
+			Effect.gen(function* () {
+				return yield* asyncResultToEffect(createSigningClient(signer, cacheSequenceNumber, httpClientOptions));
+			});
+
+		return {
+			createClient,
+		};
+	}),
+}) {}

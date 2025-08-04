@@ -2,10 +2,12 @@ import { sha256 } from "@cosmjs/crypto";
 import { toHex } from "@cosmjs/encoding";
 import type { Block as BlockFromChain } from "@cosmjs/stargate";
 import { tryAsync } from "@seda-protocol/utils";
+import { type Layer, Option } from "effect";
 import { Maybe, Result } from "true-myth";
 import { Cache } from "../services/cache";
 import { DebouncedPromise } from "../services/debounce-promise";
 import type { SedaChain } from "./seda-chain";
+import { type SedaChainService, getBlock as sedaChainGetBlock } from "./seda-chain-effect";
 
 const BLOCK_HEIGHT_CACHE_TTL = 2500; // 2.5 seconds
 const currentBlockHeightCache = new Cache<number>(BLOCK_HEIGHT_CACHE_TTL);
@@ -24,9 +26,9 @@ function transformBlock(block: BlockFromChain): Block {
 	};
 }
 
-export async function getCurrentBlockHeight(sedaChain: SedaChain): Promise<Result<number, Error>> {
+export async function getCurrentBlockHeight(sedaChain: Layer.Layer<SedaChainService>): Promise<Result<number, Error>> {
 	return currentBlockHeightCache.getOrFetch(CURRENT_BLOCK_HEIGHT_CACHE_KEY, async () => {
-		const result = await sedaChain.getBlock();
+		const result = await sedaChainGetBlock(sedaChain, Option.none());
 
 		if (result.isErr) {
 			return Result.err(result.error);

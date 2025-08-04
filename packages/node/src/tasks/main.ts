@@ -2,10 +2,10 @@ import { writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import path from "node:path";
 import { type Tracer, trace } from "@opentelemetry/api";
-import { type SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { Duration, Effect, Schedule } from "effect";
+import { Duration, Effect, type Layer, Schedule } from "effect";
 import { Maybe } from "true-myth";
 import { version } from "../../../../package.json";
 import { DataRequestTask } from "../data-request-task";
@@ -61,7 +61,7 @@ export class MainTask {
 
 	constructor(
 		private config: AppConfig,
-		private sedaChain: SedaChain,
+		private sedaChain: Layer.Layer<SedaChainService>,
 	) {
 		this.mainTracer = trace.getTracer("main-task");
 		this.identityPool = new IdentityPool(config);
@@ -104,7 +104,7 @@ export class MainTask {
 
 		for (let index = 0; index < this.dataRequestsToProcess.length; index++) {
 			const dataRequestTask = this.dataRequestsToProcess[index];
-			const dataRequest = this.pool.getDataRequest(dataRequestTask.drId);
+			const dataRequest = this.pool.getDataRequest(dataRequestTask.drId, dataRequestTask.drHeight);
 			if (dataRequest.isNothing) continue;
 
 			if (dataRequest.value.postedGasPrice > highestGasPrice) {
@@ -166,9 +166,9 @@ export class MainTask {
 
 		if (this.config.sedaChain.enableRewardsWithdrawal) {
 			Effect.runPromise(
-				withdrawRewards(this.sedaChain, this.identityPool, this.config).pipe(
-					Effect.schedule(Schedule.spaced(Duration.millis(this.config.sedaChain.rewardsWithdrawalInterval))),
-				),
+				withdrawRewards(this.identityPool, this.config)
+					.pipe(Effect.schedule(Schedule.spaced(Duration.millis(this.config.sedaChain.rewardsWithdrawalInterval))))
+					.pipe(Effect.provide(this.sedaChain)),
 			);
 		} else {
 			logger.info(
@@ -183,7 +183,7 @@ export class MainTask {
 			this.eligibilityTask.process();
 		});
 
-		this.eligibilityTask.on("eligible", async (drId, eligibilityHeight, identityId) => {
+		this.eligibilityTask.on("eligible", async (drId, drHeight, eligibilityHeight, identityId) => {
 			const eligibleSpan = this.mainTracer.startSpan("data-request-eligible");
 			eligibleSpan.setAttribute("dr_id", drId);
 			eligibleSpan.setAttribute("identity_id", identityId);
@@ -194,6 +194,7 @@ export class MainTask {
 				this.config,
 				this.sedaChain,
 				drId,
+				drHeight,
 				identityId,
 				eligibilityHeight,
 				this.syncExecuteWorker,
@@ -217,9 +218,14 @@ export class MainTask {
 	}
 
 	getTransactionStats() {
-		return {
-			sedaChain: this.sedaChain.getTransactionStats(),
-		};
+		return Effect.runSync(
+			Effect.gen(function* () {
+				const sedaChain = yield* SedaChainService;
+				return {
+					sedaChain: yield* sedaChain.getTransactionStats(),
+				};
+			}).pipe(Effect.provide(this.sedaChain)),
+		);
 	}
 
 	isFetchTaskHealthy() {

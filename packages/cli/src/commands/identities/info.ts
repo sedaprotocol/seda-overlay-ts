@@ -1,8 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
-import type { StakingConfig } from "@sedaprotocol/core-contract-schema";
-import { formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { loadConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, Either, Option } from "effect";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
@@ -46,58 +46,58 @@ export const info = populateWithCommonOptions(new Command("info"))
 			network: options.network,
 		});
 
-		const stakingConfig = await sedaChain.queryContractSmart<StakingConfig>({
-			get_staking_config: {},
-		});
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sedaChain = yield* SedaChainService;
+				const entries: TableEntry[] = [];
+				const signer = sedaChain.getSignerInfo(Option.some(0));
 
-		if (stakingConfig.isErr) {
-			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
-			process.exit(1);
-		}
+				logger.info("Loading..");
+				logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+				logger.info(`Using SEDA account ${signer.address}`);
 
-		const entries: TableEntry[] = [];
+				for (const [index, identityId] of config.sedaChain.identityIds.entries()) {
+					const response = yield* Effect.either(getStakerAndSequenceInfo(identityId));
 
-		logger.info("Loading..");
-		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
-		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
+					if (Either.isLeft(response)) {
+						logger.error(`Could not fetch info for ${identityId} (index: ${index}): ${response.left}`);
+						continue;
+					}
 
-		for (const [index, identityId] of config.sedaChain.identityIds.entries()) {
-			const response = await getStakerAndSequenceInfo(identityId, sedaChain);
+					response.right.staker.pipe(
+						Option.match({
+							onSome: (value) => {
+								entries.push({
+									identity: identityId,
+									sequenceNumber: response.right.seq.toString(),
+									tokensPendingWithdrawl: `${formatTokenUnits(value.tokens_pending_withdrawal)} SEDA`,
+									tokensStaked: `${formatTokenUnits(value.tokens_staked)} SEDA`,
+									status: BigInt(value.tokens_staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
+								});
+							},
+							onNone: () => {
+								entries.push({
+									identity: identityId,
+									sequenceNumber: response.right.seq.toString(),
+									status: "NOT_REGISTERED",
+									tokensPendingWithdrawl: "0.00 SEDA",
+									tokensStaked: "0.00 SEDA",
+								});
+							},
+						}),
+					);
+				}
 
-			if (response.isErr) {
-				logger.error(`Could not fetch info for ${identityId} (index: ${index}): ${response.error}`);
-				continue;
-			}
+				const formattedEntries = entries.map((entry) => ({
+					Identity: entry.identity,
+					"Seq. No.": entry.sequenceNumber,
+					Staked: entry.tokensStaked,
+					"Pending Withdrawal": entry.tokensPendingWithdrawl,
+					Status: entry.status,
+				}));
 
-			response.value.staker.match({
-				Just: (value) => {
-					entries.push({
-						identity: identityId,
-						sequenceNumber: response.value.seq.toString(),
-						tokensPendingWithdrawl: `${formatTokenUnits(value.tokens_pending_withdrawal)} SEDA`,
-						tokensStaked: `${formatTokenUnits(value.tokens_staked)} SEDA`,
-						status: BigInt(value.tokens_staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
-					});
-				},
-				Nothing: () => {
-					entries.push({
-						identity: identityId,
-						sequenceNumber: response.value.seq.toString(),
-						status: "NOT_REGISTERED",
-						tokensPendingWithdrawl: "0.00 SEDA",
-						tokensStaked: "0.00 SEDA",
-					});
-				},
-			});
-		}
-
-		const formattedEntries = entries.map((entry) => ({
-			Identity: entry.identity,
-			"Seq. No.": entry.sequenceNumber,
-			Staked: entry.tokensStaked,
-			"Pending Withdrawal": entry.tokensPendingWithdrawl,
-			Status: entry.status,
-		}));
-		console.table(formattedEntries);
-		process.exit(0);
+				console.table(formattedEntries);
+				process.exit(0);
+			}).pipe(Effect.provide(sedaChain)),
+		);
 	});

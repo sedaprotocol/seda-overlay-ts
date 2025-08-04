@@ -1,6 +1,7 @@
 import type { DrConfig as DrConfigFromContract } from "@sedaprotocol/core-contract-schema";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
-import { Cache } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService } from "@sedaprotocol/overlay-ts-common";
+import { Cache, queryContractSmart } from "@sedaprotocol/overlay-ts-common";
+import type { Layer } from "effect";
 import { Result } from "true-myth";
 import type { CamelCasedPropertiesDeep } from "type-fest";
 
@@ -24,9 +25,9 @@ function transformDrConfig(drConfig: DrConfigFromContract): DrConfig {
 const DR_CONFIG_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 const drConfigCache = new Cache<DrConfig>(DR_CONFIG_CACHE_TTL);
 
-export async function getDrConfig(sedaChain: SedaChain): Promise<Result<DrConfig, Error>> {
+export async function getDrConfig(sedaChain: Layer.Layer<SedaChainService>): Promise<Result<DrConfig, Error>> {
 	return drConfigCache.getOrFetch("drConfig", async () => {
-		const result = await sedaChain.queryContractSmart<DrConfigFromContract>({
+		const result = await queryContractSmart<DrConfigFromContract>(sedaChain, {
 			get_dr_config: {},
 		});
 

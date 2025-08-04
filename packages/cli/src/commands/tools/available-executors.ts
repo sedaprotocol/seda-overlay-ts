@@ -1,6 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
+import { SedaChainService, asyncResultToEffect } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { getStakers } from "@sedaprotocol/overlay-ts-node/src/services/get-staker";
+import { Effect, Option } from "effect";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 
 export const availableExecutors = populateWithCommonOptions(new Command("available-executors"))
@@ -12,29 +14,42 @@ export const availableExecutors = populateWithCommonOptions(new Command("availab
 			network: options.network,
 		});
 
-		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
-		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
-		logger.info("Listing available executors..");
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sedaChainService = yield* SedaChainService;
+				const signer = sedaChainService.getSignerInfo(Option.some(0));
 
-		const response = await getStakers(sedaChain);
+				logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+				logger.info(`Using SEDA account ${signer.address}`);
+				logger.info("Listing available executors..");
 
-		if (response.isErr) {
-			logger.error(`Listing failed: ${response.error}`);
-			process.exit(1);
-		}
+				const response = yield* asyncResultToEffect(getStakers(sedaChain)).pipe(
+					Effect.mapError((e) => new Error(`Listing failed: ${e}`)),
+				);
 
-		const stakers = response.value.map((staker) => {
-			const publicKey = staker.publicKey.toString("hex");
-			return {
-				publicKey,
-				tokensStaked: staker.tokensStaked.toString(),
-				tokensPendingWithdrawal: staker.tokensPendingWithdrawal.toString(),
-				memo: staker.memo.unwrapOr(Buffer.alloc(0)).toString("utf-8"),
-			};
-		});
+				const stakers = response.map((staker) => {
+					const publicKey = staker.publicKey.toString("hex");
+					return {
+						publicKey,
+						tokensStaked: staker.tokensStaked.toString(),
+						tokensPendingWithdrawal: staker.tokensPendingWithdrawal.toString(),
+						memo: staker.memo.unwrapOr(Buffer.alloc(0)).toString("utf-8"),
+					};
+				});
 
-		console.table(stakers);
+				console.table(stakers);
 
-		logger.info("Succesfully listed available executors");
-		process.exit(0);
+				logger.info("Succesfully listed available executors");
+				process.exit(0);
+			})
+				.pipe(Effect.provide(sedaChain))
+				.pipe(
+					Effect.catchAll((error) => {
+						logger.error(`${error}`);
+						process.exit(1);
+
+						return Effect.succeed(void 0);
+					}),
+				),
+		);
 	});

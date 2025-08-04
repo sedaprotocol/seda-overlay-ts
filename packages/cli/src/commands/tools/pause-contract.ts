@@ -1,7 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
 import type { ExecuteMsg } from "@sedaprotocol/core-contract-schema";
-import { TransactionPriority } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, Option } from "effect";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 
 export const pauseContract = populateWithCommonOptions(new Command("pause-contract"))
@@ -14,29 +15,46 @@ export const pauseContract = populateWithCommonOptions(new Command("pause-contra
 			network: options.network,
 		});
 
-		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
-		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
-		logger.info(`${options.pause ? "Pausing" : "Unpausing"} contract..`);
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sedaChain = yield* SedaChainService;
+				const signer = sedaChain.getSignerInfo(Option.some(0));
 
-		const pauseOrUnpause: ExecuteMsg = options.pause ? { pause: {} } : { unpause: {} };
+				logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+				logger.info(`Using SEDA account ${signer.address}`);
+				logger.info(`${options.pause ? "Pausing" : "Unpausing"} contract..`);
 
-		const response = await sedaChain.waitForSmartContractTransaction(
-			pauseOrUnpause,
-			TransactionPriority.LOW,
-			undefined,
-			{
-				gas: "auto",
-				adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages,
-			},
-			0,
-			"pause-contract",
+				const pauseOrUnpause: ExecuteMsg = options.pause ? { pause: {} } : { unpause: {} };
+
+				yield* sedaChain
+					.queueSmartContractMessage(
+						"pause-contract",
+						[
+							{
+								message: pauseOrUnpause,
+								attachedAttoSeda: Option.none(),
+							},
+						],
+						TransactionPriority.LOW,
+						signer,
+						Option.some({
+							gas: "auto",
+							adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages,
+						}),
+					)
+					.pipe(Effect.mapError((e) => new Error(`Pausing failed: ${e}`)));
+
+				logger.info("Successfully paused contract");
+				process.exit(0);
+			})
+				.pipe(Effect.provide(sedaChain))
+				.pipe(
+					Effect.catchAll((error) => {
+						logger.error(`${error}`);
+						process.exit(1);
+
+						return Effect.succeed(void 0);
+					}),
+				),
 		);
-
-		if (response.isErr) {
-			logger.error(`Pausing failed: ${response.error}`);
-			process.exit(1);
-		}
-
-		logger.info("Successfully paused contract");
-		process.exit(0);
 	});

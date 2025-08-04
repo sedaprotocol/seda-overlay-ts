@@ -1,6 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
-import { TransactionPriority, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, TransactionPriority, parseTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, Option } from "effect";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 
 export const send = populateWithCommonOptions(new Command("send"))
@@ -15,34 +16,50 @@ export const send = populateWithCommonOptions(new Command("send"))
 			network: options.network,
 		});
 
-		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
-		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sedaChain = yield* SedaChainService;
+				const signer = sedaChain.getSignerInfo(Option.some(0));
 
-		const sender = sedaChain.getSignerAddress(0);
-		const sendMsg = {
-			typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-			value: {
-				fromAddress: sender,
-				toAddress: destination,
-				amount: [
-					{
-						denom: "aseda",
-						amount: amountToSend,
+				logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+				logger.info(`Using SEDA account ${signer.address}`);
+
+				const sendMsg = {
+					typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+					value: {
+						fromAddress: signer.address,
+						toAddress: destination,
+						amount: [
+							{
+								denom: "aseda",
+								amount: amountToSend,
+							},
+						],
 					},
-				],
-			},
-		};
+				};
 
-		await sedaChain.queueCosmosMessage(
-			sendMsg,
-			TransactionPriority.LOW,
-			{
-				gas: "auto",
-				adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages,
-			},
-			0,
+				yield* sedaChain.queueMessage(
+					"send",
+					[sendMsg],
+					TransactionPriority.LOW,
+					signer,
+					Option.some({
+						gas: "auto",
+						adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages,
+					}),
+				);
+
+				logger.info(`Sent ${amount} SEDA to ${destination}`);
+				process.exit(0);
+			})
+				.pipe(Effect.provide(sedaChain))
+				.pipe(
+					Effect.catchAll((error) => {
+						logger.error(`${error}`);
+						process.exit(1);
+
+						return Effect.succeed(void 0);
+					}),
+				),
 		);
-
-		logger.info(`Sent ${amount} SEDA to ${destination}`);
-		process.exit(0);
 	});

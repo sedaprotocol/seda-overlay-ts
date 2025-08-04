@@ -1,49 +1,41 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { tryAsync } from "@seda-protocol/utils";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, asyncToEffect } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { Maybe, Result } from "true-myth";
+import { Effect, Either, Option } from "effect";
 
 type OracleProgram = {
 	bytes: Buffer;
 	fromCache: boolean;
 };
 
-export async function getOracleProgram(
+export function getOracleProgram(
 	execProgramId: string,
 	appConfig: AppConfig,
-	sedaChain: SedaChain,
-): Promise<Result<Maybe<OracleProgram>, Error>> {
-	const wasmPath = resolve(appConfig.wasmCacheDir, `${execProgramId}.wasm`);
-	const cachedWasmFile = await tryAsync(readFile(wasmPath));
+): Effect.Effect<Option.Option<OracleProgram>, Error, SedaChainService> {
+	return Effect.gen(function* () {
+		const wasmPath = resolve(appConfig.wasmCacheDir, `${execProgramId}.wasm`);
+		const sedaChainService = yield* SedaChainService;
+		const cachedWasmFile = yield* Effect.either(asyncToEffect(readFile(wasmPath)));
 
-	if (cachedWasmFile.isOk) {
-		return Result.ok(Maybe.just({ bytes: cachedWasmFile.value, fromCache: true }));
-	}
-
-	const binary = await tryAsync(sedaChain.getWasmStorageQueryClient().OracleProgram({ hash: execProgramId }));
-
-	if (binary.isErr) {
-		if (binary.error.message.includes("not found")) {
-			return Result.ok(Maybe.nothing());
+		if (Either.isRight(cachedWasmFile)) {
+			return Option.some({ bytes: cachedWasmFile.right, fromCache: true });
 		}
 
-		return Result.err(binary.error);
-	}
+		const binary = yield* sedaChainService.getOracleProgram(execProgramId);
+		const binaryBuffer = binary.pipe(Option.map((program) => Buffer.from(program.bytecode)));
 
-	const binaryBuffer = Maybe.of(binary.value.oracleProgram?.bytecode).map((byteCode) => Buffer.from(byteCode));
+		if (Option.isNone(binaryBuffer)) {
+			return Option.none();
+		}
 
-	if (binaryBuffer.isNothing) {
-		return Result.ok(Maybe.nothing());
-	}
+		const writeResult = yield* Effect.either(asyncToEffect(writeFile(wasmPath, binaryBuffer.value)));
 
-	const writeResult = await tryAsync(writeFile(wasmPath, binaryBuffer.value));
+		if (Either.isLeft(writeResult)) {
+			logger.error(`Could not cache WASM file. Will use memory: ${writeResult.left}`);
+		}
 
-	if (writeResult.isErr) {
-		logger.error(`Could not cache WASM file. Will use memory: ${writeResult.error}`);
-	}
-
-	return Result.ok(Maybe.just({ bytes: binaryBuffer.value, fromCache: false }));
+		return Option.some({ bytes: binaryBuffer.value, fromCache: false });
+	});
 }

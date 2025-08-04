@@ -1,15 +1,16 @@
-import { Command, Option } from "@commander-js/extra-typings";
+import { Option as CliOption, Command } from "@commander-js/extra-typings";
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema/src/identity";
-import { TransactionPriority, formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, TransactionPriority, formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, Option } from "effect";
 import { Maybe } from "true-myth";
 import { loadConfigAndSedaChain, populateWithCommonOptions } from "../../common-options";
 import { getStakerAndSequenceInfo } from "../../services/get-staker-and-sequence-info";
 
 export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 	.description("Withdraws from a certain identity")
-	.addOption(new Option("-i, --identity-index <number>", "Identity index to use for withdrawing").default(0))
-	.addOption(new Option("--memo <string>", "memo to add to the transaction"))
+	.addOption(new CliOption("-i, --identity-index <number>", "Identity index to use for withdrawing").default(0))
+	.addOption(new CliOption("--memo <string>", "memo to add to the transaction"))
 	.action(async (options) => {
 		const index = options.identityIndex;
 
@@ -19,77 +20,92 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 			network: options.network,
 		});
 
-		logger.info(`Using RPC: ${config.sedaChain.rpc}`);
-		logger.info(`Using SEDA account ${sedaChain.getSignerAddress(0)}`);
+		await Effect.runPromise(
+			Effect.gen(function* () {
+				const sedaChain = yield* SedaChainService;
+				const signer = sedaChain.getSignerInfo(Option.some(0));
 
-		const identityId = Maybe.of(config.sedaChain.identityIds.at(Number(index)));
+				logger.info(`Using RPC: ${config.sedaChain.rpc}`);
+				logger.info(`Using SEDA account ${signer.address}`);
 
-		if (identityId.isNothing) {
-			logger.error(`Identity with index "${index}" does not exist`);
-			process.exit(1);
-		}
+				const identityId = Maybe.of(config.sedaChain.identityIds.at(Number(index)));
 
-		const privateKey: Maybe<Buffer> = Maybe.of(config.sedaChain.identities.get(identityId.value));
+				if (identityId.isNothing) {
+					logger.error(`Identity with index "${index}" does not exist`);
+					process.exit(1);
+				}
 
-		if (privateKey.isNothing) {
-			logger.error(`Identity with index "${index}" does not exist`);
-			process.exit(1);
-		}
+				const privateKey: Maybe<Buffer> = Maybe.of(config.sedaChain.identities.get(identityId.value));
 
-		const coreContractAddress = await sedaChain.getCoreContractAddress();
-		const stakerInfo = await getStakerAndSequenceInfo(identityId.value, sedaChain);
+				if (privateKey.isNothing) {
+					logger.error(`Identity with index "${index}" does not exist`);
+					process.exit(1);
+				}
 
-		if (stakerInfo.isErr) {
-			logger.error(`Could not fetch sequence: ${stakerInfo.error}`);
-			process.exit(1);
-		}
+				const coreContractAddress = yield* sedaChain.getCoreContractAddress();
+				const stakerInfo = yield* getStakerAndSequenceInfo(identityId.value).pipe(
+					Effect.mapError((e) => new Error(`Could not fetch sequence: ${e}`)),
+				);
 
-		if (stakerInfo.value.staker.isNothing) {
-			logger.error(`Cannot unstake because identity is not registered (index ${index}).`);
-			process.exit(1);
-		}
+				if (Option.isNone(stakerInfo.staker)) {
+					logger.error(`Cannot unstake because identity is not registered (index ${index}).`);
+					process.exit(1);
+				}
 
-		const staker = stakerInfo.value.staker.value;
+				const staker = stakerInfo.staker.value;
 
-		const staked = formatTokenUnits(staker.tokens_staked);
-		const pendingWithdrawl = formatTokenUnits(staker.tokens_pending_withdrawal);
+				const staked = formatTokenUnits(staker.tokens_staked);
+				const pendingWithdrawl = formatTokenUnits(staker.tokens_pending_withdrawal);
 
-		logger.info(`Identity ${identityId.value} (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`);
-		if (BigInt(staker.tokens_pending_withdrawal) === 0n) {
-			logger.error(`Cannot withdraw because identity has no pending withdraw (index ${index}).`);
-			process.exit(1);
-		}
+				logger.info(
+					`Identity ${identityId.value} (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`,
+				);
+				if (BigInt(staker.tokens_pending_withdrawal) === 0n) {
+					logger.error(`Cannot withdraw because identity has no pending withdraw (index ${index}).`);
+					process.exit(1);
+				}
 
-		const withdrawAddress = sedaChain.getSignerAddress();
-		const messageHash = createWithdrawMessageSignatureHash(
-			config.sedaChain.chainId,
-			withdrawAddress,
-			coreContractAddress,
-			stakerInfo.value.seq,
+				const messageHash = createWithdrawMessageSignatureHash(
+					config.sedaChain.chainId,
+					signer.address,
+					coreContractAddress,
+					stakerInfo.seq,
+				);
+
+				const proof = vrfProve(privateKey.value, messageHash);
+				logger.info(`Withdrawing ${formatTokenUnits(staker.tokens_pending_withdrawal)} SEDA...`);
+
+				yield* sedaChain
+					.queueSmartContractMessage(
+						"withdraw",
+						[
+							{
+								attachedAttoSeda: Option.none(),
+								message: {
+									withdraw: {
+										proof: proof.toString("hex"),
+										public_key: identityId.value,
+										withdraw_address: signer.address,
+									},
+								},
+							},
+						],
+						TransactionPriority.LOW,
+						signer,
+						Option.some({ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages }),
+					)
+					.pipe(Effect.mapError((e) => new Error(`Unstaking failed: ${e}`)));
+
+				logger.info("Successfully withdrawn");
+				process.exit(0);
+			}).pipe(
+				Effect.provide(sedaChain),
+				Effect.catchAll((error) => {
+					logger.error(`${error}`);
+					process.exit(1);
+
+					return Effect.succeed(void 0);
+				}),
+			),
 		);
-
-		const proof = vrfProve(privateKey.value, messageHash);
-		logger.info(`Withdrawing ${formatTokenUnits(staker.tokens_pending_withdrawal)} SEDA...`);
-		const response = await sedaChain.waitForSmartContractTransaction(
-			{
-				withdraw: {
-					proof: proof.toString("hex"),
-					public_key: identityId.value,
-					withdraw_address: withdrawAddress,
-				},
-			},
-			TransactionPriority.LOW,
-			undefined,
-			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
-			0,
-			"withdraw",
-		);
-
-		if (response.isErr) {
-			logger.error(`Unstaking failed: ${response.error}`);
-			process.exit(1);
-		}
-
-		logger.info("Successfully withdrawn");
-		process.exit(0);
 	});

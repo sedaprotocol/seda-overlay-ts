@@ -1,8 +1,8 @@
-import { debouncedInterval } from "@sedaprotocol/overlay-ts-common";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { debouncedInterval, effectToAsyncResult } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { Effect, Schedule } from "effect";
+import { Effect, type Layer, Option, Schedule } from "effect";
 import { Result, type Unit } from "true-myth";
 import type { IdentityPool } from "../models/identitiest-pool";
 import { getStaker } from "../services/get-staker";
@@ -13,11 +13,11 @@ export class IdentityManagerTask {
 	constructor(
 		private identityPool: IdentityPool,
 		private config: AppConfig,
-		private sedaChain: SedaChain,
+		private sedaChain: Layer.Layer<SedaChainService>,
 	) {}
 
 	async isIdentityEnabled(identity: string): Promise<Result<boolean, Error>> {
-		const staker = await getStaker(this.sedaChain, identity);
+		const staker = await effectToAsyncResult(getStaker(identity).pipe(Effect.provide(this.sedaChain)));
 
 		if (staker.isErr) {
 			logger.error(`Could not fetch staker info: ${staker.error}`, {
@@ -27,7 +27,7 @@ export class IdentityManagerTask {
 			return Result.err(staker.error);
 		}
 
-		if (staker.value.isNothing) {
+		if (Option.isNone(staker.value)) {
 			logger.error("Could not find staker info, did you register it?", {
 				id: `identity_${identity}`,
 			});
@@ -89,7 +89,7 @@ export class IdentityManagerTask {
 	}
 
 	async start() {
-		await Effect.runPromise(sendSedaToSubAccounts(this.sedaChain, this.config));
+		await Effect.runPromise(sendSedaToSubAccounts(this.config).pipe(Effect.provide(this.sedaChain)));
 
 		// Initial check
 		(await this.processAllIdentities()).mapErr((error) => {
@@ -97,7 +97,8 @@ export class IdentityManagerTask {
 		});
 
 		Effect.runPromise(
-			sendSedaToSubAccounts(this.sedaChain, this.config).pipe(
+			sendSedaToSubAccounts(this.config).pipe(
+				Effect.provide(this.sedaChain),
 				Effect.schedule(Schedule.spaced(this.config.intervals.identityCheck)),
 				Effect.catchAll((error) => {
 					logger.error(`Error while sending SEDA to sub accounts: ${error}`);

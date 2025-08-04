@@ -1,27 +1,28 @@
 import type { GetStakerAndSeqResponse } from "@sedaprotocol/core-contract-schema";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
-import { Maybe, Result } from "true-myth";
+import { SedaChainService } from "@sedaprotocol/overlay-ts-common";
+import { Effect, Option } from "effect";
 
 export interface StakerAndSeq extends Omit<GetStakerAndSeqResponse, "staker" | "seq"> {
 	seq: bigint;
-	staker: Maybe<Exclude<GetStakerAndSeqResponse["staker"], null | undefined>>;
+	staker: Option.Option<Exclude<GetStakerAndSeqResponse["staker"], null | undefined>>;
 }
 
-export async function getStakerAndSequenceInfo(
-	identityId: string,
-	sedaChain: SedaChain,
-): Promise<Result<StakerAndSeq, Error>> {
-	const response = await sedaChain.queryContractSmart<GetStakerAndSeqResponse>({
-		get_staker_and_seq: {
-			public_key: identityId,
-		},
-	});
+export function getStakerAndSequenceInfo(identityId: string): Effect.Effect<StakerAndSeq, Error, SedaChainService> {
+	return Effect.gen(function* () {
+		const sedaChain = yield* SedaChainService;
 
-	if (response.isErr) return Result.err(new Error(`getIdentitySequence failed: ${response.error}`));
+		const response = yield* sedaChain
+			.queryContractSmart<GetStakerAndSeqResponse>({
+				get_staker_and_seq: {
+					public_key: identityId,
+				},
+			})
+			.pipe(Effect.mapError((e) => new Error(`getIdentitySequence failed: ${e}`)));
 
-	return response.map((value) => ({
-		...value,
-		seq: BigInt(value.seq),
-		staker: Maybe.of(value.staker),
-	}));
+		return {
+			...response,
+			seq: BigInt(response.seq),
+			staker: Option.fromNullable(response.staker),
+		};
+	}).pipe(Effect.withSpan("getStakerAndSequenceInfo"));
 }

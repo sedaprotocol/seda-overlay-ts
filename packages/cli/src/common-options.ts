@@ -1,7 +1,15 @@
 import { type Command, Option } from "@commander-js/extra-typings";
-import { SedaChain } from "@sedaprotocol/overlay-ts-common";
+import { DevTools } from "@effect/experimental";
+import {
+	SedaChain,
+	type SedaChainService,
+	SedaChainServiceLayer,
+	startSedaChainService,
+} from "@sedaprotocol/overlay-ts-common";
+import { SigningClientService } from "@sedaprotocol/overlay-ts-common/src/seda/signing-client";
 import { type AppConfig, loadConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, type Layer } from "effect";
 import { Maybe } from "true-myth";
 
 export function populateWithCommonOptions(command: Command) {
@@ -20,7 +28,7 @@ export async function loadConfigAndSedaChain(options: {
 	mnemonic: string | undefined;
 	network: string;
 }): Promise<{
-	sedaChain: SedaChain;
+	sedaChain: Layer.Layer<SedaChainService>;
 	config: AppConfig;
 }> {
 	const config = await loadConfig(Maybe.of(options.config), options.network, Maybe.nothing(), {
@@ -39,6 +47,12 @@ export async function loadConfigAndSedaChain(options: {
 	}
 
 	const sedaChain = await SedaChain.fromConfig(config.value, false);
+	const sedaChainServiceLayer = await Effect.runPromise(
+		SedaChainServiceLayer(config.value).pipe(
+			Effect.provide(SigningClientService.Default()),
+			Effect.provide(DevTools.layer()),
+		),
+	);
 
 	if (sedaChain.isErr) {
 		logger.error(`Could not create SEDA chain instance: ${sedaChain.error}`);
@@ -46,9 +60,10 @@ export async function loadConfigAndSedaChain(options: {
 	}
 
 	sedaChain.value.start();
+	await startSedaChainService(sedaChainServiceLayer);
 
 	return {
 		config: config.value,
-		sedaChain: sedaChain.value,
+		sedaChain: sedaChainServiceLayer,
 	};
 }

@@ -8,12 +8,14 @@ import {
 	RevealMismatch,
 	RevealStarted,
 	debouncedInterval,
+	effectToAsyncResult,
 	sleep,
 } from "@sedaprotocol/overlay-ts-common";
-import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService, WorkerPool } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { DEFAULT_MAX_REVEAL_SIZE } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, Either, type Layer, Match } from "effect";
 import { EventEmitter } from "eventemitter3";
 import { Maybe } from "true-myth";
 import { EXECUTION_EXIT_CODE_RESULT_TOO_LARGE } from "./constants";
@@ -24,6 +26,7 @@ import type { IdentityPool } from "./models/identitiest-pool";
 import { getDataRequestStatuses } from "./services/get-data-requests";
 import { protocolPauseState } from "./services/is-protocol-paused";
 import { commitDr } from "./tasks/commit";
+import { commitAndReveal } from "./tasks/commit-reveal";
 import { executeDataRequest } from "./tasks/execute";
 import { revealDr } from "./tasks/reveal";
 
@@ -48,8 +51,9 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		private pool: DataRequestPool,
 		private identitityPool: IdentityPool,
 		private appConfig: AppConfig,
-		private sedaChain: SedaChain,
+		private sedaChainService: Layer.Layer<SedaChainService>,
 		public drId: string,
+		public drHeight: bigint,
 		private identityId: string,
 		private eligibilityHeight: bigint,
 		private syncExecuteWorker: WorkerPool,
@@ -68,7 +72,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 	private transitionStatus(toStatus: IdentityDataRequestStatus) {
 		this.retries = 0;
 		this.status = toStatus;
-		this.pool.insertIdentityDataRequest(this.drId, this.identityId, this.eligibilityHeight, Maybe.nothing(), toStatus);
+		this.pool.insertIdentityDataRequest(this.drId, this.drHeight, this.identityId, this.eligibilityHeight, Maybe.nothing(), toStatus);
 		this.rootSpan.setAttribute("current_status", toStatus);
 	}
 
@@ -84,7 +88,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		});
 
 		// We only delete the identity, since we cannot be sure that the data request is still being used somewhere else
-		this.pool.deleteIdentityDataRequest(this.drId, this.identityId);
+		this.pool.deleteIdentityDataRequest(this.drId, this.drHeight, this.identityId);
 
 		this.rootSpan.setAttribute("end_time", new Date().toISOString());
 		this.rootSpan.setAttribute("final_status", this.status);
@@ -142,10 +146,10 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			this.isProcessing = true;
 
 			// Always get the data request from our single source of truth
-			const dataRequest = this.pool.getDataRequest(this.drId);
+			const dataRequest = this.pool.getDataRequest(this.drId, this.drHeight);
 
 			// The data request has been removed from the pool. We can safely close the process.
-			if (dataRequest.isNothing) {
+			if (dataRequest.isNothing || this.pool.isDrResolved(this.drId, this.drHeight)) {
 				logger.info("✅ Data Request has been resolved on chain", {
 					id: this.name,
 				});
@@ -175,7 +179,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			} else if (this.status === IdentityDataRequestStatus.Committed) {
 				await this.handleCheckReadyToBeRevealed(dataRequest.value.id);
 			} else if (this.status === IdentityDataRequestStatus.ReadyToBeRevealed) {
-				await this.handleReveal(dataRequest.value);
+				await Effect.runPromise(this.handleReveal(dataRequest.value).pipe(Effect.provide(this.sedaChainService)));
 			} else if (this.status === IdentityDataRequestStatus.Revealed) {
 				span.setAttribute("final_status", "revealed");
 				span.end();
@@ -220,7 +224,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			id: this.name,
 		});
 
-		const statusResult = await getDataRequestStatuses(this.sedaChain, drId);
+		const statusResult = await getDataRequestStatuses(this.sedaChainService, drId);
 
 		if (statusResult.isErr) {
 			logger.error(`Error while fetching status of data request: ${statusResult.error}`, {
@@ -247,13 +251,13 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 				id: this.name,
 			});
 			span.setAttribute("status", "resolved");
-			this.pool.deleteDataRequest(drId);
+			this.pool.deleteDataRequest(drId, this.drHeight);
 			span.end();
 			this.stop();
 			return;
 		}
 
-		this.pool.updateDataRequestStatus(drId, statusResult.value.value);
+		this.pool.updateDataRequestStatus(drId, this.drHeight, statusResult.value.value);
 		span.end();
 	}
 
@@ -266,7 +270,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			id: this.name,
 		});
 
-		const dr = this.pool.getDataRequest(this.drId);
+		const dr = this.pool.getDataRequest(this.drId, this.drHeight);
 		const info = this.identitityPool.getIdentityInfo(this.identityId);
 
 		if (dr.isNothing) {
@@ -294,7 +298,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			dataRequest,
 			this.eligibilityHeight,
 			this.appConfig,
-			this.sedaChain,
+			this.sedaChainService,
 			this.syncExecuteWorker,
 		);
 
@@ -368,10 +372,6 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.setAttribute("dr_id", this.drId);
 		span.setAttribute("identity_id", this.identityId);
 
-		logger.debug("📩 Committing...", {
-			id: this.name,
-		});
-
 		if (this.executionResult.isNothing) {
 			logger.error("No execution result available while trying to commit, switching status back to initial");
 			span.setAttribute("error", "no_execution_result");
@@ -380,13 +380,35 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		const result = await commitDr(
-			this.identityId,
-			dataRequest,
-			this.executionResult.value,
-			this.identitityPool,
-			this.sedaChain,
-			this.appConfig,
+		const executionResult = this.executionResult.value;
+
+		const result = await Match.value(dataRequest.replicationFactor).pipe(
+			Match.when(1, async () => {
+				logger.debug("📩📨 Committing and revealing (replication factor is 1)...", {
+					id: this.name,
+				});
+
+				const txResult = await effectToAsyncResult(
+					commitAndReveal(this.identityId, dataRequest, executionResult, this.identitityPool, this.appConfig).pipe(
+						Effect.provide(this.sedaChainService),
+					),
+				);
+
+				return txResult.map((v) => v.comittment);
+			}),
+			Match.orElse(async () => {
+				logger.debug("📩 Committing...", {
+					id: this.name,
+				});
+
+				const txResult = await effectToAsyncResult(
+					commitDr(this.identityId, dataRequest, executionResult, this.identitityPool, this.appConfig).pipe(
+						Effect.provide(this.sedaChainService),
+					),
+				);
+
+				return txResult;
+			}),
 		);
 
 		if (result.isErr) {
@@ -451,12 +473,24 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 			return;
 		}
 
-		this.transitionStatus(IdentityDataRequestStatus.Committed);
 		this.commitHash = result.value;
 		span.setAttribute("commit_hash", result.value.toString("hex"));
-		logger.debug("📩 Committed", {
-			id: this.name,
-		});
+
+		Match.value(dataRequest.replicationFactor).pipe(
+			Match.when(1, () => {
+				this.transitionStatus(IdentityDataRequestStatus.Revealed);
+				logger.debug("📩📨 Committed and revealed", {
+					id: this.name,
+				});
+			}),
+			Match.orElse(() => {
+				this.transitionStatus(IdentityDataRequestStatus.Committed);
+				logger.debug("📩 Committed", {
+					id: this.name,
+				});
+			}),
+		);
+
 		span.end();
 	}
 
@@ -467,7 +501,7 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 
 		await this.handleRefreshDataRequestData(drId);
 
-		const dataRequest = this.pool.getDataRequest(drId);
+		const dataRequest = this.pool.getDataRequest(drId, this.drHeight);
 
 		// Rest will be handled by the process() function
 		if (dataRequest.isNothing) {
@@ -495,96 +529,92 @@ export class DataRequestTask extends EventEmitter<EventMap> {
 		span.end();
 	}
 
-	async handleReveal(_dataRequest: DataRequest) {
-		const span = this.drTracer.startSpan("reveal-data-request", undefined, this.rootContext);
-		span.setAttribute("dr_id", this.drId);
-		span.setAttribute("identity_id", this.identityId);
+	handleReveal = (_dataRequest: DataRequest) =>
+		Effect.gen(this, function* () {
+			const span = this.drTracer.startSpan("reveal-data-request", undefined, this.rootContext);
+			span.setAttribute("dr_id", this.drId);
+			span.setAttribute("identity_id", this.identityId);
 
-		logger.debug("📨 Revealing...", {
-			id: this.name,
-		});
+			logger.debug("📨 Revealing...", {
+				id: this.name,
+			});
 
-		if (this.executionResult.isNothing) {
-			logger.error("No execution result available while trying to reveal, switching status back to initial");
-			span.setAttribute("error", "no_execution_result");
-			span.end();
-			this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
-			return;
-		}
-
-		const result = await revealDr(
-			this.identityId,
-			_dataRequest,
-			this.executionResult.value,
-			this.identitityPool,
-			this.sedaChain,
-			this.appConfig,
-		);
-
-		if (result.isErr) {
-			if (result.error.error instanceof AlreadyRevealed) {
-				this.transitionStatus(IdentityDataRequestStatus.Revealed);
-				span.setAttribute("status", "already_revealed");
-
-				logger.warn("Chain responded with AlreadyRevealed, updating inner state to reflect", {
-					id: this.name,
-				});
+			if (this.executionResult.isNothing) {
+				logger.error("No execution result available while trying to reveal, switching status back to initial");
+				span.setAttribute("error", "no_execution_result");
 				span.end();
+				this.transitionStatus(IdentityDataRequestStatus.EligibleForExecution);
 				return;
 			}
 
-			if (result.error.error instanceof RevealMismatch) {
-				logger.error(
-					`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.error.commitmentHash.toString("hex")}`,
-				);
-				span.setAttribute("error", "reveal_mismatch");
-				span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
-				span.setAttribute("chain_commit_hash", result.error.commitmentHash.toString("hex"));
-				span.end();
-				this.stop();
-				return;
-			}
-
-			if (result.error.error instanceof DataRequestNotFound) {
-				logger.warn("Data request was not found while resolving reveal", {
-					id: this.name,
-				});
-				span.setAttribute("error", "data_request_not_found");
-				span.end();
-				this.stop();
-				return;
-			}
-
-			if (result.error instanceof DataRequestExpired) {
-				logger.warn("Data request was expired", {
-					id: this.name,
-				});
-				span.setAttribute("error", "data_request_expired");
-				span.end();
-				this.stop();
-				return;
-			}
-
-			span.recordException(result.error.error);
-			span.setAttribute("error", "reveal_failed");
-			const sleepSpan = this.drTracer.startSpan(
-				"sleep-between-retries",
-				undefined,
-				trace.setSpan(context.active(), span),
+			const result = yield* Effect.either(
+				revealDr(this.identityId, _dataRequest, this.executionResult.value, this.identitityPool, this.appConfig),
 			);
-			sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
-			await sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
-			sleepSpan.end();
-			this.retries += 1;
-			span.end();
-			return;
-		}
 
-		this.transitionStatus(IdentityDataRequestStatus.Revealed);
-		span.setAttribute("status", "revealed");
-		logger.debug("📨 Revealed", {
-			id: this.name,
+			if (Either.isLeft(result)) {
+				if (result.left.error instanceof AlreadyRevealed) {
+					this.transitionStatus(IdentityDataRequestStatus.Revealed);
+					span.setAttribute("status", "already_revealed");
+
+					logger.warn("Chain responded with AlreadyRevealed, updating inner state to reflect", {
+						id: this.name,
+					});
+					span.end();
+					return;
+				}
+
+				if (result.left.error instanceof RevealMismatch) {
+					logger.error(
+						`Chain responded with an already revealed. Data might be corrupted: ${this.commitHash.toString("hex")} vs ${result.left.commitmentHash.toString("hex")}`,
+					);
+					span.setAttribute("error", "reveal_mismatch");
+					span.setAttribute("our_commit_hash", this.commitHash.toString("hex"));
+					span.setAttribute("chain_commit_hash", result.left.commitmentHash.toString("hex"));
+					span.end();
+					this.stop();
+					return;
+				}
+
+				if (result.left.error instanceof DataRequestNotFound) {
+					logger.warn("Data request was not found while resolving reveal", {
+						id: this.name,
+					});
+					span.setAttribute("error", "data_request_not_found");
+					span.end();
+					this.stop();
+					return;
+				}
+
+				if (result.left instanceof DataRequestExpired) {
+					logger.warn("Data request was expired", {
+						id: this.name,
+					});
+					span.setAttribute("error", "data_request_expired");
+					span.end();
+					this.stop();
+					return;
+				}
+
+				span.recordException(result.left.error);
+				span.setAttribute("error", "reveal_failed");
+				const sleepSpan = this.drTracer.startSpan(
+					"sleep-between-retries",
+					undefined,
+					trace.setSpan(context.active(), span),
+				);
+				sleepSpan.setAttribute("sleep_time", this.appConfig.sedaChain.sleepBetweenFailedTx);
+				yield* Effect.sleep(this.appConfig.sedaChain.sleepBetweenFailedTx);
+				sleepSpan.end();
+				this.retries += 1;
+				span.end();
+				return;
+			}
+
+			this.transitionStatus(IdentityDataRequestStatus.Revealed);
+			span.setAttribute("status", "revealed");
+			logger.debug("📨 Revealed", {
+				id: this.name,
+			});
+			span.end();
 		});
-		span.end();
-	}
 }

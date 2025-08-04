@@ -1,7 +1,8 @@
 import { type Context, type Span, type Tracer, trace } from "@opentelemetry/api";
 import type { GetExecutorEligibilityResponse } from "@sedaprotocol/core-contract-schema";
-import { type SedaChain, getCurrentBlockHeight, keccak256 } from "@sedaprotocol/overlay-ts-common";
+import { type SedaChainService, getCurrentBlockHeight, keccak256 } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import type { Layer } from "effect";
 import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import { getDrConfig } from "./dr-config";
@@ -75,7 +76,7 @@ function calculateDrEligibility(
 }
 
 export async function isIdentityEligibleForDataRequest(
-	sedaChain: SedaChain,
+	sedaChain: Layer.Layer<SedaChainService>,
 	identityId: string,
 	dataRequest: DataRequest,
 	parentSpan: Span,

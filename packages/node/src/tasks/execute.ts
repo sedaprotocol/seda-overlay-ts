@@ -1,8 +1,9 @@
 import type { VmCallData, VmResult } from "@seda-protocol/vm";
-import type { SedaChain, WorkerPool } from "@sedaprotocol/overlay-ts-common";
-import { Cache } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService, WorkerPool } from "@sedaprotocol/overlay-ts-common";
+import { Cache, effectToAsyncResult } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, type Layer, Option } from "effect";
 import { Result } from "true-myth";
 import type { DataRequest } from "../models/data-request";
 import { getVmVersion } from "../services/determine-vm-version" with { type: "macro" };
@@ -34,20 +35,22 @@ export async function executeDataRequest(
 	dataRequest: DataRequest,
 	eligibilityHeight: bigint,
 	appConfig: AppConfig,
-	sedaChain: SedaChain,
+	sedaChain: Layer.Layer<SedaChainService>,
 	syncExecuteWorker: WorkerPool,
 ): Promise<Result<VmResultOverlay, Error>> {
 	return executionResultCache.getOrFetch(`${dataRequest.id}_${dataRequest.height}`, async () => {
 		logger.debug("📦 Downloading Oracle Program...", {
 			id: dataRequest.id,
 		});
-		const binary = await getOracleProgram(dataRequest.execProgramId, appConfig, sedaChain);
+		const binary = await effectToAsyncResult(
+			getOracleProgram(dataRequest.execProgramId, appConfig).pipe(Effect.provide(sedaChain)),
+		);
 
 		if (binary.isErr) {
 			return Result.err(new Error(`Could not load oracle program: ${binary.error}`));
 		}
 
-		if (binary.value.isNothing) {
+		if (Option.isNone(binary.value)) {
 			return Result.ok(createVmResultError(new Error(`Binary ${dataRequest.execProgramId} does not exist`)));
 		}
 

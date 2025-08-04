@@ -5,9 +5,10 @@ import type {
 	GetDataRequestsByStatusResponse,
 	QueryMsg,
 } from "@sedaprotocol/core-contract-schema";
-import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
-import { Cache, DebouncedPromise } from "@sedaprotocol/overlay-ts-common";
+import type { SedaChainService } from "@sedaprotocol/overlay-ts-common";
+import { Cache, DebouncedPromise, queryContractSmart } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import type { Layer } from "effect";
 import { JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
 import { isDrInRevealStage, transformDataRequestFromContract } from "../models/data-request";
@@ -25,7 +26,7 @@ type LastSeenIndex = GetDataRequestsByStatusResponse["last_seen_index"];
 let lastSeenIndex: LastSeenIndex = null;
 
 export async function getDataRequests(
-	sedaChain: SedaChain,
+	sedaChain: Layer.Layer<SedaChainService>,
 	limit: number,
 ): Promise<Result<DataRequestsResponse, Error>> {
 	const message: QueryMsg = {
@@ -36,7 +37,7 @@ export async function getDataRequests(
 		},
 	};
 
-	const result = await sedaChain.queryContractSmartBigInt<GetDataRequestsByStatusResponse>(message);
+	const result = await queryContractSmart<GetDataRequestsByStatusResponse>(sedaChain, message, true);
 
 	if (result.isErr) {
 		return Result.err(new Error(`Failed to fetch data requests: ${JSONStringify(message)} ${result.error.message}`));
@@ -65,7 +66,10 @@ const dataRequestCache = new Cache<DataRequest>(3_000);
 // Debounce promises for data requests, making sure only one request goes through for each drId
 const dataRequestDebouncedPromise = new DebouncedPromise<Result<Maybe<DataRequest>, Error>>();
 
-export async function getDataRequest(drId: string, sedaChain: SedaChain): Promise<Result<Maybe<DataRequest>, Error>> {
+export async function getDataRequest(
+	drId: string,
+	sedaChain: Layer.Layer<SedaChainService>,
+): Promise<Result<Maybe<DataRequest>, Error>> {
 	return dataRequestDebouncedPromise.execute(drId, async () => {
 		const cachedValue = dataRequestCache.get(drId);
 
@@ -81,7 +85,7 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 			id: drId,
 		});
 
-		const result = await sedaChain.queryContractSmart<GetDataRequestResponse>({
+		const result = await queryContractSmart<GetDataRequestResponse>(sedaChain, {
 			get_data_request: {
 				dr_id: drId,
 			},
@@ -109,7 +113,7 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 }
 
 export async function getDataRequestStatuses(
-	sedaChain: SedaChain,
+	sedaChain: Layer.Layer<SedaChainService>,
 	drId: string,
 ): Promise<Result<Maybe<DataRequestStatus>, Error>> {
 	// We should first check the cache to avoid unnecessary queries
@@ -130,7 +134,7 @@ export async function getDataRequestStatuses(
 		},
 	};
 
-	const result = await sedaChain.queryContractSmart<GetDataRequestStatusesResponse>(message);
+	const result = await queryContractSmart<GetDataRequestStatusesResponse>(sedaChain, message);
 
 	if (result.isErr) {
 		return Result.err(result.error);

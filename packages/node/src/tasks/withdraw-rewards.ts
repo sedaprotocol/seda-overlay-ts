@@ -1,52 +1,45 @@
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
-import {
-	type SedaChain,
-	TransactionPriority,
-	asyncResultToEffect,
-	asyncToEffect,
-	formatTokenUnits,
-	vrfProve,
-} from "@sedaprotocol/overlay-ts-common";
+import { SedaChainService, TransactionPriority, formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { type StakerAndSeq, getStakerAndSequenceInfo } from "../../../cli/src/services/get-staker-and-sequence-info";
 import type { IdentityInfo, IdentityPool } from "../models/identitiest-pool";
 
-export const withdrawRewardsForIdentity = (
-	sedaChain: SedaChain,
-	identity: IdentityInfo,
-	stakerInfo: StakerAndSeq,
-	config: AppConfig,
-) =>
+export const withdrawRewardsForIdentity = (identity: IdentityInfo, stakerInfo: StakerAndSeq, config: AppConfig) =>
 	Effect.gen(function* () {
-		const coreContractAddress = yield* asyncToEffect(sedaChain.getCoreContractAddress());
+		const sedaChain = yield* SedaChainService;
+		const coreContractAddress = yield* sedaChain.getCoreContractAddress();
+		const withdrawSigner = sedaChain.getSignerInfo(Option.some(0));
 
-		const withdrawAddress = sedaChain.getSignerAddress();
 		const messageHash = createWithdrawMessageSignatureHash(
 			config.sedaChain.chainId,
-			withdrawAddress,
+			withdrawSigner.address,
 			coreContractAddress,
 			BigInt(stakerInfo.seq),
 		);
 
 		const proof = vrfProve(identity.privateKey, messageHash);
-		yield* asyncResultToEffect(
-			sedaChain.waitForSmartContractTransaction(
-				{
-					withdraw: {
-						proof: proof.toString("hex"),
-						public_key: identity.identityId,
-						withdraw_address: withdrawAddress,
-					},
-				},
-				TransactionPriority.LOW,
-				undefined,
-				{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
-				0,
+		yield* sedaChain
+			.queueSmartContractMessage(
 				"withdrawTx",
-			),
-		).pipe(Effect.withSpan("withdrawTx"));
+				[
+					{
+						attachedAttoSeda: Option.none(),
+						message: {
+							withdraw: {
+								proof: proof.toString("hex"),
+								public_key: identity.identityId,
+								withdraw_address: withdrawSigner.address,
+							},
+						},
+					},
+				],
+				TransactionPriority.LOW,
+				withdrawSigner,
+				Option.some({ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages }),
+			)
+			.pipe(Effect.withSpan("withdrawTx"));
 	})
 		.pipe(Effect.withSpan("withdrawRewardsForIdentity"))
 		.pipe(
@@ -59,14 +52,16 @@ export const withdrawRewardsForIdentity = (
 			}),
 		);
 
-export const withdrawRewards = (sedaChain: SedaChain, identityPool: IdentityPool, config: AppConfig) =>
+export const withdrawRewards = (identityPool: IdentityPool, config: AppConfig) =>
 	Effect.gen(function* () {
+		const sedaChain = yield* SedaChainService;
+
 		logger.debug("Checking if we can withdraw rewards..");
 
 		for (const identity of identityPool.all()) {
-			const stakerInfo = yield* asyncResultToEffect(getStakerAndSequenceInfo(identity.identityId, sedaChain));
+			const stakerInfo = yield* getStakerAndSequenceInfo(identity.identityId);
 
-			if (stakerInfo.staker.isNothing) {
+			if (Option.isNone(stakerInfo.staker)) {
 				continue;
 			}
 
@@ -79,15 +74,15 @@ export const withdrawRewards = (sedaChain: SedaChain, identityPool: IdentityPool
 				continue;
 			}
 
-			const withdrawAddress = sedaChain.getSignerAddress();
+			const withdrawAddress = sedaChain.getSignerInfo(Option.some(0));
 			logger.info(
-				`Withdrawing ${formatTokenUnits(tokensPendingWithdrawal)} SEDA rewards to main account ${withdrawAddress}...`,
+				`Withdrawing ${formatTokenUnits(tokensPendingWithdrawal)} SEDA rewards to main account ${withdrawAddress.address}...`,
 				{
 					id: identity.identityId,
 				},
 			);
 
-			yield* withdrawRewardsForIdentity(sedaChain, identity, stakerInfo, config);
+			yield* withdrawRewardsForIdentity(identity, stakerInfo, config);
 		}
 	})
 		.pipe(Effect.withSpan("withdrawRewards"))

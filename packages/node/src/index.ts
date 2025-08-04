@@ -1,6 +1,10 @@
+import { DevTools } from "@effect/experimental";
 import { SedaChain, getRuntime } from "@sedaprotocol/overlay-ts-common";
+import { SedaChainServiceLayer, startSedaChainService } from "@sedaprotocol/overlay-ts-common";
+import { SigningClientService } from "@sedaprotocol/overlay-ts-common/src/seda/signing-client";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
+import { Effect, Layer } from "effect";
 import semver from "semver";
 import { Maybe } from "true-myth";
 import { match } from "ts-pattern";
@@ -17,6 +21,14 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 	logger.info(`Overlay Node v${version} is starting..`);
 	const exitController = Maybe.of(runOptions?.exitController);
 	const sedaChain = await SedaChain.fromConfig(appConfig);
+
+	const sedaChainServiceLayer = await Effect.runPromise(
+		SedaChainServiceLayer(appConfig).pipe(
+			Effect.provide(Layer.mergeAll(SigningClientService.Default(), DevTools.layer())),
+		),
+	);
+
+	await startSedaChainService(sedaChainServiceLayer);
 
 	if (sedaChain.isErr) {
 		logger.error(`SedaChain creation error: ${sedaChain.error}`);
@@ -54,7 +66,7 @@ export async function runNode(appConfig: AppConfig, runOptions?: RunOptions) {
 
 	sedaChain.value.start();
 
-	const mainTask = new MainTask(appConfig, sedaChain.value);
+	const mainTask = new MainTask(appConfig, sedaChainServiceLayer);
 	mainTask.start();
 
 	await startHttpServer(appConfig, mainTask);

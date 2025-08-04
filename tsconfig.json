@@ -25,6 +25,11 @@
 		"incremental": true,
 		"tsBuildInfoFile": "./node_modules/.cache/.tsbuildinfo",
 		"isolatedModules": true,
-		"preserveWatchOutput": true
+		"preserveWatchOutput": true,
+		"plugins": [
+			{
+				"name": "@effect/language-service"
+			}
+		]
 	}
 }
