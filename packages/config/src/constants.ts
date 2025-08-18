@@ -53,7 +53,6 @@ export const DEVNET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
 		rpc: "https://rpc.devnet.seda.xyz/",
 		chainId: "seda-1-devnet",
-		mnemonic: "YOUR SEDA MNEMONIC HERE",
 	},
 };
 
@@ -61,7 +60,6 @@ export const TESTNET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
 		rpc: "https://rpc.testnet.seda.xyz/",
 		chainId: "seda-1-testnet",
-		mnemonic: "YOUR SEDA MNEMONIC HERE",
 	},
 };
 
@@ -69,6 +67,5 @@ export const MAINNET_APP_CONFIG: DeepPartial<AppConfig> = {
 	sedaChain: {
 		rpc: "https://overlay-rpc.seda.xyz",
 		chainId: "seda-1",
-		mnemonic: "YOUR SEDA MNEMONIC HERE",
 	},
 };

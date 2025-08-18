@@ -16,5 +16,5 @@ export const init = populateWithCommonOptions(new Command("init"))
 		}
 
 		logger.info(`Config file has been created at: ${createdConfig.value}`);
-		logger.info("Please fill in all properties (such as mnemonic)");
+		logger.info("Please fill in all properties");
 	});

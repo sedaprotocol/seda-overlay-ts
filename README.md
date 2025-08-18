@@ -65,7 +65,6 @@ seda-overlay init --network <mainnet | testnet | devnet>
 
 Initializing the overlay node..
 Config file has been created at: /Users/myuser/.seda/testnet/config.jsonc
-Please fill in all properties (such as mnemonic)
 ```
 
 After initialization, a configuration file (`config.jsonc`) will be created in the `.seda` directory in your home folder:
@@ -74,13 +73,22 @@ After initialization, a configuration file (`config.jsonc`) will be created in t
 {
     "sedaChain": {
         "rpc": "https://rpc.testnet.seda.xyz/",
-        "chainId": "seda-1-testnet",
-        "mnemonic": "YOUR SEDA MNEMONIC HERE"
+        "chainId": "seda-1-testnet"
     }
 }
 ```
 
-You must provide an active mnemonic from the SEDA chain. Alternatively, you can set the `SEDA_MNEMONIC` environment variable.
+### Environment variables
+
+You must also provide an active mnemonic from the SEDA chain. This can be done through the `SEDA_MNEMONIC` environment variable. You can either supply this by prepending it to the command you're running `SEDA_MNEMONIC="YOUR_MNEMONIC_HERE" seda-overlay identities info` or by creating a `.env` file in the directory where the overlay is running.
+
+For additional security this project uses https://dotenvx.com/, which allows you to encrypt your `.env` file. See the docs on how to set this up.
+
+By default seda-overlay will check for a `.env` file in the working directory, but you can specify a different path through the `DOTENV_CONFIG_PATH` environment variable.
+
+By default seda-overlay will check for a private key file at `$HOME/.dotenvx/overlay-ts.keys`, if there are no encrypted secrets in the `.env` file the secrets file does not need to be present. You can specify a different location through the `DOTENV_KEYS_PATH` environment variable.
+
+## Identity Public Key
 
 After initialization, you can already print your identity public key.
 

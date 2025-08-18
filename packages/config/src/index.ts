@@ -60,7 +60,6 @@ export async function createConfig(
 		sedaChain: {
 			rpc: "RPC_HERE",
 			chainId: "seda-1-chainId-here",
-			mnemonic: "YOUR SEDA MNEMONIC HERE",
 		},
 	};
 
