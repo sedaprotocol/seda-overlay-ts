@@ -6,6 +6,21 @@ export function createApi(appConfig: AppConfig, mainTask: MainTask) {
 	const api = new Hono();
 
 	api.get("/health", (c) => {
+		const includePool = typeof c.req.query("includePool") !== "undefined";
+
+		const pool = includePool
+			? {
+					dataRequestsInPool: Array.from(mainTask.pool.allDataRequests()).map((dr) => dr.id),
+					executingDataRequests: Array.from(mainTask.pool.allIdentityDataRequests()).map(
+						({ drId, identityId, status }) => ({
+							identityId,
+							status,
+							dataRequest: drId,
+						}),
+					),
+				}
+			: undefined;
+
 		return c.json({
 			activelyExecutingSize: mainTask.activeDataRequestTasks,
 			eligibleButWaitingForExecutionSize: mainTask.dataRequestsToProcess.length,
@@ -21,16 +36,7 @@ export function createApi(appConfig: AppConfig, mainTask: MainTask) {
 				enabled,
 			})),
 
-			pool: {
-				dataRequestsInPool: Array.from(mainTask.pool.allDataRequests()).map((dr) => dr.id),
-				executingDataRequests: Array.from(mainTask.pool.allIdentityDataRequests()).map(
-					({ drId, identityId, status }) => ({
-						identityId,
-						status,
-						dataRequest: drId,
-					}),
-				),
-			},
+			pool,
 
 			version: appConfig.version,
 			vmVersion: appConfig.vmVersion,
