@@ -36,7 +36,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 			process.exit(1);
 		}
 
-		const coreContractAddress = await sedaChain.getCoreContractAddress();
 		const stakerInfo = await getStakerAndSequenceInfo(identityId.value, sedaChain);
 
 		if (stakerInfo.isErr) {
@@ -64,7 +63,6 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 		const messageHash = createWithdrawMessageSignatureHash(
 			config.sedaChain.chainId,
 			withdrawAddress,
-			coreContractAddress,
 			stakerInfo.value.seq,
 		);
 

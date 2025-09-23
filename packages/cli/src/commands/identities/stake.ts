@@ -39,7 +39,6 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 			process.exit(1);
 		}
 
-		const coreContractAddress = await sedaChain.getCoreContractAddress();
 		const stakerInfo = await getStakerAndSequenceInfo(identityId.value, sedaChain);
 
 		if (stakerInfo.isErr) {
@@ -61,12 +60,7 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 			},
 		});
 
-		const messageHash = createStakeMessageSignatureHash(
-			config.sedaChain.chainId,
-			coreContractAddress,
-			stakerInfo.value.seq,
-			memo,
-		);
+		const messageHash = createStakeMessageSignatureHash(config.sedaChain.chainId, stakerInfo.value.seq, memo);
 
 		logger.info(`Staking on identity ${identityId.value} with ${amount} SEDA (or ${attoSedaAmount} aSEDA)`);
 

@@ -49,10 +49,9 @@ describe("createCommitmentMessageSignatureHash", () => {
 			1n,
 			"5cd42fbed0f93a8ad51098c3c3354203acbfd59ba67f0b1304a8db4938f4cba9",
 			"seda_test",
-			"seda1mzdhwvvh22wrt07w59wxyd58822qavwkx5lcej7aqfkpqqlhaqfsuj50sf",
 		);
 
-		expect(messageHash.toString("hex")).toBe("19d5058188ace3f0bff7511dba75f1ff17d2138c532bae63b711fc60a5756564");
+		expect(messageHash.toString("hex")).toBe("cea5308a78283be4d02bae4db034680995815d7371caa2f034397cfa15baf554");
 	});
 });
 
@@ -70,7 +69,6 @@ describe("commit/reveal", () => {
 		const signingKey = "2bd806c97f0e00af1a1fc3328fa763a9269723c8db8fac4f93af71db186d6e90";
 		const publicKey = "039997a497d964fc1a62885b05a51166a65a90df00492c8d7cf61d6accf54803be";
 		const chainId = "seda_test";
-		const contractAddr = "seda1mzdhwvvh22wrt07w59wxyd58822qavwkx5lcej7aqfkpqqlhaqfsuj50sf";
 		const stderr: string[] = [];
 		const stdout: string[] = [];
 
@@ -79,13 +77,13 @@ describe("commit/reveal", () => {
 		expect(revealBodyHash.toString("hex")).toBe("6f1fcb82763ff3697546b945398c76e995acba40b9fa80c12b2ae27f990a4761");
 
 		// Step 2: Create the hash used as part of the reveal message
-		const revealMessageHash = createRevealMessageHash(revealBodyHash, chainId, contractAddr);
-		expect(revealMessageHash.toString("hex")).toBe("d964307485fdd72aa259e49d7465cc62bf3ac1bec77d796464c9b4c0ccde35f1");
+		const revealMessageHash = createRevealMessageHash(revealBodyHash, chainId);
+		expect(revealMessageHash.toString("hex")).toBe("e4c4ce71f72a0b69c0b0cf06eed6de1cdae2998a9e5d387824ae7f7ebe93f6db");
 
 		// Step 3: Prove reveal message hash
 		const revealProof = vrfProve(Buffer.from(signingKey, "hex"), revealMessageHash);
 		expect(revealProof.toString("hex")).toBe(
-			"021b15623b1c54f9a3fc9c7de066732ddf90851c9a4a6997d1b68b387e95b6786843a05d256fb86f4bcb267f02fa168628ec89a24cccd2429b5a36760af575fb5ac6dca2e4beb4c53adae7953437b77f98",
+			"027dba0119599c4f13818db05ba3cb62c0d1eafcb00df4c76437a5bf31a79670de7a3604f228d24c36cc41d991711eb739dbc8054e597b37402a0c45ad123cd0bb214716a55d013eba5776052a72fe1335",
 		);
 
 		// Step 4: Create Reveal Message
@@ -99,7 +97,7 @@ describe("commit/reveal", () => {
 
 		// Step 5: Commitment hash
 		const commitment = createCommitment(revealBodyHash, publicKey, revealProof.toString("hex"), stderr, stdout);
-		expect(commitment.toString("hex")).toBe("3c5f027221b68115e903218b21580e8eac4dc75400bcbb675a9b644353f2f8a8");
+		expect(commitment.toString("hex")).toBe("85cc1478cc060f15edcbd7a89fd61b7d6056d243eddbcef261fd6f05a4054cc9");
 
 		// Step 6: Create commit message hash
 		const commitMessageHash = createCommitMessageHash(
@@ -107,14 +105,13 @@ describe("commit/reveal", () => {
 			BigInt(revealBody.dr_block_height),
 			commitment.toString("hex"),
 			chainId,
-			contractAddr,
 		);
-		expect(commitMessageHash.toString("hex")).toBe("8d339d64555776870046a41f1a5154c402672f5f5aa3c9c5a30dc298f20be8d8");
+		expect(commitMessageHash.toString("hex")).toBe("45d1e862dd1a929bc91befe81e1db3c70ad19bca9c32fcfffdd5e2812c2ddb55");
 
 		// Step 7: Prove commit message hash
 		const commitProof = vrfProve(Buffer.from(signingKey, "hex"), commitMessageHash);
 		expect(commitProof.toString("hex")).toBe(
-			"02b0a7baca1f08bb1de047dfda2c0c58818a565019a0aed9894430d072badc52ca07970536f97279ebd3567b3a7dcd147b212fe4c3b7de9cdee5105fdbc0807dbbeab8cacaedb2376949d6c1e4bb84a4fe",
+			"037af31e9a2b73049123eb3cf2d6cfb0a0aa221673fbcbcdbd3f6a10333f0e47cf09dc53fb1c35d2b573feb5840dec8d830d378b874d8fea644da20c71ebb0598236936aca56704730363cc7708245f32b",
 		);
 
 		// Step 8: Create Commit Message

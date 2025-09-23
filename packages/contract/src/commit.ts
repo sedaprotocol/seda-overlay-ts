@@ -25,16 +25,9 @@ export function createRevealBodyHash(revealBody: RevealBody): Buffer {
 	);
 }
 
-export function createRevealMessageHash(revealBodyHash: Buffer, chainId: string, contractAddr: string): Buffer {
+export function createRevealMessageHash(revealBodyHash: Buffer, chainId: string): Buffer {
 	return Buffer.from(
-		keccak256(
-			Buffer.concat([
-				Buffer.from("reveal_data_result"),
-				revealBodyHash,
-				Buffer.from(chainId),
-				Buffer.from(contractAddr),
-			]),
-		),
+		keccak256(Buffer.concat([Buffer.from("reveal_data_result"), revealBodyHash, Buffer.from(chainId)])),
 	);
 }
 
@@ -64,7 +57,6 @@ export function createCommitMessageHash(
 	dataRequestHeight: bigint,
 	commitment: string,
 	chainId: string,
-	coreContractAddress: string,
 ): Buffer {
 	const heightBuffer = Buffer.alloc(8);
 	heightBuffer.writeBigUInt64BE(dataRequestHeight);
@@ -77,7 +69,6 @@ export function createCommitMessageHash(
 				heightBuffer,
 				Buffer.from(commitment),
 				Buffer.from(chainId),
-				Buffer.from(coreContractAddress),
 			]),
 		),
 	);

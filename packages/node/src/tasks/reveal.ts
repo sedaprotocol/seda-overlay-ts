@@ -28,14 +28,12 @@ export async function revealDr(
 ): Promise<Result<Unit, EnchancedRevealError>> {
 	const traceId = `${dataRequest.id}_${identityId}`;
 
-	const contractAddr = await sedaChain.getCoreContractAddress();
-
 	logger.trace("Creating reveal proof", {
 		id: traceId,
 	});
 
 	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
-	const revealMessageHash = createRevealMessageHash(revealBodyHash, appConfig.sedaChain.chainId, contractAddr);
+	const revealMessageHash = createRevealMessageHash(revealBodyHash, appConfig.sedaChain.chainId);
 	const revealProof = identityPool.sign(identityId, revealMessageHash);
 	if (revealProof.isErr) return Result.err(new EnchancedRevealError(revealProof.error, revealBodyHash));
 

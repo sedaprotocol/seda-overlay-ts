@@ -35,7 +35,6 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 			process.exit(1);
 		}
 
-		const coreContractAddress = await sedaChain.getCoreContractAddress();
 		const stakerInfo = await getStakerAndSequenceInfo(identityId.value, sedaChain);
 
 		if (stakerInfo.isErr) {
@@ -55,11 +54,7 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		logger.info(`Identity ${identityId.value} (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`);
 
-		const messageHash = createUnstakeMessageSignatureHash(
-			config.sedaChain.chainId,
-			coreContractAddress,
-			stakerInfo.value.seq,
-		);
+		const messageHash = createUnstakeMessageSignatureHash(config.sedaChain.chainId, stakerInfo.value.seq);
 
 		const proof = vrfProve(privateKey.value, messageHash);
 		logger.info(`Unstaking ${formatTokenUnits(staker.tokens_staked)} SEDA...`);

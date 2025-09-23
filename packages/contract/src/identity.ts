@@ -3,12 +3,7 @@ import type { Maybe } from "true-myth";
 
 export type { StakerAndSeq as GetStakerAndSeqResponse } from "./result-schema/response_to_get_staker_and_seq";
 
-export function createStakeMessageSignatureHash(
-	chainId: string,
-	contractAddr: string,
-	sequence: bigint,
-	memo: Maybe<Buffer>,
-): Buffer {
+export function createStakeMessageSignatureHash(chainId: string, sequence: bigint, memo: Maybe<Buffer>): Buffer {
 	// First hash the memo if it exists
 	const memoHash = keccak256(memo.unwrapOr(Buffer.alloc(0)));
 
@@ -18,12 +13,20 @@ export function createStakeMessageSignatureHash(
 	sequenceBytes.writeBigUInt64BE(sequence & ((1n << 64n) - 1n), 8);
 
 	// Concatenate all components in the same order as Rust implementation
-	return keccak256(
-		Buffer.concat([Buffer.from("stake"), memoHash, Buffer.from(chainId), Buffer.from(contractAddr), sequenceBytes]),
-	);
+	return keccak256(Buffer.concat([Buffer.from("stake"), memoHash, Buffer.from(chainId), sequenceBytes]));
 }
 
-export function createUnstakeMessageSignatureHash(chainId: string, contractAddr: string, sequence: bigint): Buffer {
+export function createUnstakeMessageSignatureHash(chainId: string, sequence: bigint): Buffer {
+	// Convert sequence to 16 bytes (128 bits) in big-endian format
+	const sequenceBytes = Buffer.alloc(16);
+	sequenceBytes.writeBigUInt64BE(sequence >> 64n, 0);
+	sequenceBytes.writeBigUInt64BE(sequence & ((1n << 64n) - 1n), 8);
+
+	// Concatenate all components in the same order as Rust implementation
+	return keccak256(Buffer.concat([Buffer.from("unstake"), Buffer.from(chainId), sequenceBytes]));
+}
+
+export function createWithdrawMessageSignatureHash(chainId: string, withdrawAddress: string, sequence: bigint): Buffer {
 	// Convert sequence to 16 bytes (128 bits) in big-endian format
 	const sequenceBytes = Buffer.alloc(16);
 	sequenceBytes.writeBigUInt64BE(sequence >> 64n, 0);
@@ -31,29 +34,6 @@ export function createUnstakeMessageSignatureHash(chainId: string, contractAddr:
 
 	// Concatenate all components in the same order as Rust implementation
 	return keccak256(
-		Buffer.concat([Buffer.from("unstake"), Buffer.from(chainId), Buffer.from(contractAddr), sequenceBytes]),
-	);
-}
-
-export function createWithdrawMessageSignatureHash(
-	chainId: string,
-	withdrawAddress: string,
-	contractAddr: string,
-	sequence: bigint,
-): Buffer {
-	// Convert sequence to 16 bytes (128 bits) in big-endian format
-	const sequenceBytes = Buffer.alloc(16);
-	sequenceBytes.writeBigUInt64BE(sequence >> 64n, 0);
-	sequenceBytes.writeBigUInt64BE(sequence & ((1n << 64n) - 1n), 8);
-
-	// Concatenate all components in the same order as Rust implementation
-	return keccak256(
-		Buffer.concat([
-			Buffer.from("withdraw"),
-			Buffer.from(withdrawAddress),
-			Buffer.from(chainId),
-			Buffer.from(contractAddr),
-			sequenceBytes,
-		]),
+		Buffer.concat([Buffer.from("withdraw"), Buffer.from(withdrawAddress), Buffer.from(chainId), sequenceBytes]),
 	);
 }

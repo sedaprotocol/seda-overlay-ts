@@ -3,7 +3,6 @@ import {
 	type SedaChain,
 	TransactionPriority,
 	asyncResultToEffect,
-	asyncToEffect,
 	formatTokenUnits,
 	vrfProve,
 } from "@sedaprotocol/overlay-ts-common";
@@ -20,13 +19,10 @@ export const withdrawRewardsForIdentity = (
 	config: AppConfig,
 ) =>
 	Effect.gen(function* () {
-		const coreContractAddress = yield* asyncToEffect(sedaChain.getCoreContractAddress());
-
 		const withdrawAddress = sedaChain.getSignerAddress();
 		const messageHash = createWithdrawMessageSignatureHash(
 			config.sedaChain.chainId,
 			withdrawAddress,
-			coreContractAddress,
 			BigInt(stakerInfo.seq),
 		);
 
