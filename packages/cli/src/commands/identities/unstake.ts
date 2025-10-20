@@ -1,4 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
+import { MsgUnstake } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import { createUnstakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { TransactionPriority, formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -49,27 +50,31 @@ export const unstake = populateWithCommonOptions(new Command("unstake"))
 
 		const staker = stakerInfo.value.staker.value;
 
-		const staked = formatTokenUnits(staker.tokens_staked);
-		const pendingWithdrawl = formatTokenUnits(staker.tokens_pending_withdrawal);
+		const staked = formatTokenUnits(staker.staked);
+		const pendingWithdrawl = formatTokenUnits(staker.pendingWithdrawal);
 
 		logger.info(`Identity ${identityId.value} (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`);
 
 		const messageHash = createUnstakeMessageSignatureHash(config.sedaChain.chainId, stakerInfo.value.seq);
 
 		const proof = vrfProve(privateKey.value, messageHash);
-		logger.info(`Unstaking ${formatTokenUnits(staker.tokens_staked)} SEDA...`);
-		const response = await sedaChain.waitForSmartContractTransaction(
-			{
-				unstake: {
-					proof: proof.toString("hex"),
-					public_key: identityId.value,
-				},
-			},
+		logger.info(`Unstaking ${formatTokenUnits(staker.staked)} SEDA...`);
+
+		const sender = sedaChain.getSignerAddress(0);
+		const unstakeMsg = {
+			typeUrl: "/sedachain.core.v1.MsgUnstake",
+			value: MsgUnstake.fromPartial({
+				sender: sender,
+				publicKey: identityId.value,
+				proof: proof.toString("hex"),
+			}),
+		};
+
+		const response = await sedaChain.queueCosmosMessage(
+			unstakeMsg,
 			TransactionPriority.LOW,
-			undefined,
 			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
-			"unstake",
 		);
 
 		if (response.isErr) {

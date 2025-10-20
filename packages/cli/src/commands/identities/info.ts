@@ -74,9 +74,9 @@ export const info = populateWithCommonOptions(new Command("info"))
 					entries.push({
 						identity: identityId,
 						sequenceNumber: response.value.seq.toString(),
-						tokensPendingWithdrawl: `${formatTokenUnits(value.tokens_pending_withdrawal)} SEDA`,
-						tokensStaked: `${formatTokenUnits(value.tokens_staked)} SEDA`,
-						status: BigInt(value.tokens_staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
+						tokensPendingWithdrawl: `${formatTokenUnits(value.pendingWithdrawal)} SEDA`,
+						tokensStaked: `${formatTokenUnits(value.staked)} SEDA`,
+						status: BigInt(value.staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
 					});
 				},
 				Nothing: () => {

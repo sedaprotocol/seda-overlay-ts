@@ -1,4 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
+import { MsgWithdraw } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema/src/identity";
 import { TransactionPriority, formatTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -50,11 +51,11 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 
 		const staker = stakerInfo.value.staker.value;
 
-		const staked = formatTokenUnits(staker.tokens_staked);
-		const pendingWithdrawl = formatTokenUnits(staker.tokens_pending_withdrawal);
+		const staked = formatTokenUnits(staker.staked);
+		const pendingWithdrawl = formatTokenUnits(staker.pendingWithdrawal);
 
 		logger.info(`Identity ${identityId.value} (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`);
-		if (BigInt(staker.tokens_pending_withdrawal) === 0n) {
+		if (BigInt(staker.pendingWithdrawal) === 0n) {
 			logger.error(`Cannot withdraw because identity has no pending withdraw (index ${index}).`);
 			process.exit(1);
 		}
@@ -67,24 +68,28 @@ export const withdraw = populateWithCommonOptions(new Command("withdraw"))
 		);
 
 		const proof = vrfProve(privateKey.value, messageHash);
-		logger.info(`Withdrawing ${formatTokenUnits(staker.tokens_pending_withdrawal)} SEDA...`);
-		const response = await sedaChain.waitForSmartContractTransaction(
-			{
-				withdraw: {
-					proof: proof.toString("hex"),
-					public_key: identityId.value,
-					withdraw_address: withdrawAddress,
-				},
-			},
+		logger.info(`Withdrawing ${formatTokenUnits(staker.pendingWithdrawal)} SEDA...`);
+
+		const sender = sedaChain.getSignerAddress(0);
+		const withdrawMsg = {
+			typeUrl: "/sedachain.core.v1.MsgWithdraw",
+			value: MsgWithdraw.fromPartial({
+				sender: sender,
+				publicKey: identityId.value,
+				proof: proof.toString("hex"),
+				withdrawAddress: withdrawAddress,
+			}),
+		};
+
+		const response = await sedaChain.queueCosmosMessage(
+			withdrawMsg,
 			TransactionPriority.LOW,
-			undefined,
 			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
-			"withdraw",
 		);
 
 		if (response.isErr) {
-			logger.error(`Unstaking failed: ${response.error}`);
+			logger.error(`Withdrawing failed: ${response.error}`);
 			process.exit(1);
 		}
 

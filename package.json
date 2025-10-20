@@ -35,6 +35,8 @@
 		"typescript": "^5.7.3"
 	},
 	"dependencies": {
+		"@cosmjs/stargate": "^0.33.0",
+		"@seda-protocol/proto-messages": "github:sedaprotocol/seda-sdk#hy/core-module",
 		"@dotenvx/dotenvx": "^1.48.4",
 		"@opentelemetry/api": "^1.9.0",
 		"@opentelemetry/exporter-metrics-otlp-grpc": "0.202.0",

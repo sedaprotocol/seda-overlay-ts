@@ -9,8 +9,12 @@ export async function createProtoQueryClient(rpc: string) {
 	return createProtobufRpcClient(queryClient);
 }
 
-export async function createWasmQueryClient(rpc: string) {
+export async function createWasmStorageQueryClient(rpc: string) {
 	const protoRpcClient = await createProtoQueryClient(rpc);
-
 	return new sedachain.wasm_storage.v1.QueryClientImpl(protoRpcClient);
+}
+
+export async function createCoreQueryClient(rpc: string) {
+	const protoRpcClient = await createProtoQueryClient(rpc);
+	return new sedachain.core.v1.QueryClientImpl(protoRpcClient);
 }

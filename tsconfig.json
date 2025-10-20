@@ -25,6 +25,11 @@
 		"incremental": true,
 		"tsBuildInfoFile": "./node_modules/.cache/.tsbuildinfo",
 		"isolatedModules": true,
-		"preserveWatchOutput": true
+		"preserveWatchOutput": true,
+
+		// Path mappings for dev-tools source
+		"paths": {
+			"@seda-protocol/proto-messages": ["./node_modules/@seda-protocol/proto-messages/libs/proto-messages"]
+		}
 	}
 }

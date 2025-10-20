@@ -33,7 +33,7 @@ export const send = populateWithCommonOptions(new Command("send"))
 			},
 		};
 
-		await sedaChain.queueCosmosMessage(
+		const result = await sedaChain.queueCosmosMessage(
 			sendMsg,
 			TransactionPriority.LOW,
 			{
@@ -42,7 +42,11 @@ export const send = populateWithCommonOptions(new Command("send"))
 			},
 			0,
 		);
+		if (result.isErr) {
+			logger.error(`Sending failed: ${result.error}`);
+			process.exit(1);
+		}
 
-		logger.info(`Sent ${amount} SEDA to ${destination}`);
+		logger.info(`Sent ${amount} SEDA to ${destination} in tx ${result.value}`);
 		process.exit(0);
 	});

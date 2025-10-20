@@ -4,11 +4,12 @@ import type { Block, ProtobufRpcClient } from "@cosmjs/stargate";
 import type { sedachain } from "@seda-protocol/proto-messages";
 import { tryAsync } from "@seda-protocol/utils";
 import type { ExecuteMsg, QueryMsg } from "@sedaprotocol/core-contract-schema";
-import { debouncedInterval, getBlock, getCurrentBlockHeight } from "@sedaprotocol/overlay-ts-common";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { EventEmitter } from "eventemitter3";
 import { Maybe, Result } from "true-myth";
+import { debouncedInterval } from "../services/timer";
+import { getBlock, getCurrentBlockHeight } from "./block";
 import {
 	AlreadyCommitted,
 	AlreadyRevealed,
@@ -19,7 +20,7 @@ import {
 	RevealStarted,
 } from "./errors";
 import type { GasOptions } from "./gas-options";
-import { createProtoQueryClient, createWasmQueryClient } from "./query-client";
+import { createCoreQueryClient, createProtoQueryClient, createWasmStorageQueryClient } from "./query-client";
 import { getTransaction, signAndSendTxSync } from "./sign-and-send-tx";
 import { type ISigner, Signer } from "./signer";
 import { type SedaSigningCosmWasmClient, createSigningClient } from "./signing-client";
@@ -65,6 +66,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 		public signerClients: SedaSigningCosmWasmClient[],
 		private protoClient: ProtobufRpcClient,
 		private wasmStorageQueryClient: sedachain.wasm_storage.v1.QueryClientImpl,
+		private coreQueryClient: sedachain.core.v1.QueryClientImpl,
 		private config: AppConfig,
 	) {
 		super();
@@ -80,6 +82,10 @@ export class SedaChain extends EventEmitter<EventMap> {
 
 	getWasmStorageQueryClient() {
 		return this.wasmStorageQueryClient;
+	}
+
+	getCoreQueryClient() {
+		return this.coreQueryClient;
 	}
 
 	getSignerAddress(accountIndex = 0) {
@@ -169,7 +175,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 				return Result.ok(Maybe.nothing());
 			}
 
-			const isInBlock = block.value.value.block.txIds.some((txId) => txId === txHash.toUpperCase());
+			const isInBlock = block.value.value.block.txIds.some((txId: string) => txId === txHash.toUpperCase());
 
 			if (!isInBlock) {
 				logger.trace(
@@ -222,7 +228,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 			return Result.ok(Maybe.nothing());
 		}
 
-		const isInBlock = blockFetchResult.value.value.block.txIds.some((txId) => txId === txHash.toUpperCase());
+		const isInBlock = blockFetchResult.value.value.block.txIds.some((txId: string) => txId === txHash.toUpperCase());
 
 		if (!isInBlock) {
 			logger.trace(
@@ -365,42 +371,6 @@ export class SedaChain extends EventEmitter<EventMap> {
 		return tryAsync<T>(() => this.signerClients[accountIndex].queryContractSmart(coreContractAddress, queryMsg));
 	}
 
-	/**
-	 * Signs and sends a transaction synchronously with the given execute message and options.
-	 *
-	 * @param executeMsg - The execute message to send to the smart contract
-	 * @param attachedAttoSeda - Optional amount of SEDA tokens (in atto) to attach to the transaction
-	 * @param gasOptions - Optional gas configuration for the transaction
-	 *
-	 * @returns A Result containing either the transaction hash on success or an Error on failure
-	 */
-	async signAndSendTxSync(
-		executeMsg: ExecuteMsg,
-		attachedAttoSeda?: bigint,
-		gasOptions?: GasOptions,
-		accountIndex = 0,
-	): Promise<Result<string, Error>> {
-		const message = {
-			typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-			value: {
-				sender: this.getSignerAddress(accountIndex),
-				contract: await this.getCoreContractAddress(),
-				funds: attachedAttoSeda ? [{ denom: "aseda", amount: attachedAttoSeda.toString() }] : [],
-				msg: Buffer.from(JSON.stringify(executeMsg)),
-			},
-		};
-
-		const result = await signAndSendTxSync(
-			this.config.sedaChain,
-			this.signerClients[accountIndex],
-			this.getSignerAddress(accountIndex),
-			[message],
-			gasOptions,
-			this.config.sedaChain.memo,
-		);
-		return result;
-	}
-
 	private getNextTransaction(accountIndex: number): Maybe<TransactionMessage> {
 		const txMessageIndex = this.highPriorityTransactionQueue.findIndex((tx) => tx.accountIndex === accountIndex);
 
@@ -532,9 +502,77 @@ export class SedaChain extends EventEmitter<EventMap> {
 		}
 
 		const protoClient = await createProtoQueryClient(config.sedaChain.rpc);
-		const wasmStorageClient = await createWasmQueryClient(config.sedaChain.rpc);
+		const wasmStorageQueryClient = await createWasmStorageQueryClient(config.sedaChain.rpc);
+		const coreQueryClient = await createCoreQueryClient(config.sedaChain.rpc);
 
-		return Result.ok(new SedaChain(signers, signerClients, protoClient, wasmStorageClient, config));
+		return Result.ok(
+			new SedaChain(signers, signerClients, protoClient, wasmStorageQueryClient, coreQueryClient, config),
+		);
+	}
+
+	async waitForTransaction(
+		message: EncodeObject,
+		priority: TransactionPriority,
+		gasOptions?: GasOptions,
+		forcedAccountIndex?: number,
+		traceId?: string,
+	): Promise<
+		Result<IndexedTx, DataRequestExpired | AlreadyCommitted | AlreadyRevealed | RevealMismatch | RevealStarted | Error>
+	> {
+		return new Promise(async (resolve) => {
+			logger.trace(`Queueing smart contract transaction account index ${forcedAccountIndex ?? "default"}`, {
+				id: traceId,
+			});
+
+			const transactionHash = await this.queueCosmosMessage(message, priority, gasOptions, forcedAccountIndex);
+
+			if (transactionHash.isErr) {
+				logger.trace(`Transaction could not be queued for ${traceId}: ${transactionHash.error}`, {
+					id: traceId,
+				});
+
+				const error = narrowDownError(transactionHash.error);
+				resolve(Result.err(error));
+				return;
+			}
+
+			logger.trace("Waiting for smart contract transaction to be included in a block", {
+				id: traceId,
+			});
+
+			const checkTransactionInterval = debouncedInterval(async () => {
+				logger.trace("Checking if transaction is included in a block", {
+					id: traceId,
+				});
+
+				const transactionResult = await this.getTransaction(transactionHash.value);
+
+				if (transactionResult.isErr) {
+					logger.error(`Transaction could not be received for ${transactionHash.value}: ${transactionResult.error}`, {
+						id: traceId,
+					});
+
+					const error = narrowDownError(transactionResult.error);
+					clearInterval(checkTransactionInterval);
+					resolve(Result.err(error));
+					return;
+				}
+
+				if (transactionResult.value.isNothing) {
+					logger.debug(`No tx result found yet for ${transactionHash.value}`, {
+						id: traceId,
+					});
+					return;
+				}
+
+				logger.debug(`Tx result found for ${transactionHash.value}`, {
+					id: traceId,
+				});
+
+				clearInterval(checkTransactionInterval);
+				resolve(Result.ok(transactionResult.value.value));
+			}, this.config.sedaChain.transactionPollInterval);
+		});
 	}
 
 	async waitForSmartContractTransaction(
@@ -612,7 +650,7 @@ export class SedaChain extends EventEmitter<EventMap> {
 }
 
 function narrowDownError(
-	error: Error,
+	error: unknown,
 ):
 	| AlreadyCommitted
 	| RevealMismatch
@@ -645,5 +683,5 @@ function narrowDownError(
 		return new RevealStarted(error.message);
 	}
 
-	return error;
+	return error instanceof Error ? error : new Error(String(error));
 }

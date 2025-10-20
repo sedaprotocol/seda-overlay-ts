@@ -4,7 +4,7 @@ import { tryAsync } from "@seda-protocol/utils";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { AUTO_CORE_CONTRACT_VALUE } from "@sedaprotocol/overlay-ts-node/src/constants";
 import { Result } from "true-myth";
-import { createWasmQueryClient } from "./query-client";
+import { createWasmStorageQueryClient } from "./query-client";
 
 const BECH32_ADDRESS_PREFIX = "seda";
 
@@ -20,7 +20,7 @@ export class Signer implements ISigner {
 		private endpoint: string,
 		private signer: DirectSecp256k1HdWallet,
 		private address: string,
-		private coreContractAddress: string,
+		private coreContractAddress?: string,
 	) {}
 
 	/**
@@ -35,10 +35,12 @@ export class Signer implements ISigner {
 			hdPaths: [stringToPath(`m/44'/118'/0'/0/${index}`)],
 		});
 
+		let coreContractAddress: string | undefined;
 		const contract = await resolveCoreContractAddress(config);
-
 		if (contract.isErr) {
-			return Result.err(contract.error);
+			coreContractAddress = undefined;
+		} else {
+			coreContractAddress = contract.value;
 		}
 
 		const accounts = await wallet.getAccounts();
@@ -48,7 +50,7 @@ export class Signer implements ISigner {
 
 		const address = accounts[0].address;
 
-		return Result.ok(new Signer(config.sedaChain.rpc, wallet, address, contract.value));
+		return Result.ok(new Signer(config.sedaChain.rpc, wallet, address, coreContractAddress));
 	}
 
 	getSigner() {
@@ -64,7 +66,7 @@ export class Signer implements ISigner {
 	}
 
 	async getCoreContractAddress() {
-		return this.coreContractAddress;
+		return this.coreContractAddress ?? Promise.resolve("");
 	}
 }
 
@@ -73,7 +75,7 @@ async function resolveCoreContractAddress(config: AppConfig): Promise<Result<str
 		return Result.ok(config.sedaChain.contract);
 	}
 
-	const queryClient = await tryAsync(createWasmQueryClient(config.sedaChain.rpc));
+	const queryClient = await tryAsync(createWasmStorageQueryClient(config.sedaChain.rpc));
 
 	if (queryClient.isErr) {
 		return Result.err(new Error(`Could not create query client: ${queryClient.error}`));
