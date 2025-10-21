@@ -148,8 +148,11 @@ export async function isIdentityEligibleForDataRequest(
 
 	span.end();
 
+	// It's possible that the current block height has not yet updated to the data request height, so we use the maximum of the two
+	const height = Math.max(Number(currentBlockHeight.value), Number(dataRequest.height));
+
 	return Result.ok({
-		block_height: Number(currentBlockHeight.value),
+		block_height: height,
 		status: isEligible ? "eligible" : "not_eligible",
 	});
 }
