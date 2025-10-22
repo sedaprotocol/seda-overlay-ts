@@ -127,6 +127,7 @@ jobs:
         with:
           allowUpdates: true
           generateReleaseNotes: true
+          draft: ${{ contains(github.ref_name, 'rc') }}
           body: ${{ needs.build.outputs.changelog }}
           artifacts: ./release-assets/**/*
           token: ${{ secrets.GITHUB_TOKEN }}
