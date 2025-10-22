@@ -3,7 +3,7 @@ import { DirectSecp256k1HdWallet, type OfflineSigner } from "@cosmjs/proto-signi
 import { tryAsync } from "@seda-protocol/utils";
 import type { AppConfig } from "@sedaprotocol/overlay-ts-config";
 import { AUTO_CORE_CONTRACT_VALUE } from "@sedaprotocol/overlay-ts-node/src/constants";
-import { Result } from "true-myth";
+import { Maybe, Result } from "true-myth";
 import { createWasmQueryClient } from "./query-client";
 
 const BECH32_ADDRESS_PREFIX = "seda";
@@ -68,9 +68,15 @@ export class Signer implements ISigner {
 	}
 }
 
+let coreContractAddress: Maybe<string> = Maybe.nothing();
+
 async function resolveCoreContractAddress(config: AppConfig): Promise<Result<string, Error>> {
 	if (config.sedaChain.contract !== AUTO_CORE_CONTRACT_VALUE) {
 		return Result.ok(config.sedaChain.contract);
+	}
+
+	if (coreContractAddress.isJust) {
+		return Result.ok(coreContractAddress.value);
 	}
 
 	const queryClient = await tryAsync(createWasmQueryClient(config.sedaChain.rpc));
@@ -88,6 +94,8 @@ async function resolveCoreContractAddress(config: AppConfig): Promise<Result<str
 	if (response.value.address === "") {
 		return Result.err(new Error("Contract address is empty, chain is not initialized with core contract"));
 	}
+
+	coreContractAddress = Maybe.just(response.value.address);
 
 	return Result.ok(response.value.address);
 }
