@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import type { StakingConfig } from "@sedaprotocol/core-contract-schema";
+import { tryAsync } from "@seda-protocol/utils";
 import { formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { loadConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -46,9 +46,7 @@ export const info = populateWithCommonOptions(new Command("info"))
 			network: options.network,
 		});
 
-		const stakingConfig = await sedaChain.queryContractSmart<StakingConfig>({
-			get_staking_config: {},
-		});
+		const stakingConfig = await tryAsync(sedaChain.getCoreQueryClient().StakingConfig({}));
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);

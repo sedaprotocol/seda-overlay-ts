@@ -278,14 +278,35 @@ export class SedaChain extends EventEmitter<EventMap> {
 		};
 	}
 
+	/**
+	 * Queues a Cosmos SDK module transaction message.
+	 *
+	 * @param message - The message object.
+	 * @param priority - The priority of the transaction.
+	 * @param gasOptions - The gas options for the transaction.
+	 * @param forcedAccountIndex - The index of the account to use for the transaction.
+	 * If not provided, the account index will be determined in round-robin and the message sender will be set to the corresponding address.
+	 *
+	 * @returns A Result containing either the result on success or an Error on failure
+	 */
 	async queueCosmosMessage(
 		message: EncodeObject,
 		priority: TransactionPriority,
 		gasOptions?: GasOptions,
-		accountIndex = 0,
+		forcedAccountIndex?: number,
 	): Promise<Result<string, Error>> {
 		return new Promise(async (resolve) => {
 			this.nonceId += 1;
+
+			let accountIndex = this.nonceId % this.signers.length;
+
+			// Some cases like staking, unstaking require a specific account index
+			// this is because most of the time index 0 has all the funds
+			if (forcedAccountIndex !== undefined) {
+				accountIndex = forcedAccountIndex;
+			} else {
+				message.value.sender = this.getSignerAddress(accountIndex);
+			}
 
 			this.queueMessages([
 				{

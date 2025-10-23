@@ -1,3 +1,4 @@
+import type { DataRequestResponse } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/query";
 import type { DataRequest as DataRequestFromContract, DataRequestStatus } from "@sedaprotocol/core-contract-schema";
 
 export type DataRequestId = string;
@@ -44,6 +45,33 @@ export function transformDataRequestFromContract(request: DataRequestFromContrac
 		height: BigInt(request.height),
 		lastUpdated: new Date(),
 		status: commitsLength >= request.replication_factor ? "revealing" : "committing",
+	};
+}
+
+export function transformDataRequestFromModule(response: DataRequestResponse): DataRequest {
+	if (!response.dataRequest) {
+		throw new Error("Data request not found in response");
+	}
+	const commitsLength = Object.keys(response.commits).length;
+	return {
+		id: response.dataRequest.iD,
+		version: response.dataRequest.version,
+		execProgramId: response.dataRequest.execProgramID,
+		execInputs: Buffer.from(response.dataRequest.execInputs),
+		execGasLimit: BigInt(response.dataRequest.execGasLimit),
+		tallyProgramId: response.dataRequest.tallyProgramID,
+		tallyInputs: Buffer.from(response.dataRequest.tallyInputs),
+		tallyGasLimit: BigInt(response.dataRequest.tallyGasLimit),
+		replicationFactor: response.dataRequest.replicationFactor,
+		consensusFilter: Buffer.from(response.dataRequest.consensusFilter),
+		gasPrice: BigInt(response.dataRequest.gasPrice),
+		postedGasPrice: BigInt(response.dataRequest.postedGasPrice),
+		memo: Buffer.from(response.dataRequest.memo),
+		paybackAddress: Buffer.from(response.dataRequest.paybackAddress),
+		sedaPayload: Buffer.from(response.dataRequest.sEDAPayload),
+		height: BigInt(response.dataRequest.postedHeight),
+		lastUpdated: new Date(),
+		status: commitsLength >= response.dataRequest.replicationFactor ? "revealing" : "committing",
 	};
 }
 

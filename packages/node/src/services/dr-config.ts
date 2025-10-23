@@ -1,39 +1,29 @@
-import type { DrConfig as DrConfigFromContract } from "@sedaprotocol/core-contract-schema";
+import { type DrConfig, DrConfigSchema } from "@seda-protocol/dev-tools/libs/dev-tools/src/lib/services/get-dr-config";
+import { tryAsync, tryParseSync } from "@seda-protocol/utils";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Cache } from "@sedaprotocol/overlay-ts-common";
+import { createCoreQueryClient } from "@sedaprotocol/overlay-ts-common/src/seda/query-client";
 import { Result } from "true-myth";
-import type { CamelCasedPropertiesDeep } from "type-fest";
-
-export type DrConfig = CamelCasedPropertiesDeep<DrConfigFromContract>;
-
-function transformDrConfig(drConfig: DrConfigFromContract): DrConfig {
-	return {
-		backupDelayInBlocks: drConfig.backup_delay_in_blocks,
-		commitTimeoutInBlocks: drConfig.commit_timeout_in_blocks,
-		consensusFilterLimitInBytes: drConfig.consensus_filter_limit_in_bytes,
-		drRevealSizeLimitInBytes: drConfig.dr_reveal_size_limit_in_bytes,
-		execInputLimitInBytes: drConfig.exec_input_limit_in_bytes,
-		memoLimitInBytes: drConfig.memo_limit_in_bytes,
-		paybackAddressLimitInBytes: drConfig.payback_address_limit_in_bytes,
-		revealTimeoutInBlocks: drConfig.reveal_timeout_in_blocks,
-		sedaPayloadLimitInBytes: drConfig.seda_payload_limit_in_bytes,
-		tallyInputLimitInBytes: drConfig.tally_input_limit_in_bytes,
-	};
-}
 
 const DR_CONFIG_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 const drConfigCache = new Cache<DrConfig>(DR_CONFIG_CACHE_TTL);
 
 export async function getDrConfig(sedaChain: SedaChain): Promise<Result<DrConfig, Error>> {
 	return drConfigCache.getOrFetch("drConfig", async () => {
-		const result = await sedaChain.queryContractSmart<DrConfigFromContract>({
-			get_dr_config: {},
-		});
+		const coreQueryClient = await createCoreQueryClient(sedaChain.getRpcUrl());
+		const response = await tryAsync(coreQueryClient.DataRequestConfig({}));
 
-		if (result.isErr) {
-			return Result.err(result.error);
+		if (response.isErr) {
+			return Result.err(new Error(String(response.error)));
+		}
+		if (!response.value.dataRequestConfig) {
+			return Result.err(new Error("No data request config found."));
 		}
 
-		return Result.ok(transformDrConfig(result.value));
+		const parseResult = tryParseSync(DrConfigSchema, response.value.dataRequestConfig);
+		if (parseResult.isErr) {
+			return Result.err(new Error(String(parseResult.error)));
+		}
+		return Result.ok(parseResult.value);
 	});
 }

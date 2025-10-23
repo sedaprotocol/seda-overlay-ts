@@ -1,4 +1,5 @@
-import type { GetExecutorsResponse, Staker as StakerFromContract } from "@sedaprotocol/core-contract-schema";
+import type { Staker as StakerProto } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/core";
+import { tryAsync } from "@seda-protocol/utils";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Cache } from "@sedaprotocol/overlay-ts-common";
 import { Maybe, Result } from "true-myth";
@@ -10,31 +11,27 @@ export interface Staker {
 	publicKey: Buffer;
 }
 
-function transformStakerFromContract(staker: StakerFromContract, publicKey: string): Staker {
+function transformStakerFromModule(staker: StakerProto): Staker {
 	return {
 		memo: staker.memo ? Maybe.just(Buffer.from(staker.memo, "base64")) : Maybe.nothing(),
-		tokensStaked: BigInt(staker.tokens_staked),
-		tokensPendingWithdrawal: BigInt(staker.tokens_pending_withdrawal),
-		publicKey: Buffer.from(publicKey, "hex"),
+		tokensStaked: BigInt(staker.staked),
+		tokensPendingWithdrawal: BigInt(staker.pendingWithdrawal),
+		publicKey: Buffer.from(staker.publicKey, "hex"),
 	};
 }
 
 export async function getStaker(sedaChain: SedaChain, publicKey: string): Promise<Result<Maybe<Staker>, Error>> {
-	const result = await sedaChain.queryContractSmart<StakerFromContract | null>({
-		get_staker: {
-			public_key: publicKey,
-		},
-	});
+	const result = await tryAsync(sedaChain.getCoreQueryClient().Staker({ publicKey: publicKey }));
 
 	if (result.isErr) {
 		return Result.err(result.error);
 	}
 
-	if (result.value === null) {
+	if (!result.value.staker) {
 		return Result.ok(Maybe.nothing());
 	}
 
-	return Result.ok(Maybe.just(transformStakerFromContract(result.value, publicKey)));
+	return Result.ok(Maybe.just(transformStakerFromModule(result.value.staker)));
 }
 
 const STAKERS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
@@ -54,18 +51,13 @@ export async function getStakers(sedaChain: SedaChain, limit = DEFAULT_LIMIT): P
 		let offset = 0;
 
 		async function fetchStakers(): Promise<Result<Staker[], Error>> {
-			const result = await sedaChain.queryContractSmart<GetExecutorsResponse>({
-				get_executors: {
-					limit,
-					offset,
-				},
-			});
+			const result = await tryAsync(sedaChain.getCoreQueryClient().Executors({ limit: limit, offset: offset }));
 
 			if (result.isErr) {
 				return Result.err(result.error);
 			}
 
-			stakers.push(...result.value.executors.map((staker) => transformStakerFromContract(staker, staker.public_key)));
+			stakers.push(...result.value.executors.map((staker) => transformStakerFromModule(staker)));
 
 			// If we got fewer results than requested, we're done (end of data)
 			if (result.value.executors.length < limit) {

@@ -29,7 +29,10 @@
 
 		// Path mappings for dev-tools source
 		"paths": {
-			"@seda-protocol/proto-messages": ["./node_modules/@seda-protocol/proto-messages/libs/proto-messages"]
+			"@seda-protocol/proto-messages": ["./node_modules/@seda-protocol/proto-messages/libs/proto-messages"],
+			"@dev-tools/utils/*": ["./node_modules/@seda-protocol/dev-tools/libs/dev-tools/src/lib/utils/*"],
+			"@dev-tools/services/*": ["./node_modules/@seda-protocol/dev-tools/libs/dev-tools/src/lib/services/*"],
+			"@dev-tools/cli-utils/*": ["./node_modules/@seda-protocol/dev-tools/libs/dev-tools/src/lib/cli-utils/*"]
 		}
 	}
 }

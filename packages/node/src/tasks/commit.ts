@@ -1,3 +1,4 @@
+import { MsgCommit } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import {
 	createCommitMessageHash,
 	createCommitment,
@@ -65,21 +66,16 @@ export async function commitDr(
 		? { gas: Math.round(estimateGasForCommit(dataRequest) * appConfig.sedaChain.gasAdjustmentFactor) }
 		: undefined;
 
-	const commitResponse = await sedaChain.waitForSmartContractTransaction(
-		{
-			commit_data_result: {
-				dr_id: dataRequest.id,
-				commitment: commitment.toString("hex"),
-				proof: commitProof.value.toString("hex"),
-				public_key: identityId,
-			},
-		},
-		TransactionPriority.LOW,
-		undefined,
-		gasOptions,
-		undefined,
-		traceId,
-	);
+	const commitMsg = {
+		typeUrl: "/sedachain.core.v1.MsgCommit",
+		value: MsgCommit.fromPartial({
+			drID: dataRequest.id,
+			commit: commitment.toString("hex"),
+			publicKey: identityId,
+			proof: commitProof.value.toString("hex"),
+		}),
+	};
+	const commitResponse = await sedaChain.queueCosmosMessage(commitMsg, TransactionPriority.LOW, gasOptions);
 
 	logger.trace("Commit transaction processed", {
 		id: traceId,

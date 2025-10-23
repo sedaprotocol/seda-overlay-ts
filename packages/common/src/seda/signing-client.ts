@@ -199,6 +199,10 @@ export async function createSigningClient(
 		"/sedachain.core.v1.MsgWithdrawResponse",
 		sedachain.core.v1.MsgWithdrawResponse,
 	);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgCommit", sedachain.core.v1.MsgCommit);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgCommitResponse", sedachain.core.v1.MsgCommitResponse);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgReveal", sedachain.core.v1.MsgReveal);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgRevealResponse", sedachain.core.v1.MsgRevealResponse);
 
 	return Result.ok({
 		client: signingClientResult,
