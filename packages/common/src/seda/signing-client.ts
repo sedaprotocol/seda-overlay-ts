@@ -190,6 +190,14 @@ export async function createSigningClient(
 
 	signingClientResult.cacheSequenceNumber = cacheSequenceNumber;
 	signingClientResult.registry.register(MsgExecuteContractResponse.typeUrl, MsgExecuteContractResponse);
+
+	signingClientResult.registry.register("/sedachain.core.v1.MsgPause", sedachain.core.v1.MsgPause);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgUnpause", sedachain.core.v1.MsgUnpause);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgAddToAllowlist", sedachain.core.v1.MsgAddToAllowlist);
+	signingClientResult.registry.register(
+		"/sedachain.core.v1.MsgRemoveFromAllowlist",
+		sedachain.core.v1.MsgRemoveFromAllowlist,
+	);
 	signingClientResult.registry.register("/sedachain.core.v1.MsgStake", sedachain.core.v1.MsgStake);
 	signingClientResult.registry.register("/sedachain.core.v1.MsgStakeResponse", sedachain.core.v1.MsgStakeResponse);
 	signingClientResult.registry.register("/sedachain.core.v1.MsgUnstake", sedachain.core.v1.MsgUnstake);
