@@ -99,7 +99,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				return response;
 			})
 			.with(false, async () => {
-				const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId, coreContractAddress);
+				const messageHash = createEligibilityHash(dataRequest.id, this.config.sedaChain.chainId);
 				const messageSignature = this.identities.sign(identityId, messageHash);
 
 				if (messageSignature.isErr) {
@@ -110,7 +110,7 @@ export class EligibilityTask extends EventEmitter<EventMap> {
 				}
 
 				const response = await this.sedaChain.queryContractSmart<GetExecutorEligibilityResponse>({
-					is_executor_eligible: {
+					get_executor_eligibility: {
 						data: createEligibilityMessageData(identityId, dataRequest.id, messageSignature.value),
 					},
 				});

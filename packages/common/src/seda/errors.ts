@@ -3,8 +3,8 @@ export class AlreadyCommitted extends Error {
 		super(`AlreadyCommitted: ${message ?? "Data request already committed"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("AlreadyCommitted");
+	static isError(error: unknown): error is AlreadyCommitted {
+		return error instanceof Error && error.message.includes("AlreadyCommitted");
 	}
 }
 
@@ -13,8 +13,8 @@ export class RevealMismatch extends Error {
 		super(`RevealMismatch: ${message ?? "Reveal mismatch"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("RevealMismatch");
+	static isError(error: unknown): error is RevealMismatch {
+		return error instanceof Error && error.message.includes("RevealMismatch");
 	}
 }
 
@@ -23,8 +23,8 @@ export class AlreadyRevealed extends Error {
 		super(`AlreadyRevealed: ${message ?? "Data request already revealed"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("AlreadyRevealed");
+	static isError(error: unknown): error is AlreadyRevealed {
+		return error instanceof Error && error.message.includes("AlreadyRevealed");
 	}
 }
 
@@ -33,8 +33,8 @@ export class IncorrectAccountSquence extends Error {
 		super(`IncorrectAccountSquence: ${message ?? "Account sequence mismatch"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("account sequence mismatch");
+	static isError(error: unknown): error is IncorrectAccountSquence {
+		return error instanceof Error && error.message.includes("account sequence mismatch");
 	}
 }
 
@@ -43,8 +43,8 @@ export class DataRequestNotFound extends Error {
 		super(`DataRequestNotFound: ${message ?? "Data request not found"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("not found: execute wasm contract failed");
+	static isError(error: unknown): error is DataRequestNotFound {
+		return error instanceof Error && error.message.includes("not found: execute wasm contract failed");
 	}
 }
 
@@ -53,8 +53,8 @@ export class DataRequestExpired extends Error {
 		super(`DataRequestExpired: ${message ?? "Data request expired"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("DataRequestExpired");
+	static isError(error: unknown): error is DataRequestExpired {
+		return error instanceof Error && error.message.includes("DataRequestExpired");
 	}
 }
 
@@ -63,7 +63,7 @@ export class RevealStarted extends Error {
 		super(`RevealStarted: ${message ?? "Reveal started"}`);
 	}
 
-	static isError(error: Error): boolean {
-		return error.message.includes("RevealStarted");
+	static isError(error: unknown): error is RevealStarted {
+		return error instanceof Error && error.message.includes("RevealStarted");
 	}
 }

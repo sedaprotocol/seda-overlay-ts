@@ -1,3 +1,4 @@
+import { MsgReveal } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import { createRevealBodyHash, createRevealMessageHash } from "@sedaprotocol/core-contract-schema/src/commit";
 // import { createRevealMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { type SedaChain, TransactionPriority } from "@sedaprotocol/overlay-ts-common";
@@ -28,14 +29,12 @@ export async function revealDr(
 ): Promise<Result<Unit, EnchancedRevealError>> {
 	const traceId = `${dataRequest.id}_${identityId}`;
 
-	const contractAddr = await sedaChain.getCoreContractAddress();
-
 	logger.trace("Creating reveal proof", {
 		id: traceId,
 	});
 
 	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
-	const revealMessageHash = createRevealMessageHash(revealBodyHash, appConfig.sedaChain.chainId, contractAddr);
+	const revealMessageHash = createRevealMessageHash(revealBodyHash, appConfig.sedaChain.chainId);
 	const revealProof = identityPool.sign(identityId, revealMessageHash);
 	if (revealProof.isErr) return Result.err(new EnchancedRevealError(revealProof.error, revealBodyHash));
 
@@ -47,26 +46,24 @@ export async function revealDr(
 		? { gas: Math.round(estimateGasForReveal(dataRequest, executionResult) * appConfig.sedaChain.gasAdjustmentFactor) }
 		: undefined;
 
-	const revealResponse = await sedaChain.waitForSmartContractTransaction(
-		{
-			reveal_data_result: {
-				public_key: identityId,
-				proof: revealProof.value.toString("hex"),
-				reveal_body: {
-					...executionResult.revealBody,
-					gas_used: Number(executionResult.revealBody.gas_used.toString()),
-					reveal: executionResult.revealBody.reveal.toString("base64"),
-				},
-				stderr: executionResult.stderr,
-				stdout: executionResult.stdout,
+	const revealMsg = {
+		typeUrl: "/sedachain.core.v1.MsgReveal",
+		value: MsgReveal.fromPartial({
+			publicKey: identityId,
+			proof: revealProof.value.toString("hex"),
+			stderr: executionResult.stderr,
+			stdout: executionResult.stdout,
+			revealBody: {
+				drID: dataRequest.id,
+				drBlockHeight: BigInt(executionResult.revealBody.dr_block_height),
+				exitCode: executionResult.revealBody.exit_code,
+				gasUsed: executionResult.revealBody.gas_used,
+				reveal: executionResult.revealBody.reveal,
+				proxyPubKeys: executionResult.revealBody.proxy_public_keys,
 			},
-		},
-		TransactionPriority.HIGH,
-		undefined,
-		gasOptions,
-		undefined,
-		traceId,
-	);
+		}),
+	};
+	const revealResponse = await sedaChain.queueCosmosMessage(revealMsg, TransactionPriority.HIGH, gasOptions);
 
 	logger.trace("Reveal transaction processed", {
 		id: traceId,

@@ -8,6 +8,7 @@ import {
 } from "@cosmjs/json-rpc";
 import { type DeliverTxResponse, type SequenceResponse, createProtobufRpcClient } from "@cosmjs/stargate";
 import { Comet38Client, HttpClient, type HttpEndpoint } from "@cosmjs/tendermint-rpc";
+import { sedachain } from "@seda-protocol/proto-messages";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
 import { QueryClientImpl } from "cosmjs-types/cosmwasm/wasm/v1/query";
 import { MsgExecuteContractResponse } from "cosmjs-types/cosmwasm/wasm/v1/tx";
@@ -189,6 +190,27 @@ export async function createSigningClient(
 
 	signingClientResult.cacheSequenceNumber = cacheSequenceNumber;
 	signingClientResult.registry.register(MsgExecuteContractResponse.typeUrl, MsgExecuteContractResponse);
+
+	signingClientResult.registry.register("/sedachain.core.v1.MsgPause", sedachain.core.v1.MsgPause);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgUnpause", sedachain.core.v1.MsgUnpause);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgAddToAllowlist", sedachain.core.v1.MsgAddToAllowlist);
+	signingClientResult.registry.register(
+		"/sedachain.core.v1.MsgRemoveFromAllowlist",
+		sedachain.core.v1.MsgRemoveFromAllowlist,
+	);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgStake", sedachain.core.v1.MsgStake);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgStakeResponse", sedachain.core.v1.MsgStakeResponse);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgUnstake", sedachain.core.v1.MsgUnstake);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgUnstakeResponse", sedachain.core.v1.MsgUnstakeResponse);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgWithdraw", sedachain.core.v1.MsgWithdraw);
+	signingClientResult.registry.register(
+		"/sedachain.core.v1.MsgWithdrawResponse",
+		sedachain.core.v1.MsgWithdrawResponse,
+	);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgCommit", sedachain.core.v1.MsgCommit);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgCommitResponse", sedachain.core.v1.MsgCommitResponse);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgReveal", sedachain.core.v1.MsgReveal);
+	signingClientResult.registry.register("/sedachain.core.v1.MsgRevealResponse", sedachain.core.v1.MsgRevealResponse);
 
 	return Result.ok({
 		client: signingClientResult,

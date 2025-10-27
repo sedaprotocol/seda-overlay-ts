@@ -1,16 +1,11 @@
-import type {
-	DataRequestStatus,
-	GetDataRequestResponse,
-	GetDataRequestStatusesResponse,
-	GetDataRequestsByStatusResponse,
-	QueryMsg,
-} from "@sedaprotocol/core-contract-schema";
+import { DataRequestStatus as DRStatus } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/core";
+import { tryAsync } from "@seda-protocol/utils";
+import type { DataRequestStatus } from "@sedaprotocol/core-contract-schema";
 import type { SedaChain } from "@sedaprotocol/overlay-ts-common";
 import { Cache, DebouncedPromise } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
-import { JSONStringify } from "json-with-bigint";
 import { Maybe, Result } from "true-myth";
-import { isDrInRevealStage, transformDataRequestFromContract } from "../models/data-request";
+import { isDrInRevealStage, transformDataRequestFromModule } from "../models/data-request";
 import type { DataRequest } from "../models/data-request";
 
 interface DataRequestsResponse {
@@ -21,29 +16,31 @@ interface DataRequestsResponse {
 	lastSeenIndex: LastSeenIndex;
 }
 
-type LastSeenIndex = GetDataRequestsByStatusResponse["last_seen_index"];
-let lastSeenIndex: LastSeenIndex = null;
+type LastSeenIndex = string[];
+let lastSeenIndex: LastSeenIndex;
 
 export async function getDataRequests(
 	sedaChain: SedaChain,
 	limit: number,
 ): Promise<Result<DataRequestsResponse, Error>> {
-	const message: QueryMsg = {
-		get_data_requests_by_status: {
-			status: "committing",
-			limit,
-			last_seen_index: lastSeenIndex ?? null,
-		},
-	};
-
-	const result = await sedaChain.queryContractSmartBigInt<GetDataRequestsByStatusResponse>(message);
+	const result = await tryAsync(
+		sedaChain.getCoreQueryClient().DataRequestsByStatus({
+			status: DRStatus.DATA_REQUEST_STATUS_COMMITTING,
+			limit: BigInt(limit),
+			lastSeenIndex: lastSeenIndex ?? [],
+		}),
+	);
 
 	if (result.isErr) {
-		return Result.err(new Error(`Failed to fetch data requests: ${JSONStringify(message)} ${result.error.message}`));
+		return Result.err(new Error(`Failed to fetch committing data requests: ${result.error.message}`));
 	}
 
-	lastSeenIndex = result.value.last_seen_index;
-	const dataRequests = result.value.data_requests.map((request) => transformDataRequestFromContract(request));
+	if (!result.value.dataRequests) {
+		return Result.err(new Error("No committing data requests found"));
+	}
+
+	lastSeenIndex = result.value.lastSeenIndex;
+	const dataRequests = result.value.dataRequests.map((request) => transformDataRequestFromModule(request));
 
 	for (const dr of dataRequests) {
 		dataRequestCache.set(dr.id, dr);
@@ -52,7 +49,7 @@ export async function getDataRequests(
 	return Result.ok({
 		dataRequests,
 		total: result.value.total,
-		isPaused: result.value.is_paused,
+		isPaused: result.value.isPaused,
 		hasMore: Maybe.of(lastSeenIndex).isJust,
 		lastSeenIndex,
 	});
@@ -81,11 +78,7 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 			id: drId,
 		});
 
-		const result = await sedaChain.queryContractSmart<GetDataRequestResponse>({
-			get_data_request: {
-				dr_id: drId,
-			},
-		});
+		const result = await tryAsync(sedaChain.getCoreQueryClient().DataRequest({ drId: drId }));
 
 		logger.trace("Data request data fetched from chain", {
 			id: drId,
@@ -102,7 +95,11 @@ export async function getDataRequest(drId: string, sedaChain: SedaChain): Promis
 			return Result.ok(Maybe.nothing());
 		}
 
-		const dr = transformDataRequestFromContract(result.value);
+		if (!result.value.dataRequest) {
+			return Result.ok(Maybe.nothing());
+		}
+
+		const dr = transformDataRequestFromModule(result.value.dataRequest);
 		dataRequestCache.set(drId, dr);
 		return Result.ok(Maybe.of(dr));
 	});
@@ -124,21 +121,29 @@ export async function getDataRequestStatuses(
 		return Result.ok(Maybe.just("committing"));
 	}
 
-	const message: QueryMsg = {
-		get_data_requests_statuses: {
-			dr_ids: [drId],
-		},
-	};
-
-	const result = await sedaChain.queryContractSmart<GetDataRequestStatusesResponse>(message);
+	const result = await tryAsync(sedaChain.getCoreQueryClient().DataRequestStatuses({ dataRequestIds: [drId] }));
 
 	if (result.isErr) {
 		return Result.err(result.error);
 	}
 
-	if (!result.value[drId]) {
+	if (!result.value.statuses[drId] || !result.value.statuses[drId].value) {
 		return Result.ok(Maybe.nothing());
 	}
 
-	return Result.ok(Maybe.of(result.value[drId]));
+	let status: DataRequestStatus;
+	switch (result.value.statuses[drId].value) {
+		case DRStatus.DATA_REQUEST_STATUS_COMMITTING:
+			status = "committing";
+			break;
+		case DRStatus.DATA_REQUEST_STATUS_REVEALING:
+			status = "revealing";
+			break;
+		case DRStatus.DATA_REQUEST_STATUS_TALLYING:
+			status = "tallying";
+			break;
+		default:
+			return Result.ok(Maybe.nothing());
+	}
+	return Result.ok(Maybe.of(status));
 }

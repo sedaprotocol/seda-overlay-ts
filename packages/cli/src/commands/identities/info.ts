@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import type { StakingConfig } from "@sedaprotocol/core-contract-schema";
+import { tryAsync } from "@seda-protocol/utils";
 import { formatTokenUnits } from "@sedaprotocol/overlay-ts-common";
 import { loadConfig } from "@sedaprotocol/overlay-ts-config";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -46,9 +46,7 @@ export const info = populateWithCommonOptions(new Command("info"))
 			network: options.network,
 		});
 
-		const stakingConfig = await sedaChain.queryContractSmart<StakingConfig>({
-			get_staking_config: {},
-		});
+		const stakingConfig = await tryAsync(sedaChain.getCoreQueryClient().StakingConfig({}));
 
 		if (stakingConfig.isErr) {
 			logger.error(`Could not fetch staking config: ${stakingConfig.error}`);
@@ -74,9 +72,9 @@ export const info = populateWithCommonOptions(new Command("info"))
 					entries.push({
 						identity: identityId,
 						sequenceNumber: response.value.seq.toString(),
-						tokensPendingWithdrawl: `${formatTokenUnits(value.tokens_pending_withdrawal)} SEDA`,
-						tokensStaked: `${formatTokenUnits(value.tokens_staked)} SEDA`,
-						status: BigInt(value.tokens_staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
+						tokensPendingWithdrawl: `${formatTokenUnits(value.pendingWithdrawal)} SEDA`,
+						tokensStaked: `${formatTokenUnits(value.staked)} SEDA`,
+						status: BigInt(value.staked) > BigInt(0) ? "STAKED" : "NOT_STAKED",
 					});
 				},
 				Nothing: () => {

@@ -1,4 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
+import { MsgStake } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import { createStakeMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import { TransactionPriority, formatTokenUnits, parseTokenUnits, vrfProve } from "@sedaprotocol/overlay-ts-common";
 import { logger } from "@sedaprotocol/overlay-ts-logger";
@@ -39,7 +40,6 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 			process.exit(1);
 		}
 
-		const coreContractAddress = await sedaChain.getCoreContractAddress();
 		const stakerInfo = await getStakerAndSequenceInfo(identityId.value, sedaChain);
 
 		if (stakerInfo.isErr) {
@@ -49,8 +49,8 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 
 		stakerInfo.value.staker.match({
 			Just: (staker) => {
-				const staked = formatTokenUnits(staker.tokens_staked);
-				const pendingWithdrawl = formatTokenUnits(staker.tokens_pending_withdrawal);
+				const staked = formatTokenUnits(staker.staked);
+				const pendingWithdrawl = formatTokenUnits(staker.pendingWithdrawal);
 
 				logger.info(
 					`Identity ${identityId.value} already registered (staked: ${staked} SEDA, pending_withdrawal: ${pendingWithdrawl} SEDA).`,
@@ -61,31 +61,33 @@ export const stake = populateWithCommonOptions(new Command("stake"))
 			},
 		});
 
-		const messageHash = createStakeMessageSignatureHash(
-			config.sedaChain.chainId,
-			coreContractAddress,
-			stakerInfo.value.seq,
-			memo,
-		);
+		const messageHash = createStakeMessageSignatureHash(config.sedaChain.chainId, stakerInfo.value.seq, memo);
 
 		logger.info(`Staking on identity ${identityId.value} with ${amount} SEDA (or ${attoSedaAmount} aSEDA)`);
 
 		const proof = vrfProve(privateKey.value, messageHash);
-		const response = await sedaChain.waitForSmartContractTransaction(
-			{
+
+		const sender = sedaChain.getSignerAddress(0);
+		const stakeMsg = {
+			typeUrl: "/sedachain.core.v1.MsgStake",
+			value: MsgStake.fromPartial({
+				sender: sender,
+				publicKey: identityId.value,
+				proof: proof.toString("hex"),
+				memo: memo.map((v) => v.toString("base64")).unwrapOr(undefined),
 				stake: {
-					public_key: identityId.value,
-					proof: proof.toString("hex"),
-					memo: memo.map((v) => v.toString("base64")).unwrapOr(null),
+					denom: "aseda",
+					amount: attoSedaAmount.toString(),
 				},
-			},
+			}),
+		};
+
+		const response = await sedaChain.queueCosmosMessage(
+			stakeMsg,
 			TransactionPriority.LOW,
-			attoSedaAmount,
 			{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 			0,
-			"stake",
 		);
-
 		if (response.isErr) {
 			logger.error(`Staking failed: ${response.error}`);
 			process.exit(1);

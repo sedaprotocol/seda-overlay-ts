@@ -1,9 +1,9 @@
+import { MsgWithdraw } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import { createWithdrawMessageSignatureHash } from "@sedaprotocol/core-contract-schema";
 import {
 	type SedaChain,
 	TransactionPriority,
 	asyncResultToEffect,
-	asyncToEffect,
 	formatTokenUnits,
 	vrfProve,
 } from "@sedaprotocol/overlay-ts-common";
@@ -20,28 +20,30 @@ export const withdrawRewardsForIdentity = (
 	config: AppConfig,
 ) =>
 	Effect.gen(function* () {
-		const coreContractAddress = yield* asyncToEffect(sedaChain.getCoreContractAddress());
-
 		const withdrawAddress = sedaChain.getSignerAddress();
 		const messageHash = createWithdrawMessageSignatureHash(
 			config.sedaChain.chainId,
 			withdrawAddress,
-			coreContractAddress,
 			BigInt(stakerInfo.seq),
 		);
 
 		const proof = vrfProve(identity.privateKey, messageHash);
+
+		const sender = sedaChain.getSignerAddress(0);
+		const withdrawMsg = {
+			typeUrl: "/sedachain.core.v1.MsgWithdraw",
+			value: MsgWithdraw.fromPartial({
+				sender: sender,
+				publicKey: identity.identityId,
+				proof: proof.toString("hex"),
+				withdrawAddress: withdrawAddress,
+			}),
+		};
+
 		yield* asyncResultToEffect(
-			sedaChain.waitForSmartContractTransaction(
-				{
-					withdraw: {
-						proof: proof.toString("hex"),
-						public_key: identity.identityId,
-						withdraw_address: withdrawAddress,
-					},
-				},
+			sedaChain.waitForTransaction(
+				withdrawMsg,
 				TransactionPriority.LOW,
-				undefined,
 				{ gas: "auto", adjustmentFactor: config.sedaChain.gasAdjustmentFactorCosmosMessages },
 				0,
 				"withdrawTx",
@@ -70,7 +72,7 @@ export const withdrawRewards = (sedaChain: SedaChain, identityPool: IdentityPool
 				continue;
 			}
 
-			const tokensPendingWithdrawal = BigInt(stakerInfo.staker.value.tokens_pending_withdrawal);
+			const tokensPendingWithdrawal = BigInt(stakerInfo.staker.value.pendingWithdrawal);
 
 			if (tokensPendingWithdrawal < config.sedaChain.rewardsWithdrawalMinimumThreshold) {
 				logger.debug(

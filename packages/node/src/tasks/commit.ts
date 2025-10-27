@@ -1,3 +1,4 @@
+import { MsgCommit } from "@seda-protocol/proto-messages/libs/proto-messages/gen/sedachain/core/v1/tx";
 import {
 	createCommitMessageHash,
 	createCommitment,
@@ -31,14 +32,13 @@ export async function commitDr(
 	const traceId = `${dataRequest.id}_${identityId}`;
 
 	const chainId = appConfig.sedaChain.chainId;
-	const contractAddr = await sedaChain.getCoreContractAddress();
 
 	logger.trace("Creating commit proof", {
 		id: traceId,
 	});
 
 	const revealBodyHash = createRevealBodyHash(executionResult.revealBody);
-	const revealMessageHash = createRevealMessageHash(revealBodyHash, chainId, contractAddr);
+	const revealMessageHash = createRevealMessageHash(revealBodyHash, chainId);
 	const revealProof = identityPool.sign(identityId, revealMessageHash);
 	if (revealProof.isErr) return Result.err(revealProof.error);
 
@@ -54,7 +54,6 @@ export async function commitDr(
 		BigInt(executionResult.revealBody.dr_block_height),
 		commitment.toString("hex"),
 		chainId,
-		contractAddr,
 	);
 	const commitProof = identityPool.sign(identityId, commitMessageHash);
 	if (commitProof.isErr) return Result.err(commitProof.error);
@@ -67,21 +66,16 @@ export async function commitDr(
 		? { gas: Math.round(estimateGasForCommit(dataRequest) * appConfig.sedaChain.gasAdjustmentFactor) }
 		: undefined;
 
-	const commitResponse = await sedaChain.waitForSmartContractTransaction(
-		{
-			commit_data_result: {
-				dr_id: dataRequest.id,
-				commitment: commitment.toString("hex"),
-				proof: commitProof.value.toString("hex"),
-				public_key: identityId,
-			},
-		},
-		TransactionPriority.LOW,
-		undefined,
-		gasOptions,
-		undefined,
-		traceId,
-	);
+	const commitMsg = {
+		typeUrl: "/sedachain.core.v1.MsgCommit",
+		value: MsgCommit.fromPartial({
+			drID: dataRequest.id,
+			commit: commitment.toString("hex"),
+			publicKey: identityId,
+			proof: commitProof.value.toString("hex"),
+		}),
+	};
+	const commitResponse = await sedaChain.queueCosmosMessage(commitMsg, TransactionPriority.LOW, gasOptions);
 
 	logger.trace("Commit transaction processed", {
 		id: traceId,
